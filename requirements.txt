@@ -1,0 +1,10 @@
+multidict, frozenlist, attrs, async-timeout, yarl, aiosignal, aiohttp, discord.py, discord
+aiohttp==3.8.1 
+aiosignal==1.2.0 
+async-timeout==4.0.2 
+attrs==22.1.0 
+discord==2.0.0
+discord.py==2.0.1
+frozenlist==1.3.1
+multidict==6.0.2
+yarl==1.8.1
