@@ -15,4 +15,5 @@ project
 ```.venv\Scripts\activate.bat```
 * your virtual environment is ready to work with :) now to install the dependencies required to run the bot. we'll use a command to install all dependencies listed in 'requirements.txt'  
 
-```python3 -m pip install -r requirements.txt```
+```pip install -r requirements.txt```  
+Now, if you check .venv/Lib/site-packages, you should see a bunch of libraries which we just installed - including discord and discord.py.
