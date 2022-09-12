@@ -8,7 +8,7 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'I have logged in as {client.user}')
+    await print(f'I have logged in as {client.user}')
 
 @client.event
 async def on_message(message):
@@ -16,6 +16,7 @@ async def on_message(message):
         return
     if message.content.startswith('$heymongrel'):
         await message.channel.send('Zah dyood')
+
 client.run(TOKEN)
 
     
