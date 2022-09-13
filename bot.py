@@ -8,15 +8,16 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    await print(f'I have logged in as {client.user}')
+    return print(f'I\'m online as {client.user}')
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
-    if message.content.startswith('$heymongrel'):
-        await message.channel.send('Zah dyood')
-
+    if message.content.startswith('```markdown $heymongrel```'):
+        await message.channel.send('```markdown Zah dyood. To view my capabilities, try $help```')
+    if message.content.startswith('```$help```'):
+        await message.channel.send('```markdown This is a list of commands I can respond to dyood: \n $heymongrel \n $playcheckers \n $banMike```')
 client.run(TOKEN)
 
     
