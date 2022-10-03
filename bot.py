@@ -1,5 +1,5 @@
 import discord
-from config import TOKEN
+from config.config import TOKEN
 from PIL import Image
 
 intents = discord.Intents.default()
