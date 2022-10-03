@@ -1,3 +1,4 @@
+from dis import disco
 import discord
 from config.config import TOKEN
 import logging
@@ -45,6 +46,23 @@ async def dallE(ctx):
     em = discord.Embed(title='dallE', description='this command allows users to submit a prompt to Dall-E - then returns the results of their prompt :D')
     em.add_field(name='syntax/how to use', value='`$dallE <your prompt>`')
     await ctx.send(embed = em)
+
+@bot.command()
+async def heymongrel(ctx):
+    em = discord.Embed(description='Zah dyood')
+    await ctx.send(embed = em)
+
+@bot.command()
+async def milkies(ctx):
+    await ctx.send(file=discord.File('images/milkies.jpg'))
+
+@bot.command()
+async def creator(ctx):
+    await ctx.send(file=discord.File('images/gigachad.jpg'))
+    # send(file=discord.File('my_file.png'))
+
+
+
 
 # @bot.event
 # async def on_message(message):
