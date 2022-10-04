@@ -3,7 +3,7 @@ import discord
 from config.config import TOKEN
 import logging
 from discord.ext import commands
-
+from dall_e_flow import get_image
 # server to serve dallE results
 server_url = 'grpcs://dalle-flow.dev.jina.ai'
 
@@ -81,8 +81,10 @@ async def creator(ctx):
 
 @bot.command()
 async def dallE(ctx, args:str):
-    server = server_url
-    doc = Document(text=args).post(server, parameters={'num_images': 2})
+    em = discord.Embed()
+    em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
+    results = get_image(args, server = server_url)
+    await ctx.send(embed = em,file=discord.File(results[0]))
 
 
 
