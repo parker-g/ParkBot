@@ -5,6 +5,7 @@ def get_image(args:str):
     doc = Document(text=args).post(server_url, parameters={'num_images': 2})
     return doc
 doc = get_image('blue sharks snack on giant hot dogs')
-da = doc.matches()
+da = doc.matches
+da.plot_image_sprites(fig_size=(10,10), show_index=True)
 
     
