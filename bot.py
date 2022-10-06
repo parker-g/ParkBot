@@ -1,10 +1,7 @@
-from docarray import Document
 import discord
 from config.config import TOKEN
 import logging
 from discord.ext import commands
-from dall_e_flow import get_image
-from jina import Client
 import api
 import test
 
@@ -30,7 +27,7 @@ bot.remove_command('help')
 # on the event called `on_ready`, python terminal shows that the bot is logged in by printing 
 @bot.event
 async def on_ready():
-    return print(f'I\'m online as {bot.user}')
+    return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so the end
 # user can specify which command they want clarification on
@@ -66,7 +63,7 @@ async def banmike(ctx):
 @help.command()
 async def dallE(ctx):
     em = discord.Embed(title='dallE', description='this command allows users to submit a prompt to Dall-E - then returns the results of their prompt :D')
-    em.add_field(name='syntax/how to use', value='`$dallE <your prompt>`')
+    em.add_field(name='syntax/how to use', value='`$dallE "your prompt"`')
     await ctx.send(embed = em)
  
 # now these are the actual commands corresponding to the list of commands in help
@@ -88,13 +85,8 @@ async def creator(ctx):
 async def dallE(ctx, args:str):
     em = discord.Embed()
     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
-    # client = Client(host=server_url, asyncio=True)
-    # async for results in client.post('/', Document(text=args), parameters={'num_results': 2}, request_size=, show_progress=True):
     image = api.get_image(args=args)
-    await ctx.send(file=discord.File(image, description='Here\'s the result of your prompt')) # file was sent to discord chat - but file contained no contents. 
-    # it was an untitled file with 0 bytes of data
-    # next steps - replicate the process of retreiving an image with requests, turning it into a byte array, and sending it to discord chat as a file. 
-    # - going to make a test command so i dont continue using the dallE limited requests (only have like 5-10 left).
+    await ctx.send(file=discord.File(image, description='Here\'s the result of your prompt'))
 
 
     # url for jina reference - https://github.com/jina-ai/jina/issues/4761

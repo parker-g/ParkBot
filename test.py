@@ -1,6 +1,4 @@
 import requests
-from PIL import Image
-from io import BytesIO
 
 # im realizing i create two bytes objects here - i instantiate one in creation of img variable,
 # and then try to save that object to another bytes object. so definitely could be an issue there. 
@@ -17,10 +15,6 @@ def img_test0():
 
 
 
-
     # this function returns all the bytes in an image. long asf. discord
     # File() object requires a BytesBase object (such as BytesIO), so I dont need to 
     # send the pure bytes to discord. 
-
-image = img_test0()
-print(image)
