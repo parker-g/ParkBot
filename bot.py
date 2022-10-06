@@ -5,20 +5,16 @@ from discord.ext import commands
 import api
 import test
 
-
-# server to serve dallE results
-server_url = 'grpcs://dalle-flow.dev.jina.ai'
-
 # used to log errors and statuses on discord.log
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
-# 'intents' specify what events our bot will be able to act on. default events covers our needs for this bot. 
-# (i mostly intend to read and send messages, so i am sure to set the message_content intent to True)
+# 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
+# i make sure to specifically set the 'message_content_ intent to True, bc that's the main intent I will be using
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-# instantiate an instance of the Bot class (Bot is a subclass of Client - so it has all the functionality of Client with the addition of Bot functionality)
+# instantiate an instance of the Bot class (Bot is a subclass of Client - so it has all the functionality of Client with the addition of Bot functionality
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 # remove the default empty help command, so i can replace it with my own
@@ -29,8 +25,9 @@ bot.remove_command('help')
 async def on_ready():
     return print(f'I\'m logged in as {bot.user}')
 
-# defines help command. uses bot.group decorator to enable help to take further inputs after help - so the end
-# user can specify which command they want clarification on
+# defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
+# user can specify which command they want clarification on. also set invoke_without_command to True so i can call 'help' as a 
+# command by itself  (i think)
 
 @bot.group(invoke_without_command=True)
 async def help(ctx):
@@ -40,6 +37,7 @@ async def help(ctx):
     await ctx.send(embed = em)
 
 # all help commands are defined below
+
 @help.command()
 async def heymongrel(ctx):
     em = discord.Embed(title='heymongrel', description='returns a greeting :D')
@@ -67,6 +65,7 @@ async def dallE(ctx):
     await ctx.send(embed = em)
  
 # now these are the actual commands corresponding to the list of commands in help
+
 @bot.command()
 async def heymongrel(ctx):
     em = discord.Embed(description='Zah dyood')
@@ -86,20 +85,14 @@ async def dallE(ctx, args:str):
     em = discord.Embed()
     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
     image = api.get_image(args=args)
-    await ctx.send(file=discord.File(image, description='Here\'s the result of your prompt'))
+    await ctx.send(embed =em, file=discord.File(image))
 
-
-    # url for jina reference - https://github.com/jina-ai/jina/issues/4761
-    # if this method doesn't work - i could always go the jina route again, but this time 
-    # 1. create my own dall E flow
-    # 2. deploy it using jcloud
-    # 3. use Flow and Client to post requests to my jcloud flow
-    # ----- thing is, this method may still end with the async Jina error from earlier. may have to focus my learning on 
-    # improving understanding of async/await before I can finish this project. will see
 @bot.command()
 async def imgTest(ctx):
+    em = discord.Embed()
+    em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
     image = test.img_test0()
-    await ctx.send(file=discord.File(image))
+    await ctx.send(embed = em, file=discord.File(image))
 
 
 
