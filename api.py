@@ -1,6 +1,4 @@
-from io import BytesIO
 import replicate
-from PIL import Image
 import requests
 
 def get_image(args:str):
