@@ -5,6 +5,10 @@ import logging
 from discord.ext import commands
 from dall_e_flow import get_image
 from jina import Client
+import api
+import test
+
+
 # server to serve dallE results
 server_url = 'grpcs://dalle-flow.dev.jina.ai'
 
@@ -84,31 +88,28 @@ async def creator(ctx):
 async def dallE(ctx, args:str):
     em = discord.Embed()
     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
-    client = Client(host=server_url, asyncio=True)
-    async for results in client.post('/', Document(text=args), parameters={'num_results': 2}, request_size=, show_progress=True):
-        
-    return ctx.send(embed = em, file=discord.File(results[0].uri))
+    # client = Client(host=server_url, asyncio=True)
+    # async for results in client.post('/', Document(text=args), parameters={'num_results': 2}, request_size=, show_progress=True):
+    image = api.get_image(args=args)
+    await ctx.send(file=discord.File(image, description='Here\'s the result of your prompt')) # file was sent to discord chat - but file contained no contents. 
+    # it was an untitled file with 0 bytes of data
+    # next steps - replicate the process of retreiving an image with requests, turning it into a byte array, and sending it to discord chat as a file. 
+    # - going to make a test command so i dont continue using the dallE limited requests (only have like 5-10 left).
+
+
+    # url for jina reference - https://github.com/jina-ai/jina/issues/4761
+    # if this method doesn't work - i could always go the jina route again, but this time 
+    # 1. create my own dall E flow
+    # 2. deploy it using jcloud
+    # 3. use Flow and Client to post requests to my jcloud flow
+    # ----- thing is, this method may still end with the async Jina error from earlier. may have to focus my learning on 
+    # improving understanding of async/await before I can finish this project. will see
+@bot.command()
+async def imgTest(ctx):
+    image = test.img_test0()
+    await ctx.send(file=discord.File(image))
 
 
 
-
-# @bot.event
-# async def on_message(message):
-#     if message.author == bot.user:
-#         return
-#     if message.content.startswith('$heymongrel'):
-#         await message.channel.send('Zah dyood. To view my capabilities, try $help')
-#     if message.content.startswith('$help'):
-#         await message.channel.send('This is a list of commands I can respond to dyood: \n$heymongrel \n$mommy \n$milkies \n$playcheckers \n$banMike \n$creator')
-#     if message.content.startswith('$mommy'):
-#         await message.channel.send('hey baby it\'s me, mommy. u want some $milkies ;)')
-#     if message.content.startswith('$milkies'):
-#         with open('milkies.jpg', 'rb') as f:
-#             picture = discord.File(f)
-#         await message.channel.send(file=picture)
-#     if message.content.startswith('$creator'):
-#         with open('gigachad.jpg', 'rb') as f:
-#             picture = discord.File(f)
-#         await message.channel.send(file=picture)
 bot.run(TOKEN, log_handler=handler)
 

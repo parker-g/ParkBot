@@ -1,36 +1,4 @@
-[2022-10-04 14:57:37] [INFO    ] discord.client: logging in using static token
-[2022-10-04 14:57:38] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: 2a47e192f5902b0990fd74a2206c5353).
-[2022-10-04 14:58:53] [ERROR   ] discord.ext.commands.bot: Ignoring exception in command dallE
-Traceback (most recent call last):
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\discord\ext\commands\core.py", line 190, in wrapped
-    ret = await coro(*args, **kwargs)
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\bot.py", line 86, in dallE
-    results = get_image(args)
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\dall_e_flow.py", line 42, in get_image
-    doc = Document(text=args).post(server_url, parameters={'num_images': 2})
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\docarray\document\mixins\sugar.py", line 92, in post
-    return _tmp.post(*args, **kwargs)[0]
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\docarray\array\mixins\post.py", line 109, in post
-    return c.post(
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\jina\clients\mixin.py", line 271, in post
-    return run_async(
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\jina\helper.py", line 1323, in run_async
-    raise RuntimeError(
-RuntimeError: you have an eventloop running but not using Jupyter/ipython, this may mean you are using Jina with other integration? if so, then you may want to use Client/Flow(asyncio=True). If not, then please report this issue here: https://github.com/jina-ai/jina
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\discord\ext\commands\bot.py", line 1347, in invoke
-    await ctx.command.invoke(ctx)
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\discord\ext\commands\core.py", line 986, in invoke
-    await injected(*ctx.args, **ctx.kwargs)  # type: ignore
-  File "C:\Users\rober\Documents\GitHub\discord-daddies\.venv\lib\site-packages\discord\ext\commands\core.py", line 199, in wrapped
-    raise CommandInvokeError(exc) from exc
-discord.ext.commands.errors.CommandInvokeError: Command raised an exception: RuntimeError: you have an eventloop running but not using Jupyter/ipython, this may mean you are using Jina with other integration? if so, then you may want to use Client/Flow(asyncio=True). If not, then please report this issue here: https://github.com/jina-ai/jina
-[2022-10-04 16:26:17] [WARNING ] discord.gateway: Shard ID None has stopped responding to the gateway. Closing and restarting.
-[2022-10-04 16:26:17] [INFO    ] discord.gateway: Shard ID None session has been invalidated.
-[2022-10-04 16:26:23] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: 7181979f19370b9ba5127f3ff65d9d4c).
-[2022-10-04 16:49:52] [WARNING ] discord.gateway: Shard ID None has stopped responding to the gateway. Closing and restarting.
-[2022-10-04 16:49:54] [INFO    ] discord.gateway: Shard ID None session has been invalidated.
-[2022-10-04 16:50:00] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: bbcc4eef60b11d95c065ff3291bd02d6).
+[2022-10-05 16:14:33] [INFO    ] discord.client: logging in using static token
+[2022-10-05 16:14:34] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: 8b7bbc2e9d2cde97e61dfb561be20c38).
+[2022-10-05 16:15:04] [ERROR   ] discord.ext.commands.bot: Ignoring exception in command None
+discord.ext.commands.errors.CommandNotFound: Command "test" is not found
