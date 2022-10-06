@@ -12,7 +12,7 @@ def get_image(args:str):
     output = output[0]
     image_url = output['image']
     response = requests.get(image_url)
-    image = Image.open(BytesIO(response.content))
-    bytesbuffer = BytesIO()
-    image.save(bytesbuffer, format='PNG')
-    return bytesbuffer
+    img_destination = 'images/image.png'
+    with open(img_destination, 'wb') as file:
+        file.write(response.content)
+    return img_destination
