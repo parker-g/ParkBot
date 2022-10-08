@@ -11,3 +11,4 @@ def img_test0():
         file.write(response.content)
     return destination_url
 
+url = img_test0()
