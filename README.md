@@ -1,5 +1,4 @@
 # discord-daddies
-project
 
 
 **Creating a virtual environment**
@@ -17,3 +16,6 @@ project
 
 ```pip install -r requirements.txt```  
 Now, if you check .venv/Lib/site-packages, you should see a bunch of libraries which we just installed - including discord and discord.py.
+
+
+* use help command to view commands
