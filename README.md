@@ -54,7 +54,7 @@ Now, if you check .venv/Lib/site-packages, you should see a bunch of libraries w
 
 ```cd Documents/GitHub/dall-e-discord-bot```
 
-* now, run this command to boot up the bot. upon booting up, you should receive a message in your terminal telling you 'Hi, I'm logged in as <your bots name>. from here, your bot is online!
+* now, run this command to boot up the bot. upon booting up, you should receive a message in your terminal telling you 'Hi, I'm logged in as (your bots name). from here, your bot is online!
 
 ```python3 bot.py```
 
