@@ -3,7 +3,6 @@ from config.config import TOKEN
 import logging
 from discord.ext import commands
 import api
-import test
 
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
@@ -85,7 +84,6 @@ async def milkies(ctx):
 @bot.command()
 async def creator(ctx):
     await ctx.send(file=discord.File('images/gigachad.jpg'))
-    # send(file=discord.File('my_file.png'))
 
 @bot.command()
 async def dallE(ctx, args:str):
