@@ -5,6 +5,13 @@ from discord.ext import commands
 import api
 import test
 
+
+# BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
+
+
+
+
+
 # used to log errors and statuses on discord.log
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
@@ -87,12 +94,12 @@ async def dallE(ctx, args:str):
     image = api.get_image(args=args)
     await ctx.send(embed =em, file=discord.File(image))
 
-@bot.command()
-async def imgTest(ctx):
-    em = discord.Embed()
-    em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
-    image = test.img_test0()
-    await ctx.send(embed = em, file=discord.File(image))
+# @bot.command()
+# async def imgTest(ctx):
+#     em = discord.Embed()
+#     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
+#     image = test.img_test0()
+#     await ctx.send(embed = em, file=discord.File(image))
 
 
 
