@@ -22,7 +22,7 @@
 Now, if you check .venv/Lib/site-packages, you should see a bunch of libraries which we just installed - including discord and discord.py. If you don't, you probably installed your requirements to your global python environment rather than the virtual environment you just created. This isn't an issue now, but if you want to run other python projects in the future, you will want to look into cleaning up your global python environment. 
 
 **Getting your replicate API token**
-* Begin by going to [replicate's website](www.replicate.com)
+* Begin by going to [replicate's website](https://www.replicate.com)
 
 * Sign up using your github account
 
