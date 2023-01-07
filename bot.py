@@ -2,7 +2,7 @@ import discord
 from config.config import TOKEN
 import logging
 from discord.ext import commands
-import api
+import helper
 
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
@@ -89,7 +89,7 @@ async def creator(ctx):
 async def dallE(ctx, args:str):
     em = discord.Embed()
     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
-    image = api.get_image(args=args)
+    image = helper.get_image(args=args)
     await ctx.send(embed =em, file=discord.File(image))
 
 # @bot.command()
