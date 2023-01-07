@@ -1,5 +1,9 @@
 import replicate
 import requests
+import os 
+import random
+import sys
+import time
 
 def get_image(args:str):
     model = replicate.models.get('borisdayma/dalle-mini')
@@ -14,3 +18,17 @@ def get_image(args:str):
     with open(img_destination, 'wb') as file:
         file.write(response.content)
     return img_destination
+
+
+def get_furry():
+    time.sleep(3)
+    os.chdir("C:/Users/rober/Documents/GitHub/discord-daddies/images/furries") # set cwd to images folder
+    print(os.getcwd())
+    images_directory_iteratable = os.scandir()
+    furry_names = []
+    base_path = os.getcwd()
+    for image in images_directory_iteratable:
+        furry_names.append(f'{image.name}')
+    index = random.randint(0, len(furry_names) - 1)
+    os.chdir("C:/Users/rober/Documents/GitHub/discord-daddies")
+    return f'{base_path}\{furry_names[index]}'

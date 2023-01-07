@@ -38,7 +38,7 @@ async def on_ready():
 @bot.group(invoke_without_command=True)
 async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
-    em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`')
+    em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`')
     await ctx.send(embed = em)
 
@@ -91,6 +91,11 @@ async def dallE(ctx, args:str):
     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
     image = helper.get_image(args=args)
     await ctx.send(embed =em, file=discord.File(image))
+
+@bot.command()
+async def findFurry(ctx):
+    image = helper.get_furry()
+    await ctx.send(file=discord.File(image))
 
 # @bot.command()
 # async def imgTest(ctx):
