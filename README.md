@@ -8,7 +8,7 @@
 
 ```cd Documents/GitHub/dall-e-discord-bot```
 
-* create a virtual environment using python venv library - the first 'venv' is telling windows that's the module we want to call, while the '.venv' is the what we are naming our virtual environment
+* create a virtual environment using python venv library - the first 'venv' is telling windows that's the module we want to call, while the '.venv' is what we are naming our virtual environment
 
 ```python3 -m venv .venv```
 * activate virtual environment (it may do this automatically. you will know it's activated because your command prompt will have the name of your virtual environment, .venv, in the beginning of every line now)
@@ -53,11 +53,14 @@ Now, if you check .venv/Lib/site-packages, you should see a bunch of libraries w
 * Open a command prompt terminal, and be sure to path to your dall-e-discord-bot folder
 
 ```cd Documents/GitHub/dall-e-discord-bot```
+* Don't forget to activate your virtual environment again
+
+```.venv\Scripts\activate.bat```
 
 * now, run this command to boot up the bot. upon booting up, you should receive a message in your terminal telling you `Hi, I'm logged in as (your bots name).` from here, your bot is online!
 
 ```python3 bot.py```
 
-* use the !help command to see a list of commands. remember to prefix any commands to this bot with the `!` character. now generate some AI art :D. the requests have generally taken around 30-45 seconds to load in my experience. 
+* use the !help command in discord chat to see a list of commands. remember to prefix any commands to this bot with the `!` character. now generate some AI art :D. the requests have generally taken around 30-45 seconds to load in my experience. 
 
-* if an image takes longer than 2 minutes to load, close the terminal where your bot.py script is running. then, open a new terminal and run the last two commands again.
+* if an image takes longer than 2 minutes to load, close the terminal where your bot.py script is running. then, open a new terminal and run the last three commands again to get a fresh bot running
