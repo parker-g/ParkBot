@@ -2,7 +2,6 @@ import replicate
 import requests
 import os 
 import random
-import sys
 import time
 
 def get_image(args:str):
