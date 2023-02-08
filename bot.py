@@ -94,7 +94,7 @@ async def dallE(ctx, args:str):
 
 @bot.command()
 async def findFurry(ctx):
-    image = helper.get_furry()
+    image = helper.get_furry_image()
     await ctx.send(file=discord.File(image))
 
 # @bot.command()

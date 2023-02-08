@@ -20,7 +20,7 @@ def get_image(args:str):
     return img_destination
 
 
-def get_furry():
+def get_furry_image():
     time.sleep(3)
     current_path = os.getcwd()
     os.chdir(f"{current_path}/images/furries") # set cwd to images/furries folder
