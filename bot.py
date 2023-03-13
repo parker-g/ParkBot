@@ -1,8 +1,12 @@
 import discord
-from config.config import TOKEN
+from config.config import TOKEN, CANVAS_API_KEY
 import logging
 from discord.ext import commands
 import helper
+
+#note for me:
+# when using python keyword in terminal, u must reference the direct path to the venv python executable.
+# don't forget this ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
