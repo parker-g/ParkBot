@@ -3,6 +3,7 @@ from config.config import TOKEN, CANVAS_API_KEY
 import logging
 from discord.ext import commands
 import helper
+from get_assignments import get_new_assignments
 
 #note for me:
 # when using python keyword in terminal, u must reference the direct path to the venv python executable.
@@ -43,7 +44,7 @@ async def on_ready():
 async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
-    em.add_field(name='chat commands', value='`heymongrel`, `banmike`')
+    em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -100,6 +101,21 @@ async def dallE(ctx, args:str):
 async def findFurry(ctx):
     image = helper.get_furry_image()
     await ctx.send(file=discord.File(image))
+
+
+@bot.command()
+async def getNewAssignments(ctx):
+    differences, time_diff = get_new_assignments("data/last_time.txt")
+    pretty_string = ""
+    for item in differences:
+        pretty_string += f"{item}\n"
+    if len(differences) == 0:
+        differences = "Sorry, no new assignments. Check back soon."
+    
+    em = discord.Embed(title="New assignments", description=pretty_string)
+    em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
+    await ctx.send(embed = em)
+
 
 # @bot.command()
 # async def imgTest(ctx):
