@@ -3,7 +3,7 @@ from config.config import TOKEN, CANVAS_API_KEY
 import logging
 from discord.ext import commands
 import helper
-from get_assignments import get_new_assignments
+from get_assignments import get_new_assignments, datetime_file
 
 #note for me:
 # when using python keyword in terminal, u must reference the direct path to the venv python executable.
@@ -75,6 +75,10 @@ async def dallE(ctx):
     em.add_field(name='syntax/how to use', value='`$dallE "your prompt"`')
     await ctx.send(embed = em)
  
+@help.command()
+async def getNewAssignments(ctx):
+    em = discord.Embed(title='getNewAssignments', description='takes a number of days as input. function returns all assignments from CSC 221 within given number of days ahead from current day.\n for example `getNewAssignments 15` will return any assignments due in the next 15 days.')
+    await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 
 @bot.command()
@@ -104,13 +108,14 @@ async def findFurry(ctx):
 
 
 @bot.command()
-async def getNewAssignments(ctx):
-    differences, time_diff = get_new_assignments("data/last_time.txt")
+async def getNewAssignments(ctx, num:str):
+    num = int(num)
+    assignments, time_diff = get_new_assignments(datetime_file, num)
     pretty_string = ""
-    for item in differences:
+    for item in assignments:
         pretty_string += f"{item}\n"
-    if len(differences) == 0:
-        differences = "Sorry, no new assignments. Check back soon."
+    if len(assignments) == 0:
+        assignments = "Yay, no new assignments in that range!"
     
     em = discord.Embed(title="New assignments", description=pretty_string)
     em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")

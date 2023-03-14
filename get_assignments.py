@@ -41,7 +41,7 @@ def read_to_datetime(file_path:str) -> datetime:
     return result
 
 # call the api every time we call this function, to ensure fresh data is always pulled
-def get_differences(datetime_file, num_days:int) -> list:
+def get_new_assignments(datetime_file, num_days:int) -> list:
     assignments = grab_assignments(BASE_URL, API_TOKEN, COURSE_NUM)
     # be sure to write a datetime to last_time.txt before running this function
     last_call = read_to_datetime(datetime_file)
@@ -59,9 +59,6 @@ def get_differences(datetime_file, num_days:int) -> list:
     time_dif = now - last_call
     write_iterable(datetime_file, [now])
     return assignments_due, str(time_dif)
-
-resullt = get_differences(datetime_file, 15)
-print(resullt)
 
     
 
