@@ -3,6 +3,8 @@ import requests
 import os 
 import random
 import time
+from datetime import datetime
+from canvasapi import canvas
 from pathlib import Path
 
 def get_image(args:str):
@@ -32,5 +34,3 @@ def get_furry_image():
     index = random.randint(0, len(furry_names) - 1)
     os.chdir("C:/Users/rober/Documents/GitHub/dall-e-discord-bot")
     return f'{base_path}\{furry_names[index]}'
-
-print(get_furry())
