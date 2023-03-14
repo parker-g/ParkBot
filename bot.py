@@ -115,7 +115,7 @@ async def getNewAssignments(ctx, num:str):
     for item in assignments:
         pretty_string += f"{item}\n"
     if len(assignments) == 0:
-        assignments = "Yay, no new assignments in that range!"
+        pretty_string = "Yay, no new assignments in that range!"
     
     em = discord.Embed(title="New assignments", description=pretty_string)
     em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
