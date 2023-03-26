@@ -203,10 +203,6 @@ class Game:
 
 
 
-game = Game('bob', 'parker', 'drake')
-game.play()
-
-
 
 
         
