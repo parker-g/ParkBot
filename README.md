@@ -1,6 +1,6 @@
 # parker's perplexing, powerful discord bot !
 
-**this discord bot has everything a college student needs for their discord server. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!
+**this discord bot has everything a college student needs for their discord server. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!**
 
 # canvas functionality breakdown
 **have u ever created a discord server to keep in touch with classmates, only to find you get little value from your server? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! It's as easy as configuring a canvas api token, setting up your canvas url and class ID in the get_assignments.py file, then booting up your bot and calling the command! I'm open to adding more canvas-api functionality to this bot upon request!**
