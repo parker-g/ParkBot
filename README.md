@@ -6,7 +6,7 @@
 **have u ever created a discord server to keep in touch with classmates, only to find you get little value from your server? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! It's as easy as configuring a canvas api token, setting up your canvas url and class ID in the get_assignments.py file, then booting up your bot and calling the command! I'm open to adding more canvas-api functionality to this bot upon request!**
 
 # find your "furrsona" explanation
-**ever wondered what you would look like as a dude in a furry animal suit? well - this bot can help you answer that age old desire. once you have the bot set up, simply use the ```$findFurry``` command in chat to be greeted with a precisely generated (just kidding, random number generated) image of your alter ego. use this on your friends, or your foes. **
+**ever wondered what you would look like as a dude in a furry animal suit? well - this bot can help you answer that age old desire. once you have the bot set up, simply use the ```$findFurry``` command in chat to be greeted with a precisely generated (just kidding, random number generated) image of your alter ego. use this on your friends, or your foes.**
 
 # gambling breakdown
 **this feature is currently a work in progress! for anyone concerned, the blackjack logic is complete, and now I simply (sophisticatedly) need to implement the ability for discord chat users to interact with the blackjack game through discord chat. one step at a time folks!**
