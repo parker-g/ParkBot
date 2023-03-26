@@ -25,7 +25,7 @@ def get_image(args:str):
 def get_furry_image():
     time.sleep(3)
     current_path = os.getcwd()
-    os.chdir(f"{current_path}\\images\\furries") # set cwd to images/furries folder
+    os.chdir(f"{current_path}/images/furries") # set cwd to images/furries folder
     images_directory_iteratable = os.scandir()
     furry_names = []
     base_path = os.getcwd()
