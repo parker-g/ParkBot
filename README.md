@@ -79,6 +79,6 @@ Now, if you check .venv/Lib/site-packages, you should see a bunch of libraries w
 
 ```python3 bot.py```
 
-* use the !help command in discord chat to see a list of commands. remember to prefix any commands to this bot with the `!` character. now generate some AI art :D. the requests have generally taken around 30-45 seconds to load in my experience. 
+* use the $help command in discord chat to see a list of commands. remember to prefix any commands to this bot with the `$` character. now generate some AI art :D. the requests have generally taken around 30-45 seconds to load in my experience. 
 
 * if an image takes longer than 2 minutes to load, close the terminal where your bot.py script is running. then, open a new terminal and run the last three commands again to get a fresh bot running
