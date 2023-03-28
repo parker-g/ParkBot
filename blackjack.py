@@ -1,4 +1,5 @@
 import random
+from discord.ext.commands.cog import Cog
 class Deck:
     color_legend = {
         "spades": "black",
@@ -145,8 +146,9 @@ class Dealer:
 
 
 
-class Game:
-    def __init__(self, *args):
+class BlackJackGame(Cog):
+    def __init__(self, bot, *args):
+        self.bot = bot
         deck = Deck()
         deck.shuffle()
         self.players = []
