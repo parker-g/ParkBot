@@ -35,7 +35,8 @@ class Economy(Cog):
         bank_df.to_csv(BANK_PATH, index=False)
 
 
-        
+def check_isHit(ctx, reaction, user):
+    return user == ctx.author and str(reaction.emoji) == "✅"  
         
 
 
@@ -175,7 +176,7 @@ class Dealer:
                 continue
             if player.sumCards() == winner.sumCards():
                 winners.append(player)
-        # check if more than one player share highest score
+        # check if there's a tie
 
         if (len(winners) > 1):
             winners_string = ""
@@ -213,10 +214,10 @@ class BlackJackGame(Cog):
         await ctx.send(f"{ctx.author} has been added to blackjack queue.")
         
 
-
-    def newRound(self, players:list[Player]) -> None:
+    
+    def newRound(self) -> None:
         self.dealer.dealHands()
-        for player in players:
+        for player in self.players:
             player.winner = False
             player.done = False
             player.bust = False
@@ -231,12 +232,15 @@ class BlackJackGame(Cog):
             pass
         player.dealCard()
 
-    def play(self):
-        self.newRound(self.players)
+    def play(self, ctx):
+        self.newRound()
         for player in self.players:
-            print(f"\nIt's your turn, {player.name}!")
+            ctx.send(f"\nIt's your turn, {player.name}!")
+            # send a message to discord chat telling player it's their turn to go.
             while player.done != True:
-                wannaGo = input(f"Your total right now is {player.sumCards()}. Hit or stay?: ")
+                # take the next message from the player we are iterating on
+
+                wannaGo = input(f"Your total right now is {player.sumCards()}. Hit or stay?")
                 if wannaGo.lower() == "hit":
                     self.dealer.dealCard(player)
                     if player.isBust():
