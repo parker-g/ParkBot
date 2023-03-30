@@ -37,14 +37,14 @@ def get_furry_image():
 
 
 # this can't be asynchronous i think. since the await statement must await an awaitable (lol)
-async def countdown(time_sec):
-    done = False
-    print(done)
-    while time_sec:
-        mins, secs = divmod(time_sec, 60)
-        timeformat = '{:02d}:{:02d}'.format(mins, secs)
-        time.sleep(1)
-        time_sec -= 1
-    done = True
-    await 
-asyncio.run(countdown(10))
+# async def countdown(time_sec):
+#     done = False
+#     print(done)
+#     while time_sec:
+#         mins, secs = divmod(time_sec, 60)
+#         timeformat = '{:02d}:{:02d}'.format(mins, secs)
+#         time.sleep(1)
+#         time_sec -= 1
+#     done = True
+#     await 
+# asyncio.run(countdown(10))

@@ -1,8 +1,7 @@
 import random
 import pandas as pd
-import datetime
 import logging
-from helper import countdown
+from discord.ext.commands import Bot
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member
@@ -196,8 +195,7 @@ class Dealer:
 
 
 class BlackJackGame(Cog):
-    @commands.command("openJack")
-    async def __init__(self, ctx, bot):
+    def __init__(self, bot):
         self.bot = bot
         # timer is false, becomes true once countdown is over
         deck = Deck()
@@ -207,13 +205,12 @@ class BlackJackGame(Cog):
         #     player = Player(name)
         #     self.players.append(player)
         self.dealer = Dealer(deck, self.players)
-        await ctx.send("BlackJack game has been initialized. Please join queue with cocmmand `joinQ'.")
     
-    @command.command()
+    @commands.command()
     async def joinQ(self, ctx):
         new_player = Player(ctx)
         self.players.append(new_player)
-        logger.log("New player added to blackjack queue.")
+        await ctx.send(f"{ctx.author} has been added to blackjack queue.")
         
 
 
@@ -262,9 +259,7 @@ class BlackJackGame(Cog):
             print(player.name, player.hand, player.sumCards())
 
 
+    
 
-
-
-
-
-        
+async def setup(bot):
+    await bot.add_cog(BlackJackGame(bot))        

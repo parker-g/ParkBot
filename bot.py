@@ -13,11 +13,6 @@ import blackjack
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
 
-
-
-
-
-# used to log errors and statuses on discord.log
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
 # 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
@@ -32,9 +27,11 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 # remove the default empty help command, so i can replace it with my own
 bot.remove_command('help')
 
+
 # on the event called `on_ready`, python terminal shows that the bot is logged in by printing 
 @bot.event
 async def on_ready():
+    await bot.load_extension("blackjack")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
@@ -87,6 +84,10 @@ async def getNewAssignments(ctx):
     em = discord.Embed(title='getNewAssignments', description='takes a number of days as input. function returns all assignments from CSC 221 within given number of days ahead from current day.\n for example `getNewAssignments 15` will return any assignments due in the next 15 days.')
     await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
+
+# @bot.command()
+# async def openJack(ctx):
+#     await(blackjack.BlackJackGame(ctx, bot))
 
 @bot.command()
 async def heymongrel(ctx):
