@@ -75,7 +75,13 @@ async def dallE(ctx):
     em = discord.Embed(title='dallE', description='this command allows users to submit a prompt to Dall-E - then returns the results of their prompt :D')
     em.add_field(name='syntax/how to use', value='`$dallE "your prompt"`')
     await ctx.send(embed = em)
- 
+
+@help.command()
+async def findFurry(ctx):
+    em = discord.Embed(title='findFurry', description='step right up and use this command to find your buddys\' furry lookalikes! input a name, or input nothing at all.')
+    await ctx.send(embed = em)
+
+
 @help.command()
 async def getNewAssignments(ctx):
     em = discord.Embed(title='getNewAssignments', description='takes a number of days as input. function returns all assignments from CSC 221 within given number of days ahead from current day.\n for example `getNewAssignments 15` will return any assignments due in the next 15 days.')

@@ -3,9 +3,9 @@ import requests
 import os 
 import random
 import time
-from datetime import datetime
 from canvasapi import canvas
 from pathlib import Path
+import asyncio
 
 def get_image(args:str):
     model = replicate.models.get('borisdayma/dalle-mini')
@@ -34,3 +34,17 @@ def get_furry_image():
     index = random.randint(0, len(furry_names) - 1)
     os.chdir("C:/Users/rober/Documents/GitHub/dall-e-discord-bot")
     return f'{base_path}\{furry_names[index]}'
+
+
+# this can't be asynchronous i think. since the await statement must await an awaitable (lol)
+async def countdown(time_sec):
+    done = False
+    print(done)
+    while time_sec:
+        mins, secs = divmod(time_sec, 60)
+        timeformat = '{:02d}:{:02d}'.format(mins, secs)
+        time.sleep(1)
+        time_sec -= 1
+    done = True
+    await 
+asyncio.run(countdown(10))

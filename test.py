@@ -1,6 +1,4 @@
-import requests
 import pandas as pd
-import get_assignments
 # created this file to test requesting an image from url, opening it,
 # saving it, and returning image url
 
@@ -20,9 +18,8 @@ test = {
 }
 test = pd.read_csv("data/bank.csv", header='infer')
 test.to_csv(path, index=False)
-usernames = test.Username
+usernames = test.Usernames
 
-print(test)
 
 for user in usernames:
     print(user)

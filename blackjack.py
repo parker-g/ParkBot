@@ -1,5 +1,7 @@
 import random
 import pandas as pd
+import datetime
+from helper import countdown
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member
@@ -11,15 +13,28 @@ class Economy(Cog):
         self.bot = bot
 
     @commands.command()
-    async def withdraw_money(self, member:Member, money):
+    async def withdraw_money(member:Member, money) -> None:
         bank_df = pd.read_csv(BANK_PATH, header="infer")
-        users = self.bank_df.Username
+        users = bank_df.Usernames
         # if member isn't in dataframe already, put them in and give them 100 GleepCoins
         if member.name not in users:
             bank_df.loc[len(bank_df.index)] = [member.name, 100]
         current_balance = bank_df.loc[member.name, 'GleepCoins']
         bank_df.loc[member.name, "GleepCoins"] = current_balance - money
         bank_df.to_csv(BANK_PATH, index=False)
+
+    @commands.command()
+    async def award_money(self, member:Member, money):
+        bank_df = pd.read_csv(BANK_PATH, header='infer')
+        users = bank_df.Usernames
+        if member.name not in users:
+            bank_df.loc[len(bank_df.index)] = [member.name, 100]
+        current_balance = bank_df.loc[member.name, 'GleepCoins']
+        bank_df.loc[member.name, "GleepCoins"] = current_balance + money
+        bank_df.to_csv(BANK_PATH, index=False)
+
+
+        
         
 
 
@@ -69,20 +84,18 @@ class Deck:
 
 
 class Player(Cog):
-    def __init__(self, bot, name):
-        self.bot = bot
-        self.name = name
+    @commands.command(name="joinJackQ")
+    def __init__(self, ctx):
+        self.name = ctx.author
         self.hand = []
         self.bust = False
         self.blackJack = False
         self.done = False
         if self.bust is True:
             self.done = True
-        self.winner = False
+        self.winner = False        
 
-    @commands.command()    
-    async def initialize_player(self, bot):
-        pass
+
 
     def sumCards(self):
         total = 0
@@ -105,6 +118,12 @@ class Player(Cog):
             self.bust = True
         return self.bust
     
+
+# use playerqueue to queue up players before blackjack game begins
+class PlayerQueue:
+    def __init__(self):
+        self.q = []
+
 
 class Dealer:
     def __init__(self, deck:Deck, players:list[Player]):
@@ -176,16 +195,23 @@ class Dealer:
 
 
 class BlackJackGame(Cog):
-    def __init__(self, bot, *args):
+    @commands.command("playJack")
+    async def __init__(self, ctx, bot):
         self.bot = bot
+        # timer is false, becomes true once countdown is over
+        self.timer = countdown(60)
+
         deck = Deck()
         deck.shuffle()
         self.players = []
-        for name in args:
-            player = Player(name)
-            self.players.append(player)
+        # for name in args:
+        #     player = Player(name)
+        #     self.players.append(player)
         self.dealer = Dealer(deck, self.players)
         self.dealer.dealHands()
+        await ctx.send()
+    
+
 
     def newRound(self, players:list[Player]) -> None:
         for player in players:
