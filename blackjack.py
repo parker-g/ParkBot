@@ -1,10 +1,11 @@
 import random
 import pandas as pd
 import logging
+import asyncio
 from discord.ext.commands import Bot
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
-from discord import Member
+from discord import Member, Embed
 from config.config import BANK_PATH
 
 logger = logging.Logger('BJLog')
@@ -35,8 +36,8 @@ class Economy(Cog):
         bank_df.to_csv(BANK_PATH, index=False)
 
 
-def check_isHit(ctx, reaction, user):
-    return user == ctx.author and str(reaction.emoji) == "✅"  
+# def check_isHit(ctx, reaction, user):
+#     return user == ctx.author and str(reaction.emoji) == "✅"  
         
 
 
@@ -119,6 +120,13 @@ class Player(Cog):
             self.bust = True
         return self.bust
     
+    def prettyHand(self) -> str:
+        pretty_string = "A"
+        for num, suit in self.hand[:-1]:
+            pretty_string += f" {num} of {suit}, a"
+        last_num, last_suit = self.hand[-1]
+        pretty_string += f"nd a {last_num} of {last_suit}"
+        return pretty_string
 
 # use playerqueue to queue up players before blackjack game begins
 class PlayerQueue:
@@ -154,7 +162,7 @@ class Dealer:
         if player.sumCards() > 21:
             player.bust = True
 
-    def getWinner(self, players:list[Player]) -> str:
+    def getWinner(self, players:list[Player]) -> tuple[str | list[str], int]:
         winner = players[0]
         highest_score = 0
         players_busted = 0
@@ -182,7 +190,7 @@ class Dealer:
             winners_string = ""
             for winner in winners:
                 winners_string += f"{winner.name}, "
-            return winners_string
+            return winners_string, highest_score
         elif len(winners) == 1:
             winner = winner.name
 
@@ -196,7 +204,7 @@ class Dealer:
 
 
 class BlackJackGame(Cog):
-    def __init__(self, bot):
+    def __init__(self, bot:commands.Bot):
         self.bot = bot
         # timer is false, becomes true once countdown is over
         deck = Deck()
@@ -231,39 +239,54 @@ class BlackJackGame(Cog):
         if wantToHit is False:
             pass
         player.dealCard()
-
-    def play(self, ctx):
+    
+    @commands.command("playBlackJack")
+    async def play(self, ctx):
         self.newRound()
         for player in self.players:
-            ctx.send(f"\nIt's your turn, {player.name}!")
+            await ctx.send(f"It's your turn, {player.name}! Your total is {player.sumCards()}.")
             # send a message to discord chat telling player it's their turn to go.
             while player.done != True:
                 # take the next message from the player we are iterating on
-
-                wannaGo = input(f"Your total right now is {player.sumCards()}. Hit or stay?")
-                if wannaGo.lower() == "hit":
-                    self.dealer.dealCard(player)
-                    if player.isBust():
+                try:
+                    message = await ctx.send(f"Your total is {player.sumCards()}. Do you want to hit? React with a ✅ for yes, or 🚫 for no.")
+                    await message.add_reaction("✅")
+                    await message.add_reaction("🚫")
+                    reaction, user = await self.bot.wait_for("reaction_add", timeout=15.0)
+                    if (user == player.name) and (reaction.emoji == "✅"):
+                        await ctx.send("Okay, dealing you another card.")
+                        self.dealer.dealCard(player)
+                        if player.isBust():
+                            player.done = True
+                            await ctx.send(f"You busted! Your total is {player.sumCards()}")
+                        else: 
+                            continue
+                    elif (user == player.name) and (reaction.emoji == "🚫"):
                         player.done = True
-                        print(f"You busted! Your total is: {player.sumCards()}.")
-                elif wannaGo.lower() != "hit":
+                        await ctx.send(f"Okay, your turn is over.")
+                except asyncio.TimeoutError:
+                    await ctx.send("You took too long to react! Your turn is over.")
                     player.done = True
-        # when all players are done
-
+                
+        #when all players are done with their turns
         winner, highest_score = self.dealer.getWinner(self.players)   
         win_statement = f"\nAnd the winner for this hand is: {winner}"     
         sum_statement = f" with a sum of {highest_score}."    
         if highest_score != 0:
-            print(win_statement + sum_statement)
+            await ctx.send(win_statement + sum_statement)
         else:
-            print(win_statement)
+            await ctx.send(win_statement)
             
-        print("\nHere's everyone's hands.\n")
+        await ctx.send("\nHere's everyone's hands.\n")
+        long_ass_string = ""
         for player in self.players:
-            print(player.name, player.hand, player.sumCards())
+            long_ass_string += (f"{player.name} had: {player.prettyHand()}, with a total of {player.sumCards()}\n")
+        em = Embed(title="All Hands:", description = long_ass_string)
+        await ctx.send(embed = em)
+        # empty players before giving opportunity for another round to start
+        self.players = []
+        return
 
-
-    
-
+# register cog to bot
 async def setup(bot):
     await bot.add_cog(BlackJackGame(bot))        

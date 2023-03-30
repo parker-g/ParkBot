@@ -128,10 +128,6 @@ async def getNewAssignments(ctx, num:str):
     em = discord.Embed(title="New assignments", description=pretty_string)
     em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
     await ctx.send(embed = em)
-
-@bot.command()
-async def playBlackJack(ctx, *args):
-    game = blackjack.Game(args)
     
 
 
