@@ -1,12 +1,14 @@
 import random
 import pandas as pd
 import datetime
+import logging
 from helper import countdown
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member
 from config.config import BANK_PATH
 
+logger = logging.Logger('BJLog')
 
 class Economy(Cog):
     def __init__(self, bot):
@@ -84,7 +86,6 @@ class Deck:
 
 
 class Player(Cog):
-    @commands.command(name="joinJackQ")
     def __init__(self, ctx):
         self.name = ctx.author
         self.hand = []
@@ -195,12 +196,10 @@ class Dealer:
 
 
 class BlackJackGame(Cog):
-    @commands.command("playJack")
+    @commands.command("openJack")
     async def __init__(self, ctx, bot):
         self.bot = bot
         # timer is false, becomes true once countdown is over
-        self.timer = countdown(60)
-
         deck = Deck()
         deck.shuffle()
         self.players = []
@@ -208,12 +207,18 @@ class BlackJackGame(Cog):
         #     player = Player(name)
         #     self.players.append(player)
         self.dealer = Dealer(deck, self.players)
-        self.dealer.dealHands()
-        await ctx.send()
+        await ctx.send("BlackJack game has been initialized. Please join queue with cocmmand `joinQ'.")
     
+    @command.command()
+    async def joinQ(self, ctx):
+        new_player = Player(ctx)
+        self.players.append(new_player)
+        logger.log("New player added to blackjack queue.")
+        
 
 
     def newRound(self, players:list[Player]) -> None:
+        self.dealer.dealHands()
         for player in players:
             player.winner = False
             player.done = False
