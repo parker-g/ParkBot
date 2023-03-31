@@ -43,6 +43,7 @@ async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
+    em.add_field(name='blackjack commands', value="`joinQ`, `playJack`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -83,10 +84,21 @@ async def findFurry(ctx):
 async def getNewAssignments(ctx):
     em = discord.Embed(title='getNewAssignments', description='takes a number of days as input. function returns all assignments from CSC 221 within given number of days ahead from current day.\n for example `getNewAssignments 15` will return any assignments due in the next 15 days.')
     await ctx.send(embed = em)
+
+@help.command()
+async def playJack(ctx):
+    em = discord.Embed(title="playJack", description = "use this command to begin a game of blackjack after all players have joined the queue using `joinQ`. blackjack player pool resets to 0 after every game.")
+    await ctx.send(embed = em)
+
+@help.command()
+async def joinQ(ctx):
+    em = discord.Embed(title="joinQ", description= "join the blackjack players pool with this command.") 
+
+
 # now these are the actual commands corresponding to the list of commands in help
 
 # @bot.command()
-# async def openJack(ctx):
+# async def playJack(ctx):
 #     await(blackjack.BlackJackGame(ctx, bot))
 
 @bot.command()

@@ -240,7 +240,7 @@ class BlackJackGame(Cog):
             pass
         player.dealCard()
     
-    @commands.command("playBlackJack")
+    @commands.command("playJack")
     async def play(self, ctx):
         self.newRound()
         for player in self.players:
