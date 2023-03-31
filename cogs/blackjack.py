@@ -244,11 +244,13 @@ class BlackJackGame(Cog):
             while player.done != True:
                 # take the next message from the player we are iterating on
                 try:
-                    message = await ctx.send(f"Your total is {player.sumCards()}. Do you want to hit? React with a ✅ for yes, or 🚫 for no.")
+                    em = Embed(title=f"Your total is {player.sumCards()}.", description="Do you want to hit? React with a ✅ for yes, or 🚫 for no.")
+                    message = await ctx.send(embed = em)
                     await message.add_reaction("✅")
                     await message.add_reaction("🚫")
                     reaction, user = await self.bot.wait_for("reaction_add", timeout=15.0)
                     if (user == player.name) and (reaction.emoji == "✅"):
+                        await message.delete()
                         await ctx.send("Okay, dealing you another card.")
                         dealer.dealCard(player)
                         if player.isBust():
@@ -257,6 +259,7 @@ class BlackJackGame(Cog):
                         else: 
                             continue
                     elif (user == player.name) and (reaction.emoji == "🚫"):
+                        await message.delete()
                         player.done = True
                         await ctx.send(f"Okay, your turn is over.")
                 except asyncio.TimeoutError:

@@ -93,7 +93,17 @@ async def playJack(ctx):
 @help.command()
 async def joinQ(ctx):
     em = discord.Embed(title="joinQ", description= "join the blackjack players pool with this command.") 
+    await ctx.send(embed = em)
 
+@help.command()
+async def showQ(ctx):
+    em = discord.Embed(title="showQ", description= "shows the player pool") 
+    await ctx.send(embed = em)
+
+@help.command()
+async def clearQ(ctx):
+    em = discord.Embed(title="clearQ", description= "") 
+    await ctx.send(embed = em)
 
 # now these are the actual commands corresponding to the list of commands in help
 
