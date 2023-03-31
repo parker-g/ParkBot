@@ -108,12 +108,30 @@ class PlayerQueue:
         self.q = []
 
 
-class Dealer:
+class Dealer(Player):
     def __init__(self, deck:Deck, players:list[Player]):
+        self.name = "Dealer"
         self.deck = deck.deck
         self.players = players
         self.cards_in_play = []
+        self.hand = []
+        self.bust = False
 
+    def sumCards(self) -> int:
+        total = 0
+        for tuple in self.hand:
+            num = tuple[0]
+            try:
+                num = int(num)
+            except:
+                num = Deck.blackjack_face_legend[num]
+            total += num
+        return total
+
+    def dealToSelf(self):
+        while self.sumCards() < 17:
+            self.dealCard(self)
+        
     def dealCard(self, player:Player):
         player.hand.append(self.deck[0])
         self.cards_in_play.append(self.deck[0])
@@ -137,9 +155,9 @@ class Dealer:
         if player.sumCards() == 21:
             player.blackJack = True
     
-    def isBust(self, player:Player):
-        if player.sumCards() > 21:
-            player.bust = True
+    def isBust(self):
+        if self.sumCards() > 21:
+            self.bust = True
 
     def getWinner(self, players:list[Player]) -> tuple[str | list[str], int]:
         winner = players[0]
@@ -237,6 +255,13 @@ class BlackJackGame(Cog):
         self.newRound()
         # create a new dealer each round - keeping only one dealer caused issues
         dealer = Dealer(self.deck, self.players)
+        dealer.dealToSelf()
+        if dealer.isBust():
+            dealer_hand = Embed(title=f"Dealer Busted", description=f"The dealer got {dealer.sumCards()} and busted!.")
+        else:
+            dealer_hand = Embed(title=f"Dealer's Hand", description=f"The dealer's got {dealer.sumCards()}.")
+        await ctx.send(embed = dealer_hand)
+
         dealer.dealHands()
         for player in self.players:
             await ctx.send(f"It's your turn, {player.name}! Your total is {player.sumCards()}.")
@@ -266,13 +291,14 @@ class BlackJackGame(Cog):
                     await ctx.send("You took too long to react! Your turn is over.")
                     player.done = True
         #when all players are done with their turns
+        self.players.append(dealer)
         winner, highest_score = dealer.getWinner(self.players)   
         win_statement = f"\nAnd the winner for this hand is: {winner}"     
         sum_statement = f" with a sum of {highest_score}."    
         if highest_score != 0:
-            await ctx.send(win_statement + sum_statement)
+            await ctx.send(embed = Embed(title="Winner(s)!", description = win_statement + sum_statement))
         else:
-            await ctx.send(win_statement)
+            await ctx.send(embed = Embed(title="Winner(s)!", description = win_statement))
         
         await ctx.send("\nHere's everyone's hands.\n")
         long_ass_string = ""
@@ -281,7 +307,7 @@ class BlackJackGame(Cog):
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
-
+        self.players.remove(dealer)
 # register cog to bot
 async def setup(bot):
     await bot.add_cog(BlackJackGame(bot))        
