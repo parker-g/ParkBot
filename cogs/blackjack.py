@@ -2,39 +2,12 @@ import random
 import pandas as pd
 import logging
 import asyncio
-from discord.ext.commands import Bot
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed
 from config.config import BANK_PATH
 
 logger = logging.Logger('BJLog')
-
-class Economy(Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @commands.command()
-    async def withdraw_money(member:Member, money) -> None:
-        bank_df = pd.read_csv(BANK_PATH, header="infer")
-        users = bank_df.Usernames
-        # if member isn't in dataframe already, put them in and give them 100 GleepCoins
-        if member.name not in users:
-            bank_df.loc[len(bank_df.index)] = [member.name, 100]
-        current_balance = bank_df.loc[member.name, 'GleepCoins']
-        bank_df.loc[member.name, "GleepCoins"] = current_balance - money
-        bank_df.to_csv(BANK_PATH, index=False)
-
-    @commands.command()
-    async def award_money(self, member:Member, money):
-        bank_df = pd.read_csv(BANK_PATH, header='infer')
-        users = bank_df.Usernames
-        if member.name not in users:
-            bank_df.loc[len(bank_df.index)] = [member.name, 100]
-        current_balance = bank_df.loc[member.name, 'GleepCoins']
-        bank_df.loc[member.name, "GleepCoins"] = current_balance + money
-        bank_df.to_csv(BANK_PATH, index=False)
-
 
 # def check_isHit(ctx, reaction, user):
 #     return user == ctx.author and str(reaction.emoji) == "✅"  
@@ -240,6 +213,21 @@ class BlackJackGame(Cog):
             pass
         player.dealCard()
     
+    @commands.command("clearQ")
+    async def clearQueue(self, ctx):
+        self.players = []
+        await ctx.send("Okay, queue has been cleared.")
+
+    @commands.command("showQ")
+    async def showQueue(self, ctx):
+        players_string = ""
+        for player in self.players:
+            players_string += f"{player.name}\n"
+        em = Embed(title="Players in Queue", description=f"{players_string}")
+        await ctx.send(embed = em)
+
+
+
     @commands.command("playJack")
     async def play(self, ctx):
         self.newRound()
