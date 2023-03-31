@@ -11,17 +11,3 @@ import pandas as pd
 #     return destination_url
 
 
-# path = "data/bank.csv"
-# # url = img_test0()
-# test = {
-#     "BagelBrigadier": 100,
-#     "Goolie": 101, 
-#     "Tom": 50000,
-# }
-# test = pd.read_csv("data/bank.csv", header='infer')
-# test.to_csv(path, index=False)
-# usernames = test.Usernames
-
-
-# for user in usernames:
-#     print(user)

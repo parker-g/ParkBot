@@ -3,9 +3,7 @@ import requests
 import os 
 import random
 import time
-from canvasapi import canvas
-from pathlib import Path
-import asyncio
+import pandas as pd
 
 def get_image(args:str):
     model = replicate.models.get('borisdayma/dalle-mini')
@@ -35,6 +33,16 @@ def get_furry_image():
     os.chdir("C:/Users/rober/Documents/GitHub/dall-e-discord-bot")
     return f'{base_path}\{furry_names[index]}'
 
+def setUserAmount(df:pd.DataFrame, username, new_money_value):
+    user_index = df.index[df['Usernames'] == username].tolist()
+    user_index = user_index[0]
+    df.at[user_index, "GleepCoins"] = new_money_value
+
+def getUserAmount(df, username):
+    user_index = df.index[df['Usernames'] == username].tolist()
+    user_index = user_index[0]
+    current_amount = df.at[user_index, "GleepCoins"]
+    return current_amount
 
 # this can't be asynchronous i think. since the await statement must await an awaitable (lol)
 # async def countdown(time_sec):

@@ -30,8 +30,8 @@ bot.remove_command('help')
 # on the event called `on_ready`, python terminal shows that the bot is logged in by printing 
 @bot.event
 async def on_ready():
-    await bot.load_extension("cogs.blackjack")
     await bot.load_extension("cogs.economy")
+    await bot.load_extension("cogs.blackjack")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the

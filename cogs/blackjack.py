@@ -7,6 +7,7 @@ from discord.ext import commands
 from discord import Member, Embed
 from config.config import BANK_PATH
 
+
 logger = logging.Logger('BJLog')
 
 # def check_isHit(ctx, reaction, user):
@@ -118,6 +119,11 @@ class Dealer:
         self.cards_in_play.append(self.deck[0])
         self.deck.remove(self.deck[0])
 
+    def returnCardsToDeck(self):
+        self.deck += self.cards_in_play
+        self.cards_in_play = []
+        
+
     def dealHands(self) -> None:
         for i in range(2):
             for player in self.players:
@@ -179,14 +185,10 @@ class Dealer:
 class BlackJackGame(Cog):
     def __init__(self, bot:commands.Bot):
         self.bot = bot
-        # timer is false, becomes true once countdown is over
-        deck = Deck()
-        deck.shuffle()
+        self.deck = Deck()
+        self.deck.shuffle()
         self.players = []
-        # for name in args:
-        #     player = Player(name)
-        #     self.players.append(player)
-        self.dealer = Dealer(deck, self.players)
+        self.dealer = Dealer(self.deck, self.players)
     
     @commands.command()
     async def joinQ(self, ctx):
@@ -197,12 +199,14 @@ class BlackJackGame(Cog):
 
     
     def newRound(self) -> None:
-        self.dealer.dealHands()
+        self.dealer.returnCardsToDeck()
+        self.deck.shuffle()
         for player in self.players:
             player.winner = False
             player.done = False
             player.bust = False
             player.blackJack = False
+            player.hand = []
 
     def showHands(self, players:list[Player]):
         for player in players:
@@ -231,6 +235,9 @@ class BlackJackGame(Cog):
     @commands.command("playJack")
     async def play(self, ctx):
         self.newRound()
+        # create a new dealer each round - keeping only one dealer caused issues
+        dealer = Dealer(self.deck, self.players)
+        dealer.dealHands()
         for player in self.players:
             await ctx.send(f"It's your turn, {player.name}! Your total is {player.sumCards()}.")
             # send a message to discord chat telling player it's their turn to go.
@@ -243,7 +250,7 @@ class BlackJackGame(Cog):
                     reaction, user = await self.bot.wait_for("reaction_add", timeout=15.0)
                     if (user == player.name) and (reaction.emoji == "✅"):
                         await ctx.send("Okay, dealing you another card.")
-                        self.dealer.dealCard(player)
+                        dealer.dealCard(player)
                         if player.isBust():
                             player.done = True
                             await ctx.send(f"You busted! Your total is {player.sumCards()}")
@@ -255,16 +262,15 @@ class BlackJackGame(Cog):
                 except asyncio.TimeoutError:
                     await ctx.send("You took too long to react! Your turn is over.")
                     player.done = True
-                
         #when all players are done with their turns
-        winner, highest_score = self.dealer.getWinner(self.players)   
+        winner, highest_score = dealer.getWinner(self.players)   
         win_statement = f"\nAnd the winner for this hand is: {winner}"     
         sum_statement = f" with a sum of {highest_score}."    
         if highest_score != 0:
             await ctx.send(win_statement + sum_statement)
         else:
             await ctx.send(win_statement)
-            
+        
         await ctx.send("\nHere's everyone's hands.\n")
         long_ass_string = ""
         for player in self.players:
@@ -272,8 +278,6 @@ class BlackJackGame(Cog):
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
-        self.players = []
-        return
 
 # register cog to bot
 async def setup(bot):
