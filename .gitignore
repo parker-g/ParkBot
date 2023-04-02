@@ -3,3 +3,4 @@
 /config
 discord.log
 /cogs/__pycache__/*
+*.log
