@@ -15,7 +15,7 @@ class Economy(Cog):
         users = list(users)
         # if member isn't in dataframe already, put them in and give them 100 GleepCoins
         if ctx.author.name not in users:
-            bank_df.loc[len(bank_df.index)] = [ctx.author.name, 100]
+            bank_df.loc[len(bank_df.index)] = [ctx.author.name, 1000]
         current_balance = helper.getUserAmount(bank_df, ctx.author.name)
         # if user has insufficient funds, then don't let them withdraw
         if money > current_balance:
@@ -32,7 +32,7 @@ class Economy(Cog):
         users = list(users)
         # if member isn't in dataframe, add them + give them 100 gleepcoins
         if not ctx.author.name in users:
-            bank_df.loc[len(bank_df.index)] = [ctx.author.name, 100]
+            bank_df.loc[len(bank_df.index)] = [ctx.author.name, 1000]
         current_amount = helper.getUserAmount(bank_df, ctx.author.name)
         helper.setUserAmount(bank_df, ctx.author.name, current_amount + money)
         bank_df.to_csv(BANK_PATH, index=False)
