@@ -2,3 +2,4 @@
 /__pycache__
 /config
 discord.log
+/cogs/__pycache__/*
