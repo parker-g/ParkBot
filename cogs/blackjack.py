@@ -1,7 +1,7 @@
 import random
-import pandas as pd
 import logging
 import asyncio
+from cogs.economy import Economy
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed
@@ -179,9 +179,6 @@ class Dealer(Player):
     #     winner = players[0]
     #     highest_score = 0
 
-
-
-
 class BlackJackGame(Cog):
     def __init__(self, bot:commands.Bot):
         self.bot = bot
@@ -189,33 +186,42 @@ class BlackJackGame(Cog):
         self.deck.shuffle()
         self.players = []
         self.dealer = Dealer(self.deck, self.players)
-    
-    @commands.command()
-    async def joinQ(self, ctx):
-        new_player = Player(ctx)
-        if not new_player in self.players:
-            self.players.append(new_player)
-            message_str = f"{ctx.author} has been added to blackjack queue."
-        elif new_player in self.players:
-            message_str = f"{ctx.author} is already in queue."
-        message = await ctx.send(message_str)
-        await message.delete(delay=5.0)
 
-    @commands.command()
-    async def leaveQ(self, ctx):
-        leaving_player = Player(ctx)
-        if leaving_player in self.players:
-            self.players.remove(leaving_player)
-            message_str = f"{ctx.author} has been removed from the queue."
-        else:
-            message_str = f"{ctx.author} is not in the queue."
+    @commands.command("joinQ")
+    async def joinQueue(self, ctx):
+        if not ctx.author in self.players:
+            self.players.append(ctx.author)
+            message_str = f"{ctx.author} has been added to blackjack queue."
+        elif ctx.author in self.players:
+            message_str = f"{ctx.author} is already in queue."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
 
-    @commands.command("clearQ")
+    @commands.command("leaveQ")
+    async def leaveQueue(self, ctx):
+        for player in self.players:
+            if ctx.author == player.name:
+                economy = Economy(self.bot)
+                await economy.giveMoney(ctx, player.bet)
+                self.players.remove(player)
+                message_str = f"{ctx.author} has been removed from the queue."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=5.0)
+                return
+        # this only executes if no player in self.players matches the context author
+        message_str = f"{ctx.author} is not in the queue."
+        message = await ctx.send(embed = Embed(title=message_str))
+        await message.delete(delay=5.0)
+
+    # @commands.command("clearQ")
+    # need to fix this later
     async def clearQueue(self, ctx):
-        self.players = []
-        await ctx.send("Okay, queue has been cleared.")
+        economy = Economy(self.bot)
+        for player in self.players:
+            if player.bet > 0:
+                await economy.giveMoneyPlayer(player, player.bet)
+        message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
+        await message.delete(delay=5.0)
 
     @commands.command("showQ")
     async def showQueue(self, ctx):
@@ -226,16 +232,22 @@ class BlackJackGame(Cog):
         await ctx.send(embed = em)
 
     @commands.command()
-    async def setBet(self, ctx, bet):
-        if ctx.author.name not in self.players:
-            message_str = f"You must join the queue before you can place a bet."
-        elif ctx.author.name in self.players:
-            message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
+    async def setBet(self, ctx, bet:int):
+        bet = int(bet)
+        for player in self.players:
+            if ctx.author == player.name:
+                player.bet = bet
+                # store players bet amount in corresponding player object
+                economy = Economy(self.bot)
+                await economy.withdrawMoney(ctx, bet)
+                message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=7.5)
+                return
+        # otherwise, if player isn't in self.players ->
+        message_str = f"You must join the queue before you can place a bet."
         message = await ctx.send(embed = Embed(title=message_str))
-        await message.delete(delay=5.0)
-
-
-
+        await message.delete(delay=7.5)
 
     def newRound(self) -> None:
         self.dealer.returnCardsToDeck()
@@ -301,7 +313,7 @@ class BlackJackGame(Cog):
         # create a new dealer each round - he deals his own hand first, and shows his first card.
         dealer = Dealer(self.deck, self.players)
         dealer.dealToSelf()
-        dealer_shows = Embed(title=f"Dealer's Hand", description=f"The dealer's showing {dealer.hand[0]}.")
+        dealer_shows = Embed(title=f"Dealer's Showing: {dealer.hand[0][0]} of {dealer.hand[0][1]}.")
         dealer_hand_message = await ctx.send(embed = dealer_shows)
 
         # dealer now deals a hand to all players in player pool

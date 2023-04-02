@@ -33,26 +33,15 @@ def get_furry_image():
     os.chdir("C:/Users/rober/Documents/GitHub/dall-e-discord-bot")
     return f'{base_path}\{furry_names[index]}'
 
+
 def setUserAmount(df:pd.DataFrame, username, new_money_value):
     user_index = df.index[df['Usernames'] == username].tolist()
     user_index = user_index[0]
-    df.at[user_index, "GleepCoins"] = new_money_value
+    df.at[user_index, "GleepCoins"] = int(new_money_value)
+
 
 def getUserAmount(df, username):
     user_index = df.index[df['Usernames'] == username].tolist()
     user_index = user_index[0]
     current_amount = df.at[user_index, "GleepCoins"]
     return current_amount
-
-# this can't be asynchronous i think. since the await statement must await an awaitable (lol)
-# async def countdown(time_sec):
-#     done = False
-#     print(done)
-#     while time_sec:
-#         mins, secs = divmod(time_sec, 60)
-#         timeformat = '{:02d}:{:02d}'.format(mins, secs)
-#         time.sleep(1)
-#         time_sec -= 1
-#     done = True
-#     await 
-# asyncio.run(countdown(10))
