@@ -383,7 +383,7 @@ class BlackJackGame(Cog):
         # dealer is successfully getting added here
         await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
 
-        print(self.players)
+        # print(self.players)
         winners, ties = self.getWinners(self.players) 
         await self.cashOut(self.players, ctx)
         # if there are no winners, and no ties, send "Everyone lost."
