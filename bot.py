@@ -43,7 +43,7 @@ async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
-    em.add_field(name='blackjack commands', value="`joinQ`, `playJack`")
+    em.add_field(name='blackjack commands', value="`joinQ`,`showQ`, `clearQ`, `playJack`, `resetJack`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -102,9 +102,13 @@ async def showQ(ctx):
 
 @help.command()
 async def clearQ(ctx):
-    em = discord.Embed(title="clearQ", description= "") 
+    em = discord.Embed(title="clearQ", description= "clears the current player pool") 
     await ctx.send(embed = em)
 
+@help.command()
+async def resetJack(ctx):
+    em = discord.Embed(title="resetJack", description="use this command to hard reset the blackjack cog. (use if blackjack is buggy, it won't hurt anything)")
+    await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 
 # @bot.command()
@@ -150,8 +154,14 @@ async def getNewAssignments(ctx, num:str):
     em = discord.Embed(title="New assignments", description=pretty_string)
     em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
     await ctx.send(embed = em)
-    
 
+
+@bot.command()
+async def resetJack(ctx):
+    await bot.reload_extension("cogs.blackjack")
+    await bot.reload_extension("cogs.economy")
+    em = discord.Embed(title="Reset blackjack and economy cogs")
+    await ctx.send(embed = em)
 
 # @bot.command()
 # async def imgTest(ctx):

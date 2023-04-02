@@ -10,8 +10,18 @@ from config.config import BANK_PATH
 
 logger = logging.Logger('BJLog')
 
-# def check_isHit(ctx, reaction, user):
-#     return user == ctx.author and str(reaction.emoji) == "✅"  
+# need to modify game play function so that 
+    # dealer deals cards to players besides himself
+    # dealer deals himself two cards, shows only one
+    # let players play their hands
+
+    # dealer reveals his second card, dealer plays till over 17 
+    # for players that haven't busted:
+        # compare player score to dealer score
+        # if player score higher, player added to winners
+        # if player score lower, do nothing
+    
+
         
 
 
@@ -116,6 +126,9 @@ class Dealer(Player):
         self.cards_in_play = []
         self.hand = []
         self.bust = False
+        self.done = False
+        if self.bust is True:
+            self.done = True
 
     def sumCards(self) -> int:
         total = 0
@@ -131,6 +144,7 @@ class Dealer(Player):
     def dealToSelf(self):
         while self.sumCards() < 17:
             self.dealCard(self)
+        return
         
     def dealCard(self, player:Player):
         player.hand.append(self.deck[0])
@@ -159,44 +173,11 @@ class Dealer(Player):
         if self.sumCards() > 21:
             self.bust = True
 
-    def getWinner(self, players:list[Player]) -> tuple[str | list[str], int]:
-        winner = players[0]
-        highest_score = 0
-        players_busted = 0
-        winners = []
-        
-        for player in players:
-            if player.isBust():
-                players_busted += 1
-                # use the players busted variable to later check if all players busted ( to see if no one won )
-                continue
-            # if player isnt bust, then logic will continue here
-            if player.sumCards() > highest_score:
-                    highest_score = player.sumCards()
-                    winner = player
-        
-        # get player with highest score ^
-        for player in players:
-            if player.isBust():
-                continue
-            if player.sumCards() == winner.sumCards():
-                winners.append(player)
-        # check if there's a tie
 
-        if (len(winners) > 1):
-            winners_string = ""
-            for winner in winners:
-                winners_string += f"{winner.name}, "
-            return winners_string, highest_score
-        elif len(winners) == 1:
-            winner = winner.name
+    # def getWinner(self, players) -> tuple[str | list[str], int]:
+    #     winner = players[0]
+    #     highest_score = 0
 
-         # if multiple winners, return a string of their names, else return string of sole winner name
-        if players_busted == len(players):
-            winner = "None"
-        # ^ if all players busted, winner = "None"
-        return winner, highest_score
-        
 
 
 
@@ -211,9 +192,13 @@ class BlackJackGame(Cog):
     @commands.command()
     async def joinQ(self, ctx):
         new_player = Player(ctx)
-        self.players.append(new_player)
-        await ctx.send(f"{ctx.author} has been added to blackjack queue.")
-        
+        if not new_player in self.players:
+            self.players.append(new_player)
+            message_str = f"{ctx.author} has been added to blackjack queue."
+        elif new_player in self.players:
+            message_str = f"{ctx.author} is already in queue."
+        message = await ctx.send(message_str)
+        await message.delete(delay=5.0)
 
     
     def newRound(self) -> None:
@@ -248,35 +233,67 @@ class BlackJackGame(Cog):
         em = Embed(title="Players in Queue", description=f"{players_string}")
         await ctx.send(embed = em)
 
+    def getWinners(self, players:Player) -> list[Player]:
+        dealer = None
+        winners = []
+        tiebabies = []
+        # get the dealer, store and remove dealer, remove players who have been busted
+        for player in players:
+            if player.name == "Dealer":
+                dealer = player # save dealer object in variable dealer
+                continue
+            if player.isBust():
+                players.remove(player)
+        if dealer is None:
+            print("There was an error - the dealer is not in the player pool")
+            return
+        
+        #store dealer sum
+        dealer_total = dealer.sumCards()
+        #remove dealer from player pool 
+        players.remove(dealer)
+
+        # for the players who haven't busted or aren't the dealer: 
+        for player in players:
+            if dealer_total > 21:
+                player.winner = True
+                winners.append(player)
+                continue
+            if player.sumCards() > dealer_total:
+                player.winner = True
+                winners.append(player)
+            elif player.sumCards() == dealer_total:
+                tiebabies.append(player)
+        
+        # now winners holds all our winners, tiebabies holds anyone who's tied
+        return winners, tiebabies
+
+
 
 
     @commands.command("playJack")
     async def play(self, ctx):
         self.newRound()
-        # create a new dealer each round - keeping only one dealer caused issues
+        # create a new dealer each round - he deals his own hand first, and shows his first card.
         dealer = Dealer(self.deck, self.players)
         dealer.dealToSelf()
-        if dealer.isBust():
-            dealer_hand = Embed(title=f"Dealer Busted", description=f"The dealer got {dealer.sumCards()} and busted!.")
-        else:
-            dealer_hand = Embed(title=f"Dealer's Hand", description=f"The dealer's got {dealer.sumCards()}.")
-        await ctx.send(embed = dealer_hand)
+        dealer_shows = Embed(title=f"Dealer's Hand", description=f"The dealer's showing {dealer.hand[0]}.")
+        dealer_hand_message = await ctx.send(embed = dealer_shows)
 
+        # dealer now deals a hand to all players in player pool
         dealer.dealHands()
         for player in self.players:
-            await ctx.send(f"It's your turn, {player.name}! Your total is {player.sumCards()}.")
+            your_turn_message = await ctx.send(embed = Embed(title = f"It's your turn, {player.name}!"))
             # send a message to discord chat telling player it's their turn to go.
             while player.done != True:
-                # take the next message from the player we are iterating on
                 try:
                     em = Embed(title=f"Your total is {player.sumCards()}.", description="Do you want to hit? React with a ✅ for yes, or 🚫 for no.")
-                    message = await ctx.send(embed = em)
-                    await message.add_reaction("✅")
-                    await message.add_reaction("🚫")
+                    input_message = await ctx.send(embed = em)
+                    await input_message.add_reaction("✅")
+                    await input_message.add_reaction("🚫")
                     reaction, user = await self.bot.wait_for("reaction_add", timeout=15.0)
                     if (user == player.name) and (reaction.emoji == "✅"):
-                        await message.delete()
-                        await ctx.send("Okay, dealing you another card.")
+                        await input_message.delete()
                         dealer.dealCard(player)
                         if player.isBust():
                             player.done = True
@@ -284,21 +301,32 @@ class BlackJackGame(Cog):
                         else: 
                             continue
                     elif (user == player.name) and (reaction.emoji == "🚫"):
-                        await message.delete()
+                        await input_message.delete()
                         player.done = True
                         await ctx.send(f"Okay, your turn is over.")
+                        await your_turn_message.delete()
                 except asyncio.TimeoutError:
                     await ctx.send("You took too long to react! Your turn is over.")
                     player.done = True
         #when all players are done with their turns
         self.players.append(dealer)
-        winner, highest_score = dealer.getWinner(self.players)   
-        win_statement = f"\nAnd the winner for this hand is: {winner}"     
-        sum_statement = f" with a sum of {highest_score}."    
-        if highest_score != 0:
-            await ctx.send(embed = Embed(title="Winner(s)!", description = win_statement + sum_statement))
-        else:
-            await ctx.send(embed = Embed(title="Winner(s)!", description = win_statement))
+        # dealer is successfully getting added here
+        await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
+
+        winners, ties = self.getWinners(self.players) 
+
+        # if there are no winners, and no ties, send "Everyone lost."
+        # else if there are winners, send "Here are our winners: "
+        # else if there are no winners but there are ties, send "These players tied:"
+        if (len(winners) == 0) and (len(ties) == 0):
+            await ctx.send(embed = Embed(title="You're All Losers!"))
+        elif len(winners) > 0:  
+            winners = [winner.name.name for winner in winners]  
+            await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
+        elif len(ties) > 0:
+            ties = [tie.name.name for tie in ties]
+            await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
+            
         
         await ctx.send("\nHere's everyone's hands.\n")
         long_ass_string = ""
@@ -307,7 +335,6 @@ class BlackJackGame(Cog):
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
-        self.players.remove(dealer)
 # register cog to bot
 async def setup(bot):
     await bot.add_cog(BlackJackGame(bot))        
