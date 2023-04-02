@@ -43,7 +43,7 @@ async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
-    em.add_field(name='blackjack commands', value="`joinQ`,`showQ`, `clearQ`, `playJack`, `resetJack`")
+    em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showQ`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -87,12 +87,27 @@ async def getNewAssignments(ctx):
 
 @help.command()
 async def playJack(ctx):
-    em = discord.Embed(title="playJack", description = "use this command to begin a game of blackjack after all players have joined the queue using `joinQ`. blackjack player pool resets to 0 after every game.")
+    em = discord.Embed(title="playJack", description = "begin a game of blackjack. players must first have joined the queue using `joinQ`. players will remain in player queue until they leave.")
+    await ctx.send(embed = em)
+
+@help.command()
+async def setBet(ctx):
+    em = discord.Embed(title="setBet", description = "usage : `setBet <amount>`\nuse this command to bet your valuable GleepCoins in the next gambling game.")
+    await ctx.send(embed = em)
+
+@help.command()
+async def balance(ctx):
+    em = discord.Embed(title="balance", description = "show your GleepCoin bank balance. if nothing comes up, you don't have a balance yet. you will receive 1000 GleepCoins to bet with upon your first bet.")
     await ctx.send(embed = em)
 
 @help.command()
 async def joinQ(ctx):
     em = discord.Embed(title="joinQ", description= "join the blackjack players pool with this command.") 
+    await ctx.send(embed = em)
+
+@help.command()
+async def leaveQ(ctx):
+    em = discord.Embed(title="leaveQ", description= "leave the player pool and return any bets you had queued, back to your bank balance.") 
     await ctx.send(embed = em)
 
 @help.command()
@@ -102,18 +117,15 @@ async def showQ(ctx):
 
 @help.command()
 async def clearQ(ctx):
-    em = discord.Embed(title="clearQ", description= "clears the current player pool") 
+    em = discord.Embed(title="clearQ", description= "removes all players from player pool, and returns their queued bets to each respective bank balance.") 
     await ctx.send(embed = em)
 
 @help.command()
 async def resetJack(ctx):
-    em = discord.Embed(title="resetJack", description="use this command to hard reset the blackjack cog. (use if blackjack is buggy, it won't hurt anything)")
+    em = discord.Embed(title="resetJack", description="use this command to hard reset the blackjack and ecnomoy cogs. (use if blackjack is buggy, it won't hurt anything)")
     await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 
-# @bot.command()
-# async def playJack(ctx):
-#     await(blackjack.BlackJackGame(ctx, bot))
 
 @bot.command()
 async def heymongrel(ctx):
