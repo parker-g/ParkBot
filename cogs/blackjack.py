@@ -80,6 +80,7 @@ class Player(Cog):
         if self.bust is True:
             self.done = True
         self.winner = False        
+        self.bet = 0
 
 
 
@@ -200,6 +201,17 @@ class BlackJackGame(Cog):
         message = await ctx.send(message_str)
         await message.delete(delay=5.0)
 
+    @commands.command()
+    async def leaveQ(self, ctx):
+        leaving_player = Player(ctx)
+        if leaving_player in self.players:
+            self.players.remove(leaving_player)
+            message_str = f"{ctx.author} has been removed from the queue."
+        else:
+            message_str = f"{ctx.author} is not in the queue."
+        message = await ctx.send(embed = Embed(title=message_str))
+        await message.delete(delay=5.0)
+
     
     def newRound(self) -> None:
         self.dealer.returnCardsToDeck()
@@ -232,6 +244,9 @@ class BlackJackGame(Cog):
             players_string += f"{player.name}\n"
         em = Embed(title="Players in Queue", description=f"{players_string}")
         await ctx.send(embed = em)
+
+    async def getBets(self, ctx):
+        pass
 
     def getWinners(self, players:Player) -> list[Player]:
         dealer = None
@@ -303,7 +318,6 @@ class BlackJackGame(Cog):
                     elif (user == player.name) and (reaction.emoji == "🚫"):
                         await input_message.delete()
                         player.done = True
-                        await ctx.send(f"Okay, your turn is over.")
                         await your_turn_message.delete()
                 except asyncio.TimeoutError:
                     await ctx.send("You took too long to react! Your turn is over.")
