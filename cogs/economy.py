@@ -3,7 +3,7 @@ import helper
 from discord.ext import commands
 from discord.ext.commands import Cog
 from config.config import BANK_PATH
-
+from discord import Embed
 class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -17,6 +17,11 @@ class Economy(Cog):
         if ctx.author.name not in users:
             bank_df.loc[len(bank_df.index)] = [ctx.author.name, 100]
         current_balance = helper.getUserAmount(bank_df, ctx.author.name)
+        # if user has insufficient funds, then don't let them withdraw
+        if money > current_balance:
+            broke_message = await ctx.send(embed = Embed(title=f"{ctx.author.name}, you're broke. Your current balance is {current_balance}."))
+            await broke_message.delete(delay=10.0)
+            return False
         helper.setUserAmount(bank_df, ctx.author.name, current_balance - money)
         bank_df.to_csv(BANK_PATH, index=False)
 

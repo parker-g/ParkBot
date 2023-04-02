@@ -2,10 +2,12 @@ import random
 import logging
 import asyncio
 from cogs.economy import Economy
+from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed
-from config.config import BANK_PATH
+from helper import getUserAmount
+
 
 
 logger = logging.Logger('BJLog')
@@ -72,10 +74,11 @@ class Deck:
 
 class Player(Cog):
     def __init__(self, ctx):
-        self.name = ctx.author
+        self.name = ctx.author.name
         self.hand = []
         self.bust = False
         self.blackJack = False
+        self.tie = False
         self.done = False
         if self.bust is True:
             self.done = True
@@ -118,6 +121,10 @@ class PlayerQueue:
     def __init__(self):
         self.q = []
 
+    def addPlayer(self, member:Member):
+        pass
+
+
 
 class Dealer(Player):
     def __init__(self, deck:Deck, players:list[Player]):
@@ -126,6 +133,8 @@ class Dealer(Player):
         self.players = players
         self.cards_in_play = []
         self.hand = []
+        self.winner = False
+        self.tie = False
         self.bust = False
         self.done = False
         if self.bust is True:
@@ -241,11 +250,13 @@ class BlackJackGame(Cog):
     async def setBet(self, ctx, bet:int):
         bet = int(bet)
         for player in self.players:
-            if ctx.author == player.name:
+            if ctx.author.name == player.name:
                 player.bet = bet
                 # store players bet amount in corresponding player object
                 economy = Economy(self.bot)
-                await economy.withdrawMoney(ctx, bet)
+                withdraw_success = await economy.withdrawMoney(ctx, bet)
+                if withdraw_success is False:
+                    return
                 message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
                 message = await ctx.send(embed = Embed(title=message_str))
                 await message.delete(delay=7.5)
@@ -255,14 +266,13 @@ class BlackJackGame(Cog):
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=7.5)
 
-    def newRound(self) -> None:
-        self.dealer.returnCardsToDeck()
-        self.deck.shuffle()
+    def resetPlayers(self) -> None:
         for player in self.players:
             player.winner = False
             player.done = False
             player.bust = False
             player.blackJack = False
+            player.tie = False
             player.hand = []
 
     def showHands(self, players:list[Player]):
@@ -274,14 +284,20 @@ class BlackJackGame(Cog):
             pass
         player.dealCard()
 
-    async def cashOut(self, players):
+    async def cashOut(self, players, ctx):
         economy = Economy(self.bot)
         for player in players:
             if player.winner:
                 winnings = player.bet * 2
-                economy.giveMoneyPlayer(player, winnings)
-                message = await player.send(embed = Embed(title=f"{player.name} won {winnings}."))
+                await economy.giveMoneyPlayer(player, winnings)
+                message = await ctx.send(embed = Embed(title=f"{player.name} won {winnings} GleepCoins."))
                 await message.delete(delay=5.0)
+            elif player.tie:
+                winnings = player.bet
+                await economy.giveMoneyPlayer(player, winnings)
+                message = await ctx.send(embed = Embed(title=f"{player.name} broke even, gaining back {winnings} GleepCoins."))
+                await message.delete(delay=5.0)
+                    
     
     def getWinners(self, players:Player) -> list[Player]:
         dealer = None
@@ -292,8 +308,6 @@ class BlackJackGame(Cog):
             if player.name == "Dealer":
                 dealer = player # save dealer object in variable dealer
                 continue
-            if player.isBust():
-                players.remove(player)
         if dealer is None:
             print("There was an error - the dealer is not in the player pool")
             return
@@ -305,15 +319,17 @@ class BlackJackGame(Cog):
 
         # for the players who haven't busted or aren't the dealer: 
         for player in players:
-            if dealer_total > 21:
-                player.winner = True
-                winners.append(player)
-                continue
-            if player.sumCards() > dealer_total:
-                player.winner = True
-                winners.append(player)
-            elif player.sumCards() == dealer_total:
-                tiebabies.append(player)
+            if not player.bust:
+                if dealer_total > 21:
+                    player.winner = True
+                    winners.append(player)
+                    continue
+                if player.sumCards() > dealer_total:
+                    player.winner = True
+                    winners.append(player)
+                elif player.sumCards() == dealer_total:
+                    player.tie = True
+                    tiebabies.append(player)
         
         # now winners holds all our winners, tiebabies holds anyone who's tied
         return winners, tiebabies
@@ -321,9 +337,11 @@ class BlackJackGame(Cog):
 
     @commands.command("playJack")
     async def play(self, ctx):
-        self.newRound()
+        self.resetPlayers()
+        deck = Deck()
+        deck.shuffle()
         # create a new dealer each round - he deals his own hand first, and shows his first card.
-        dealer = Dealer(self.deck, self.players)
+        dealer = Dealer(deck, self.players)
         dealer.dealToSelf()
         dealer_shows = Embed(title=f"Dealer's Showing: {dealer.hand[0][0]} of {dealer.hand[0][1]}.")
         dealer_hand_message = await ctx.send(embed = dealer_shows)
@@ -340,7 +358,7 @@ class BlackJackGame(Cog):
                     await input_message.add_reaction("✅")
                     await input_message.add_reaction("🚫")
                     reaction, user = await self.bot.wait_for("reaction_add", timeout=15.0)
-                    if (user == player.name) and (reaction.emoji == "✅"):
+                    if (user.name == player.name) and (reaction.emoji == "✅"):
                         await input_message.delete()
                         dealer.dealCard(player)
                         if player.isBust():
@@ -348,7 +366,7 @@ class BlackJackGame(Cog):
                             await ctx.send(f"You busted! Your total is {player.sumCards()}")
                         else: 
                             continue
-                    elif (user == player.name) and (reaction.emoji == "🚫"):
+                    elif (user.name == player.name) and (reaction.emoji == "🚫"):
                         await input_message.delete()
                         player.done = True
                         await your_turn_message.delete()
@@ -357,22 +375,23 @@ class BlackJackGame(Cog):
                     player.done = True
         #when all players are done with their turns
         self.players.append(dealer)
-        
+
         # dealer is successfully getting added here
         await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
 
+        print(self.players)
         winners, ties = self.getWinners(self.players) 
-
+        await self.cashOut(self.players, ctx)
         # if there are no winners, and no ties, send "Everyone lost."
         # else if there are winners, send "Here are our winners: "
         # else if there are no winners but there are ties, send "These players tied:"
         if (len(winners) == 0) and (len(ties) == 0):
             await ctx.send(embed = Embed(title="You're All Losers!"))
         elif len(winners) > 0:  
-            winners = [winner.name.name for winner in winners]  
+            winners = [winner.name for winner in winners]  
             await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
         elif len(ties) > 0:
-            ties = [tie.name.name for tie in ties]
+            ties = [tie.name for tie in ties]
             await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
             
         
