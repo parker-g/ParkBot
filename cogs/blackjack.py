@@ -212,7 +212,31 @@ class BlackJackGame(Cog):
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
 
-    
+    @commands.command("clearQ")
+    async def clearQueue(self, ctx):
+        self.players = []
+        await ctx.send("Okay, queue has been cleared.")
+
+    @commands.command("showQ")
+    async def showQueue(self, ctx):
+        players_string = ""
+        for player in self.players:
+            players_string += f"{player.name}\n"
+        em = Embed(title="Players in Queue", description=f"{players_string}")
+        await ctx.send(embed = em)
+
+    @commands.command()
+    async def setBet(self, ctx, bet):
+        if ctx.author.name not in self.players:
+            message_str = f"You must join the queue before you can place a bet."
+        elif ctx.author.name in self.players:
+            message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
+        message = await ctx.send(embed = Embed(title=message_str))
+        await message.delete(delay=5.0)
+
+
+
+
     def newRound(self) -> None:
         self.dealer.returnCardsToDeck()
         self.deck.shuffle()
@@ -231,22 +255,7 @@ class BlackJackGame(Cog):
         if wantToHit is False:
             pass
         player.dealCard()
-    
-    @commands.command("clearQ")
-    async def clearQueue(self, ctx):
-        self.players = []
-        await ctx.send("Okay, queue has been cleared.")
 
-    @commands.command("showQ")
-    async def showQueue(self, ctx):
-        players_string = ""
-        for player in self.players:
-            players_string += f"{player.name}\n"
-        em = Embed(title="Players in Queue", description=f"{players_string}")
-        await ctx.send(embed = em)
-
-    async def getBets(self, ctx):
-        pass
 
     def getWinners(self, players:Player) -> list[Player]:
         dealer = None
