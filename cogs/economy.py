@@ -25,7 +25,7 @@ class Economy(Cog):
         helper.setUserAmount(bank_df, ctx.author.name, current_balance - money)
         bank_df.to_csv(BANK_PATH, index=False)
 
-    async def giveMoney(self, ctx, money):
+    async def giveMoney(self, ctx, money) -> None:
         money = int(money)
         bank_df = pd.read_csv(BANK_PATH, header='infer')
         users = bank_df.Usernames
@@ -37,7 +37,7 @@ class Economy(Cog):
         helper.setUserAmount(bank_df, ctx.author.name, current_amount + money)
         bank_df.to_csv(BANK_PATH, index=False)
 
-    async def giveMoneyPlayer(self, player, money):
+    async def giveMoneyPlayer(self, player, money) -> None:
         money = int(money)
         bank_df = pd.read_csv(BANK_PATH, header='infer')
         users = bank_df.Usernames
@@ -49,11 +49,13 @@ class Economy(Cog):
         helper.setUserAmount(bank_df, player.name, current_amount + money)
         bank_df.to_csv(BANK_PATH, index=False)
 
-
     # implement later
     @commands.command("balance")
-    async def showMoney(self, ctx):
-        pass
+    async def getBalance(self, ctx) -> int:
+        bank_df = pd.read_csv(BANK_PATH, header="infer")
+        amount = helper.getUserAmount(bank_df, ctx.author.name)
+        message = await ctx.send(embed = Embed(title=f"{ctx.author.name}'s balance is: {amount} GleepCoins."))
+        await message.delete(delay=7.5)
 
 async def setup(bot):
 

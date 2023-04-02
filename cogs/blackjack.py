@@ -199,14 +199,17 @@ class BlackJackGame(Cog):
     @commands.command("joinQ")
     async def joinQueue(self, ctx):
         new_player = Player(ctx)
+        # check if person using command is already in the player pool
         for player in self.players:
-            if ctx.author == player.name:
-                message_str = f"{ctx.author} is already in queue."
+            if ctx.author.name == player.name:
+                # if so, tell user that they're already in the queue
+                message_str = f"{ctx.author.name} is already in queue."
                 message = await ctx.send(embed = Embed(title=message_str))
                 await message.delete(delay=5.0)
                 return
+        # if not, add them to player pool
         self.players.append(new_player)
-        message_str = f"{ctx.author} has been added to blackjack queue."
+        message_str = f"{ctx.author.name} has been added to blackjack queue."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
 
@@ -214,22 +217,23 @@ class BlackJackGame(Cog):
 
     @commands.command("leaveQ")
     async def leaveQueue(self, ctx):
+        # check if person using command is in player pool
         for player in self.players:
-            if ctx.author == player.name:
+            if ctx.author.name == player.name:
+                # if so, return the persons bet money to them, and remove them from player pool
                 economy = Economy(self.bot)
                 await economy.giveMoney(ctx, player.bet)
                 self.players.remove(player)
-                message_str = f"{ctx.author} has been removed from the queue."
+                message_str = f"{ctx.author.name} has been removed from the queue."
                 message = await ctx.send(embed = Embed(title=message_str))
                 await message.delete(delay=5.0)
                 return
-        # this only executes if no player in self.players matches the context author
-        message_str = f"{ctx.author} is not in the queue."
+        # if command caller isn't in player pool, tell them
+        message_str = f"{ctx.author.name} is not in the queue."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
 
-    # @commands.command("clearQ")
-    # need to fix this later
+    @commands.command("clearQ")
     async def clearQueue(self, ctx):
         economy = Economy(self.bot)
         for player in self.players:

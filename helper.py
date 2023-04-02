@@ -40,8 +40,8 @@ def setUserAmount(df:pd.DataFrame, username, new_money_value):
     df.at[user_index, "GleepCoins"] = int(new_money_value)
 
 
-def getUserAmount(df, username):
+def getUserAmount(df, username) -> int:
     user_index = df.index[df['Usernames'] == username].tolist()
     user_index = user_index[0]
     current_amount = df.at[user_index, "GleepCoins"]
-    return current_amount
+    return int(current_amount)
