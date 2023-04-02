@@ -189,13 +189,19 @@ class BlackJackGame(Cog):
 
     @commands.command("joinQ")
     async def joinQueue(self, ctx):
-        if not ctx.author in self.players:
-            self.players.append(ctx.author)
-            message_str = f"{ctx.author} has been added to blackjack queue."
-        elif ctx.author in self.players:
-            message_str = f"{ctx.author} is already in queue."
+        new_player = Player(ctx)
+        for player in self.players:
+            if ctx.author == player.name:
+                message_str = f"{ctx.author} is already in queue."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=5.0)
+                return
+        self.players.append(new_player)
+        message_str = f"{ctx.author} has been added to blackjack queue."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
+
+
 
     @commands.command("leaveQ")
     async def leaveQueue(self, ctx):
@@ -268,7 +274,15 @@ class BlackJackGame(Cog):
             pass
         player.dealCard()
 
-
+    async def cashOut(self, players):
+        economy = Economy(self.bot)
+        for player in players:
+            if player.winner:
+                winnings = player.bet * 2
+                economy.giveMoneyPlayer(player, winnings)
+                message = await player.send(embed = Embed(title=f"{player.name} won {winnings}."))
+                await message.delete(delay=5.0)
+    
     def getWinners(self, players:Player) -> list[Player]:
         dealer = None
         winners = []
@@ -303,8 +317,6 @@ class BlackJackGame(Cog):
         
         # now winners holds all our winners, tiebabies holds anyone who's tied
         return winners, tiebabies
-
-
 
 
     @commands.command("playJack")
@@ -345,6 +357,7 @@ class BlackJackGame(Cog):
                     player.done = True
         #when all players are done with their turns
         self.players.append(dealer)
+        
         # dealer is successfully getting added here
         await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
 

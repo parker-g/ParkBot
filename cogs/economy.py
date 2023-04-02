@@ -50,7 +50,6 @@ class Economy(Cog):
     async def showMoney(self, ctx):
         pass
 
-
 async def setup(bot):
 
     await bot.add_cog(Economy(bot))
