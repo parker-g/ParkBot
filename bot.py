@@ -19,6 +19,7 @@ handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.voice_states = True
 
 # instantiate an instance of the Bot class (Bot is a subclass of Client - so it has all the functionality of Client with the addition of Bot functionality
 bot = commands.Bot(command_prefix='$', intents=intents)
@@ -44,6 +45,7 @@ async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
+    em.add_field(name='voice commands', value="`say`")
     em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showQ`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
     await ctx.send(embed = em)
 
@@ -52,6 +54,11 @@ async def help(ctx):
 @help.command()
 async def heymongrel(ctx):
     em = discord.Embed(title='heymongrel', description='returns a greeting :D')
+    await ctx.send(embed = em)
+
+@help.command()
+async def say(ctx):
+    em = discord.Embed(title='say', description='usage: `say <what you want bot to say>`. bot speaks requested string in voice channel.')
     await ctx.send(embed = em)
 
 @help.command()

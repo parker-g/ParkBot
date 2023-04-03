@@ -4,3 +4,4 @@
 discord.log
 /cogs/__pycache__/*
 *.log
+data/test.mp3
