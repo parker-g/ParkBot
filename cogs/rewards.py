@@ -10,6 +10,8 @@ class Reward(Cog):
 
     async def processAudio(self, ctx, string):
         engine = pyttsx3.init("sapi5")
+        voices = engine.getProperty('voices')
+        engine.setProperty("voice", voices[1].id)
         engine.save_to_file(string, "data/test.mp3")
         engine.runAndWait()
         await ctx.send("Processed Request")
@@ -28,7 +30,7 @@ class Reward(Cog):
         except:
             print("The audio was not properly stored in memory")
         voice.play(source=audio)
-        await asyncio.sleep(30)
+        await asyncio.sleep(10.0)
         await voice.disconnect()
 
         
