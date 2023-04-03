@@ -1,5 +1,6 @@
 import pandas as pd
 import helper
+from discord.ext.commands import Context
 from discord.ext import commands
 from discord.ext.commands import Cog
 from config.config import BANK_PATH
@@ -7,8 +8,18 @@ from discord import Embed
 class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
+    async def withdrawMoney(self, ctx:Context, money:int) -> None:
+        """
+        Takes context and amount as arguments; withdraws said amount from ctx.author's bank balance.
 
-    async def withdrawMoney(self, ctx, money) -> None:
+        Args:
+            ctx (discord.Context): context the method is called from,
+
+            money (int): amount of money to withdraw from caller's bank balance
+
+        Returns:
+            None
+        """
         money = int(money)
         bank_df = pd.read_csv(BANK_PATH, header="infer")
         users = bank_df.Usernames

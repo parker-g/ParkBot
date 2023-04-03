@@ -11,10 +11,11 @@ class Reward(Cog):
     async def processAudio(self, ctx, string):
         engine = pyttsx3.init("sapi5")
         voices = engine.getProperty('voices')
-        engine.setProperty("voice", voices[1].id)
+        engine.setProperty("voice", voices[0].id) # 0 for male, 1 for female
         engine.save_to_file(string, "data/test.mp3")
         engine.runAndWait()
-        await ctx.send("Processed Request")
+        message = await ctx.send("Processed Request")
+        await message.delete(delay = 5.0)
 
     @commands.command()
     async def say(self, ctx, *args):
