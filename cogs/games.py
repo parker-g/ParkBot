@@ -116,13 +116,94 @@ class Player(Cog):
         pretty_string += f"nd a {last_num} of {last_suit}"
         return pretty_string
 
-# use playerqueue to queue up players before blackjack game begins
-class PlayerQueue:
-    def __init__(self):
+# use playerqueue to queue up players and control the creation of game classes.
+class PlayerQueue(Cog):
+    def __init__(self, bot):
+        self.bot = bot
         self.q = []
+    
+    @commands.command("joinQ")
+    async def joinQueue(self, ctx):
+        new_player = Player(ctx)
+        # check if person using command is already in the player pool
+        for player in self.q:
+            if ctx.author.name == player.name:
+                # if so, tell user that they're already in the queue
+                message_str = f"{ctx.author.name} is already in queue."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=5.0)
+                return
+        # if not, add them to player pool
 
-    def addPlayer(self, member:Member):
-        pass
+        # so Q will be a list of tuples of (player object, discord.Member object)
+        self.q.append((new_player, ctx.author))
+        message_str = f"{ctx.author.name} has been added to blackjack queue."
+        message = await ctx.send(embed = Embed(title=message_str))
+        await message.delete(delay=5.0)
+        
+    @commands.command("leaveQ")
+    async def leaveQueue(self, ctx):
+        # check if person using command is in player pool
+        for player, member in self.q:
+            if ctx.author.name == player.name:
+                # if so, return the persons bet money to them, and remove them from player pool
+                economy = Economy(self.bot)
+                await economy.giveMoney(ctx, player.bet)
+                self.q.remove((player, ctx.author))
+                message_str = f"{ctx.author.name} has been removed from the queue."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=5.0)
+                return
+        # if command caller isn't in player pool, tell them
+        message_str = f"{ctx.author.name} is not in the queue."
+        message = await ctx.send(embed = Embed(title=message_str))
+        await message.delete(delay=5.0)
+
+    @commands.command("clearQ")
+    async def clearQueue(self, ctx):
+        economy = Economy(self.bot)
+        for player, member in self.q:
+            if player.bet > 0:
+                await economy.giveMoneyPlayer(player, player.bet)
+        message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
+        await message.delete(delay=5.0)
+
+    @commands.command("showQ")
+    async def showQueue(self, ctx):
+        players_string = ""
+        for player, member in self.q:
+            players_string += f"{player.name}\n"
+        em = Embed(title="Players in Queue", description=f"{players_string}")
+        await ctx.send(embed = em)
+
+    @commands.command()
+    async def setBet(self, ctx, bet:int):
+        bet = int(bet)
+        for player, member in self.q:
+            if ctx.author.name == player.name:
+                player.bet = bet
+                # store players bet amount in corresponding player object
+                economy = Economy(self.bot)
+                withdraw_success = await economy.withdrawMoney(ctx, bet)
+                if withdraw_success is False:
+                    return
+                message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=7.5)
+                return
+        # otherwise, if player isn't in self.players ->
+        message_str = f"You must join the queue before you can place a bet."
+        message = await ctx.send(embed = Embed(title=message_str))
+        await message.delete(delay=7.5)
+
+    @commands.command()
+    async def playJack(self, ctx):
+        blackjack = BlackJackGame(self.bot, self)
+        await blackjack.play(ctx)
+
+    
+        
+
 
 
 
@@ -171,10 +252,6 @@ class Dealer(Player):
             for player in self.players:
                 self.dealCard(player)
     
-    def takeTurn(self, player:Player, toHit:bool):
-        if toHit == True:
-            self.dealCard(player)
-    
     def isBlackjack(self, player:Player):
         if player.sumCards() == 21:
             player.blackJack = True
@@ -189,86 +266,18 @@ class Dealer(Player):
     #     highest_score = 0
 
 class BlackJackGame(Cog):
-    def __init__(self, bot:commands.Bot):
+    def __init__(self, bot:commands.Bot, player_queue:PlayerQueue):
         self.bot = bot
         self.deck = Deck()
         self.deck.shuffle()
+        self.player_queue = player_queue.q
         self.players = []
+        for player, member in self.player_queue:
+            self.players.append(player)
+        
+
         self.dealer = Dealer(self.deck, self.players)
 
-    @commands.command("joinQ")
-    async def joinQueue(self, ctx):
-        new_player = Player(ctx)
-        # check if person using command is already in the player pool
-        for player in self.players:
-            if ctx.author.name == player.name:
-                # if so, tell user that they're already in the queue
-                message_str = f"{ctx.author.name} is already in queue."
-                message = await ctx.send(embed = Embed(title=message_str))
-                await message.delete(delay=5.0)
-                return
-        # if not, add them to player pool
-        self.players.append(new_player)
-        message_str = f"{ctx.author.name} has been added to blackjack queue."
-        message = await ctx.send(embed = Embed(title=message_str))
-        await message.delete(delay=5.0)
-
-
-
-    @commands.command("leaveQ")
-    async def leaveQueue(self, ctx):
-        # check if person using command is in player pool
-        for player in self.players:
-            if ctx.author.name == player.name:
-                # if so, return the persons bet money to them, and remove them from player pool
-                economy = Economy(self.bot)
-                await economy.giveMoney(ctx, player.bet)
-                self.players.remove(player)
-                message_str = f"{ctx.author.name} has been removed from the queue."
-                message = await ctx.send(embed = Embed(title=message_str))
-                await message.delete(delay=5.0)
-                return
-        # if command caller isn't in player pool, tell them
-        message_str = f"{ctx.author.name} is not in the queue."
-        message = await ctx.send(embed = Embed(title=message_str))
-        await message.delete(delay=5.0)
-
-    @commands.command("clearQ")
-    async def clearQueue(self, ctx):
-        economy = Economy(self.bot)
-        for player in self.players:
-            if player.bet > 0:
-                await economy.giveMoneyPlayer(player, player.bet)
-        message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
-        await message.delete(delay=5.0)
-
-    @commands.command("showQ")
-    async def showQueue(self, ctx):
-        players_string = ""
-        for player in self.players:
-            players_string += f"{player.name}\n"
-        em = Embed(title="Players in Queue", description=f"{players_string}")
-        await ctx.send(embed = em)
-
-    @commands.command()
-    async def setBet(self, ctx, bet:int):
-        bet = int(bet)
-        for player in self.players:
-            if ctx.author.name == player.name:
-                player.bet = bet
-                # store players bet amount in corresponding player object
-                economy = Economy(self.bot)
-                withdraw_success = await economy.withdrawMoney(ctx, bet)
-                if withdraw_success is False:
-                    return
-                message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
-                message = await ctx.send(embed = Embed(title=message_str))
-                await message.delete(delay=7.5)
-                return
-        # otherwise, if player isn't in self.players ->
-        message_str = f"You must join the queue before you can place a bet."
-        message = await ctx.send(embed = Embed(title=message_str))
-        await message.delete(delay=7.5)
 
     def resetPlayers(self) -> None:
         for player in self.players:
@@ -282,13 +291,8 @@ class BlackJackGame(Cog):
     def showHands(self, players:list[Player]):
         for player in players:
             print(f"\n{player.name} shows their cards. Their hand looks like this: {player.hand}. ")
-    
-    def takeTurn(self, player:Player, wantToHit:bool):
-        if wantToHit is False:
-            pass
-        player.dealCard()
 
-    async def cashOut(self, players, ctx):
+    async def cashOut(self, ctx, players):
         economy = Economy(self.bot)
         for player in players:
             if player.winner:
@@ -338,8 +342,6 @@ class BlackJackGame(Cog):
         # now winners holds all our winners, tiebabies holds anyone who's tied
         return winners, tiebabies
 
-
-    @commands.command("playJack")
     async def play(self, ctx):
         self.resetPlayers()
         deck = Deck()
@@ -385,7 +387,7 @@ class BlackJackGame(Cog):
 
         # print(self.players)
         winners, ties = self.getWinners(self.players) 
-        await self.cashOut(self.players, ctx)
+        await self.cashOut(ctx, self.players)
         # if there are no winners, and no ties, send "Everyone lost."
         # else if there are winners, send "Here are our winners: "
         # else if there are no winners but there are ties, send "These players tied:"
@@ -408,4 +410,4 @@ class BlackJackGame(Cog):
         # empty players before giving opportunity for another round to start
 # register cog to bot
 async def setup(bot):
-    await bot.add_cog(BlackJackGame(bot))        
+    await bot.add_cog(PlayerQueue(bot))        

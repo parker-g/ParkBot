@@ -1,6 +1,6 @@
 import pandas as pd
 import pyttsx3
-from cogs.blackjack import Dealer, Deck
+from cogs.games import Dealer, Deck
 # created this file to test requesting an image from url, opening it,
 # saving it, and returning image url
 

@@ -13,6 +13,8 @@ class Reward(Cog):
         voices = engine.getProperty('voices')
         engine.setProperty("voice", voices[0].id) # 0 for male, 1 for female
         engine.save_to_file(string, "data/test.mp3")
+        # default speaking rate is 200
+        engine.setProperty("rate", 125)
         engine.runAndWait()
         message = await ctx.send("Processed Request")
         await message.delete(delay = 5.0)
