@@ -32,7 +32,7 @@ bot.remove_command('help')
 @bot.event
 async def on_ready():
     await bot.load_extension("cogs.economy")
-    await bot.load_extension("cogs.blackjack")
+    await bot.load_extension("cogs.games")
     await bot.load_extension("cogs.rewards")
     return print(f'I\'m logged in as {bot.user}')
 
