@@ -1,6 +1,8 @@
 import pandas as pd
 import pyttsx3
 import yt_dlp
+from mutagen import mp3
+import time
 # created this file to test requesting an image from url, opening it,
 # saving it, and returning image url
 
@@ -16,7 +18,6 @@ def getSong(youtube_id):
     base_address = "https://www.youtube.com/watch?v="
     ytdl_format_options = {
         "no_playlist": True,
-        "max_downloads": 1,
         'format': 'mp3/bestaudio/best',
         "outtmpl": "data/current_audio.%(ext)s",
         "ffmpeg_location": "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
@@ -31,3 +32,11 @@ def getSong(youtube_id):
     with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
         ydl.download(youtube_url)
 getSong("usu0XY4QNB0")
+
+def getAudioLength(path_to_audio):
+    audio = mp3.MP3(path_to_audio)
+    audio = audio.info
+    audiolen = int(audio.length)
+    return audiolen
+time.sleep(5.0)
+print(getAudioLength("data/current_audio.mp3"))

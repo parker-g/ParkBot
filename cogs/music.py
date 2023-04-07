@@ -2,6 +2,7 @@ from googleapiclient.discovery import build
 from config.config import GOOGLE_API_KEY
 from discord.ext import commands
 from discord import Embed
+from mutagen import mp3
 import yt_dlp
 import asyncio
 
@@ -58,6 +59,17 @@ class Music(commands.Cog):
             ydl.download(youtube_url)
         await asyncio.sleep(5.0)
 
+    @commands.command
+    async def play(self, ctx, *args):
+        titles_and_ids = await self.getSearchResults(self, None, *args)
+        message1 = await ctx.send(embed = Embed(title=f"Playing: {titles_and_ids[0][0]}"))
+        
+
+    async def getAudioLength(self, path_to_audio):
+        audio = mp3.MP3(path_to_audio)
+        audio = audio.info
+        audiolen = int(audio.length)
+        return audiolen
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
