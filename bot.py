@@ -34,6 +34,7 @@ async def on_ready():
     await bot.load_extension("cogs.economy")
     await bot.load_extension("cogs.games")
     await bot.load_extension("cogs.rewards")
+    await bot.load_extension("cogs.music")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
