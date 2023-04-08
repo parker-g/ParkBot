@@ -168,7 +168,7 @@ class PlayerQueue(Cog):
         message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
         await message.delete(delay=5.0)
 
-    @commands.command("showQ")
+    @commands.command("showPlayers")
     async def showQueue(self, ctx):
         players_string = ""
         for player, member in self.q:
