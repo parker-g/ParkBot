@@ -42,6 +42,9 @@ class Music(commands.Cog):
 
         if ctx is None:
             return titles_and_ids
+
+        # finish implementing search function ( as used in vexera)
+
         # else:
         #     titles_string = ""
         #     for i in range(5):
@@ -50,6 +53,11 @@ class Music(commands.Cog):
         #     em = Embed(title="YouTube Search", description=titles_string)
         #     await ctx.send(embed=em)
 
+
+    # maybe refactor this to actually save audio as the song name. then later
+    # delete the song using the song name from the queue. This could allow
+    # for processing/downloading a song ahead of the currently queued song for 
+    # faster song results
     async def getSong(self, youtube_id):
         base_address = "https://www.youtube.com/watch?v="
         ytdl_format_options = {
