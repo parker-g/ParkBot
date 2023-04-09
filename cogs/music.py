@@ -3,6 +3,7 @@ from config.config import GOOGLE_API_KEY
 from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
+import html
 import time
 import discord
 import yt_dlp
@@ -18,6 +19,8 @@ class Music(commands.Cog):
         self.queue = []
         self.voice = None
         self.play_time = None
+        self.playing = False
+
     @commands.command("search")
     async def getSearchResults(self, ctx = None, *args, maxResults=1):
         query = ""
@@ -34,6 +37,7 @@ class Music(commands.Cog):
             id = item["id"]
             snippet = item["snippet"]
             title = snippet["title"]
+            title = html.unescape(title)
             titles_and_ids.append((title, id))
 
         if ctx is None:
@@ -64,28 +68,16 @@ class Music(commands.Cog):
         print(youtube_url)
         with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
             ydl.download(youtube_url)
-
-    @commands.command()
-    async def skipTest(self, ctx):
-        try:
-            if self.voice.is_playing():
-            #   current_channel = ctx.author.voice.channel
-                self.voice.stop()
-                await ctx.send(embed=Embed(title="Skipping current song."))
-                await self.play(ctx, "blah", searchArgs=False)
-            else:
-                await ctx.send(embed = Embed(title=f"The bot doesn't seem to be singing right now. Try again when music is playing."))
-        except:
-            await ctx.send("There was an error while trying to skip the song.")
         
 
     @commands.command()
     async def skip(self, ctx):
         if self.qEmpty() == False:
          #   current_channel = ctx.author.voice.channel
-            self.voice.stop()
-            await ctx.send(embed=Embed(title="Skipping current song."))
-            await self.play(ctx, "blah", searchArgs=False)
+            if self.playing is True:
+                self.voice.stop()
+                await ctx.send(embed=Embed(title="Skipping current song."))
+                await self.play(ctx, "blah", searchArgs=False) # searchArgs false means don't search the "blah" I pass here.
         else:
             await ctx.send(embed = Embed(title="The queue must not be empty to skip a song."))
 
@@ -100,13 +92,11 @@ class Music(commands.Cog):
         if self.voice is not None:
             self.voice.stop()
 
+
     async def addToQ(self, ctx, song_name, song_id):
         self.queue.append((str(song_name), song_id))
         added_to_q = await ctx.send(embed = Embed(title=f"{song_name} added to queue."))
-        q_list = await ctx.send(f"{self.queue}")
         await added_to_q.delete(delay=5.0)
-        await q_list.delete(delay=10.0)
-
 
 
     @commands.command("showQ")
@@ -118,10 +108,8 @@ class Music(commands.Cog):
     
     @commands.command()
     async def play(self, ctx, *args, searchArgs = True):
-        string = str(args)
-        if searchArgs is False:
-            pass # if args is our special skip word, then don't try to enqueue anything
-        elif searchArgs is True:
+         # if args is our special skip word, then don't try to enqueue anything
+        if searchArgs is True:
             titles_and_ids = await self.getSearchResults(None, *args, maxResults=1)
             first_song = titles_and_ids[0]
             song_name = first_song[0]
@@ -162,9 +150,6 @@ class Music(commands.Cog):
             else:
                 self.queue.pop(0)         
 
-            
-
-
 
     def qEmpty(self):
         return (len(self.queue) == 0)
@@ -176,6 +161,7 @@ class Music(commands.Cog):
         try:
             audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             self.voice.play(source=audio)
+            self.playing = True
         except:
             print("There was an error playing your song.")
         

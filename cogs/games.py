@@ -126,7 +126,7 @@ class PlayerQueue(Cog):
     async def joinQueue(self, ctx):
         new_player = Player(ctx)
         # check if person using command is already in the player pool
-        for player in self.q:
+        for player, member in self.q:
             if ctx.author.name == player.name:
                 # if so, tell user that they're already in the queue
                 message_str = f"{ctx.author.name} is already in queue."
@@ -195,6 +195,14 @@ class PlayerQueue(Cog):
         message_str = f"You must join the queue before you can place a bet."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=7.5)
+
+    @commands.command()
+    async def beg(self, ctx):
+        economy = Economy(self.bot)
+        amount = random.randint(1, 20)
+        await economy.giveMoney(ctx, float(amount))
+        beg_message = await ctx.send(embed=Embed(title=f"{ctx.author.name} recieved {amount} GleepCoins from begging."))
+        await beg_message.delete(delay=5.0)
 
     @commands.command()
     async def playJack(self, ctx):
