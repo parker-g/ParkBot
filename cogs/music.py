@@ -3,6 +3,7 @@ from config.config import GOOGLE_API_KEY
 from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
+from collections import deque
 import html
 import time
 import discord
@@ -11,18 +12,44 @@ import asyncio
 
 SONG_PATH = "data/current_audio.mp3"
 
-
-class Music(commands.Cog):
+class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.service = build('youtube', 'v3', developerKey=GOOGLE_API_KEY)
-        self.queue = []
-        self.voice = None
-        self.play_time = None
-        self.playing = False
+        self.playque = deque()
 
-    @commands.command("search")
-    async def getSearchResults(self, ctx = None, *args, maxResults=1):
+    def isEmpty(self):
+        return len(self.playque) == 0
+    
+    def add(self, video_tuple):
+        self.playque.append(video_tuple)
+
+    @commands.command()
+    async def addToQ(self, ctx, video_tuple):
+        self.add(video_tuple)
+        added_to_q = await ctx.send(embed = Embed(title=f"{video_tuple[0]} added to queue."))
+        await added_to_q.delete(delay=5.0)
+
+    def remove(self): 
+        self.playque.popleft()
+
+
+    @commands.command("showQ")
+    async def showQueue(self, ctx):
+        pretty_string = ""
+        count = 1
+        for title, id in self.playlist.playque:
+            pretty_string += f"{count}: {title}\n"
+            count += 1
+        await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
+
+# grabs various resources from the internet
+class Grabber:
+    def __init__(self, bot):
+        self.bot = bot
+        self.downloading = False
+        self.service = build('youtube', 'v3', developerKey=GOOGLE_API_KEY)
+    
+    async def getSearchResults(self, ctx=None, *args, maxResults=1):
         query = ""
         for arg in args:
             query += f"{str(arg)} "
@@ -34,30 +61,13 @@ class Music(commands.Cog):
         response = request.execute() # response is a json object in dict format
         titles_and_ids = []
         for item in response["items"]:
-            id = item["id"]
-            snippet = item["snippet"]
-            title = snippet["title"]
-            title = html.unescape(title)
+            id = item["id"]["videoId"]
+            title = html.unescape(item["snippet"]["title"])
             titles_and_ids.append((title, id))
 
         if ctx is None:
             return titles_and_ids
-
-        # finish implementing search function ( as used in vexera)
-
-        # else:
-        #     titles_string = ""
-        #     for i in range(5):
-        #         titles_string += f"{i+1}. {titles_and_ids[i][0]}\n"
-        #     titles_string += "Please select one title 1-5, or type cancel to cancel your selection."
-        #     em = Embed(title="YouTube Search", description=titles_string)
-        #     await ctx.send(embed=em)
-
-
-    # maybe refactor this to actually save audio as the song name. then later
-    # delete the song using the song name from the queue. This could allow
-    # for processing/downloading a song ahead of the currently queued song for 
-    # faster song results
+    
     async def getSong(self, youtube_id):
         base_address = "https://www.youtube.com/watch?v="
         ytdl_format_options = {
@@ -73,105 +83,102 @@ class Music(commands.Cog):
                 }]
         }
         youtube_url = [base_address + youtube_id]
-        print(youtube_url)
-        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-            ydl.download(youtube_url)
         
+        if (self.downloading is False): 
+            self.downloading = True
+            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+                ydl.download(youtube_url)
+            # check for existence of temp files to check if song's done downloading
+            await asyncio.sleep(5.0)
+            self.downloading = False
+            return
+        else:
+            print("You're already downloading a song right now.")
+            return
+        
+        
+
+class MusicController(commands.Cog):
+    def __init__(self, bot, playlist:PlayList):
+        self.bot = bot
+        self.playlist = playlist
+        self.grabber = Grabber(bot)
+        self.voice = None
+        self.play_time = 0
+        self.playing = False
+    
+    async def waitTime(self, time_in_seconds):
+        await asyncio.sleep(float(time_in_seconds))
+        self.playing = False
+        return
+
+    @commands.command()
+    async def showQ(self, ctx):
+        await self.playlist.showQueue(self, ctx)
+
+    @commands.command()
+    async def play(self, ctx, *args):
+        # search requested song and add it to the queue
+        title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
+        await self.playlist.addToQ(self.playlist, ctx, title_and_id[0])
+
+        if self.voice is None:
+            current_channel = ctx.author.voice.channel
+            self.voice = await current_channel.connect(timeout = 600)
+
+        # if music already playing: wait
+        if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
+                queue_time = time.time()
+                audio_elapsed_time = self.play_time - queue_time
+                audio_length = self.getAudioLength(SONG_PATH)
+                time_to_wait = audio_length - audio_elapsed_time
+                await self.waitTime(time_to_wait)
+
+        # while songs are in the queue, 
+        while (self.playlist.isEmpty() is False):
+            next_song = self.playlist.playque[0]
+            if self.playing is False:
+                processing = await ctx.send(embed = Embed(title = f"Processing {next_song[0]}."))
+                await self.grabber.getSong(str(next_song[1]))
+                await processing.delete()
+
+                if self.grabber.downloading is False:
+                    self.play_task = asyncio.create_task(self.broadcastSong(ctx, next_song))
+                    await self.play_task
+
+        if self.playlist.isEmpty():
+            await self.voice.disconnect()
 
     @commands.command()
     async def skip(self, ctx):
-        if self.qEmpty() == False:
-         #   current_channel = ctx.author.voice.channel
-            if self.playing is True:
-                self.voice.stop()
-                await ctx.send(embed=Embed(title="Skipping current song."))
-                await self.play(ctx, "blah", searchArgs=False) # searchArgs false means don't search the "blah" I pass here.
-        else:
+        if (self.playlist.isEmpty()) and (self.playing is False):
             await ctx.send(embed = Embed(title="The queue must not be empty to skip a song."))
+        elif self.playing is True:
+            try:
+                await ctx.send(embed=Embed(title="Skipping current song."))
+                self.playlist.remove()
+                await self.play_task.cancel()
+                self.playing = False
+            except:
+                print("Cleaning up canceled task.")
 
-    async def waitTime(self, time_in_seconds):
-        await asyncio.sleep(float(time_in_seconds))
-
-
-    async def waitSong(self):
-        audio_len_seconds= self.getAudioLength(SONG_PATH)
-        for second in range(audio_len_seconds): # don't leave until song is over
-            await asyncio.sleep(1)
-        if self.voice is not None:
-            self.voice.stop()
-
-
-    async def addToQ(self, ctx, song_name, song_id):
-        self.queue.append((str(song_name), song_id))
-        added_to_q = await ctx.send(embed = Embed(title=f"{song_name} added to queue."))
-        await added_to_q.delete(delay=5.0)
-
-
-    @commands.command("showQ")
-    async def showQueue(self, ctx):
-        pretty_string = ""
-        for title, id in self.queue:
-            pretty_string += f"{title}\n"
-        await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
-    
-    @commands.command()
-    async def play(self, ctx, *args, searchArgs = True):
-         # if args is our special skip word, then don't try to enqueue anything
-        if searchArgs is True:
-            titles_and_ids = await self.getSearchResults(None, *args, maxResults=1)
-            first_song = titles_and_ids[0]
-            song_name = first_song[0]
-            song_id = first_song[1]
-            song_id = song_id["videoId"]
-
-        # if self.qEmpty():
-        #     self.addToQ(ctx, str(song_name), song_id)
-        #     processing_message = await ctx.send(embed=Embed(title="Processing your song."))
-        #     await self.getSong(song_id) # download the first result
-        #     await processing_message.delete()
-        #     message1 = await ctx.send(embed = Embed(title=f"Playing: {song_name}"))
-        #     await self.broadcastAndPopSong(ctx) #handles popping queue
-        #     await message1.delete() #delete message when song is over
-            await self.addToQ(ctx, song_name, song_id)
-        while self.qEmpty() == False or self.voice is not None:
-            if self.voice is not None:
-                await asyncio.sleep(1.0)
-                if searchArgs == True:
-                    if self.voice.is_playing(): # if a song's already playing
-                        queue_time = time.time()
-                        audio_elapsed_time = self.play_time - queue_time
-                        audio_length = self.getAudioLength(SONG_PATH)
-                        time_to_wait = audio_length - audio_elapsed_time
-                        await self.waitTime(time_to_wait + 2.0) # 3 seconds of buffer time
-            next_song = self.queue[0]
-            processing = await ctx.send(embed = Embed(title = f"Processing {next_song[0]}."))
-            await self.getSong(str(next_song[1]))
-            self.play_time = time.time()
-
-            await processing.delete()
-            message2 = await ctx.send(embed = Embed(title=f"Playing: {next_song[0]}"))
-            await self.broadcastSong(ctx)
-            length = self.getAudioLength(SONG_PATH)
-            await message2.delete(delay=float(length)) # don't delete "playing" message until song is over
-            if self.qEmpty():
-                await self.voice.disconnect()       
-            else:
-                self.queue.pop(0)         
-
-
-    def qEmpty(self):
-        return (len(self.queue) == 0)
-
-    async def broadcastSong(self, ctx):
-        current_channel = ctx.author.voice.channel
-        if self.voice is None:
-            self.voice = await current_channel.connect()
-        try:
-            audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
-            self.voice.play(source=audio)
-            self.playing = True
-        except:
-            print("There was an error playing your song.")
+    async def broadcastSong(self, ctx, name_and_id):
+        if self.grabber.downloading is False:
+            try:
+                audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+                self.playing = True
+                try:
+                    self.voice.play(source=audio)
+                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}"))
+                    await playing_message.delete(delay = self.getAudioLength(SONG_PATH))
+                    await self.waitTime(self.getAudioLength(SONG_PATH))
+                    self.playlist.remove()
+                except: 
+                    self.playing = False
+                    # this is where control flows when task is canceled
+            except:
+                self.playing = False
+                print("Error accessing song from path provided.")
         
         
     def isBotConnected(self, ctx):
@@ -193,7 +200,7 @@ class Music(commands.Cog):
         audio_length %= 60
         seconds = audio_length
         return hours, minutes, seconds
-    
+
 async def setup(bot):
-    await bot.add_cog(Music(bot))
+    await bot.add_cog(MusicController(bot, PlayList(bot)))
         
