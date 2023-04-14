@@ -104,7 +104,6 @@ class MusicController(commands.Cog):
         self.playlist = playlist
         self.grabber = Grabber(bot)
         self.voice = None
-        self.play_time = 0
         self.playing = False
     
     async def waitTime(self, time_in_seconds):
@@ -167,11 +166,13 @@ class MusicController(commands.Cog):
             try:
                 audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
                 self.playing = True
+                length = self.getAudioLength(SONG_PATH)
+                hours, minutes, seconds = self.formatAudioLength(length)
                 try:
                     self.voice.play(source=audio)
-                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}"))
-                    await playing_message.delete(delay = self.getAudioLength(SONG_PATH))
-                    await self.waitTime(self.getAudioLength(SONG_PATH))
+                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours}:{minutes}:{seconds}"))
+                    await playing_message.delete(delay = length)
+                    await self.waitTime(length)
                     self.playlist.remove()
                 except: 
                     self.playing = False
@@ -179,13 +180,6 @@ class MusicController(commands.Cog):
             except:
                 self.playing = False
                 print("Error accessing song from path provided.")
-        
-        
-    def isBotConnected(self, ctx):
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice is None:
-            return False
-        return True
 
     def getAudioLength(self, path_to_audio):
         audio = mp3.MP3(path_to_audio)
