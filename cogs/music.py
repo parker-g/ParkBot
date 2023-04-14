@@ -123,7 +123,7 @@ class MusicController(commands.Cog):
 
         if self.voice is None:
             current_channel = ctx.author.voice.channel
-            self.voice = await current_channel.connect(timeout = 600)
+            self.voice = await current_channel.connect(timeout = None)
 
         # if music already playing: wait
         if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
@@ -147,6 +147,7 @@ class MusicController(commands.Cog):
 
         if self.playlist.isEmpty():
             await self.voice.disconnect()
+            self.voice = None
 
     @commands.command()
     async def skip(self, ctx):
@@ -188,12 +189,12 @@ class MusicController(commands.Cog):
         return audiolen
 
     def formatAudioLength(self, audio_length):
-        hours = audio_length // 3600
-        audio_length %= 60
-        minutes = audio_length // 60
-        audio_length %= 60
-        seconds = audio_length
-        return hours, minutes, seconds
+        seconds = audio_length % (24 * 3600)
+        hour = seconds // 3600
+        seconds %= 3600
+        minutes = seconds // 60
+        seconds %= 60
+        return hour, minutes, seconds
 
 async def setup(bot):
     await bot.add_cog(MusicController(bot, PlayList(bot)))
