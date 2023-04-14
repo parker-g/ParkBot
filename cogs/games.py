@@ -23,12 +23,6 @@ logger = logging.Logger('BJLog')
         # if player score higher, player added to winners
         # if player score lower, do nothing
     
-
-        
-
-
-
-
 class Deck:
     color_legend = {
         "spades": "black",
@@ -70,7 +64,6 @@ class Deck:
 
     def shuffle(self) -> None:
         random.shuffle(self.deck)
-
 
 class Player(Cog):
     def __init__(self, ctx):

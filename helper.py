@@ -4,9 +4,20 @@ from canvasapi import Canvas
 import pandas as pd
 import replicate
 import requests
+import asyncio
 import random
 import time
 import os
+
+async def cleanAudioLeftovers():
+    os.chdir("data")
+    files = os.listdir(os.getcwd())
+    for file in files:
+        if (len(str(file)) > 13) and (file[:13] == "current_audio") and (file[-4:] != ".mp3"):
+            way = os.getcwd()
+            way += f"\\{file}"
+            os.remove(way)
+    os.chdir("../")
 
 def write_iterable(file_path:str, iterable:list | dict) -> None:
     with open(file_path, "w", encoding="utf-8") as file:

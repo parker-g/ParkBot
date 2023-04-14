@@ -4,6 +4,8 @@ from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
 from collections import deque
+import helper
+import os
 import html
 import time
 import discord
@@ -82,6 +84,7 @@ class Grabber:
                     'preferredcodec': 'mp3',
                 }]
         }
+
         youtube_url = [base_address + youtube_id]
         
         if (self.downloading is False): 
@@ -89,14 +92,12 @@ class Grabber:
             with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
                 ydl.download(youtube_url)
             # check for existence of temp files to check if song's done downloading
-            await asyncio.sleep(5.0)
             self.downloading = False
             return
         else:
             print("You're already downloading a song right now.")
             return
-        
-        
+
 
 class MusicController(commands.Cog):
     def __init__(self, bot, playlist:PlayList):
@@ -138,7 +139,7 @@ class MusicController(commands.Cog):
             next_song = self.playlist.playque[0]
             if self.playing is False:
                 processing = await ctx.send(embed = Embed(title = f"Processing {next_song[0]}."))
-                await self.grabber.getSong(str(next_song[1]))
+                self.download_task = asyncio.create_task(self.grabber.getSong(str(next_song[1])))
                 await processing.delete()
 
                 if self.grabber.downloading is False:
@@ -161,6 +162,13 @@ class MusicController(commands.Cog):
                 self.playing = False
             except:
                 print("Cleaning up canceled task.")
+        elif self.grabber.downloading is True:
+            try:
+                await self.download_task.cancel()
+                self.grabber.downloading = False
+            except:
+                await helper.cleanAudioLeftovers()
+                print("Cleaning up canceled download")
 
     async def broadcastSong(self, ctx, name_and_id):
         if self.grabber.downloading is False:
@@ -171,7 +179,8 @@ class MusicController(commands.Cog):
                 hours, minutes, seconds = self.formatAudioLength(length)
                 try:
                     self.voice.play(source=audio)
-                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours}:{minutes}:{seconds}"))
+                    self.play_time = time.time()
+                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours:01d}:{minutes:02d}:{seconds:02d}"))
                     await playing_message.delete(delay = length)
                     await self.waitTime(length)
                     self.playlist.remove()
