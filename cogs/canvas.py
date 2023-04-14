@@ -1,8 +1,9 @@
-from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM
+from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
 from datetime import datetime, timedelta, date
 from discord.ext import commands
 from helper import write_iterable
 from canvasapi import Canvas
+import discord
 
 class CanvasClient(commands.Cog):
     def __init__(self, bot, api_key, base_url, course_num):
@@ -23,7 +24,8 @@ class CanvasClient(commands.Cog):
             result = datetime.strptime(result, "%Y-%m-%d %H:%M:%S")
         return result
     
-    def grab_assignments(self) ->dict:
+    # produces a dictionary of assignment: due date, pairs
+    def getAllAssignments(self) ->dict:
         canvas = Canvas(self.base_url, self.key)
         course = canvas.get_course(CANVAS_COURSE_NUM)
         assignments = course.get_assignments()
@@ -37,7 +39,7 @@ class CanvasClient(commands.Cog):
         return working_dict
 
     def get_new_assignments(self, datetime_file, num_days:int) -> list:
-        assignments = self.grab_assignments(self.base_url, self.key, self.course)
+        assignments = self.getAllAssignments()
         # be sure to write a datetime to last_time.txt before running this function
         last_call = self.read_to_datetime(datetime_file)
         now = datetime.now().replace(microsecond=0)
@@ -55,5 +57,19 @@ class CanvasClient(commands.Cog):
         write_iterable(datetime_file, [now])
         return assignments_due, str(time_dif)
     
-async def on_setup(bot):
-    bot.add_cog(CanvasClient(bot, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM))
+    @commands.command()
+    async def getNewAssignments(self, ctx, num:str):
+        num = int(num)
+        assignments, time_diff = self.get_new_assignments(DATETIME_FILE, num)
+        pretty_string = ""
+        for item in assignments:
+            pretty_string += f"{item}\n"
+        if len(assignments) == 0:
+            pretty_string = "Yay, no new assignments in that range!"
+        
+        em = discord.Embed(title="New assignments", description=pretty_string)
+        em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
+        await ctx.send(embed = em)
+    
+async def setup(bot):
+    await bot.add_cog(CanvasClient(bot, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM))

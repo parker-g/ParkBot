@@ -176,22 +176,6 @@ async def findFurry(ctx):
     image = helper.get_furry_image()
     await ctx.send(file=discord.File(image))
 
-
-@bot.command()
-async def getNewAssignments(ctx, num:str):
-    num = int(num)
-    assignments, time_diff = get_new_assignments(datetime_file, num)
-    pretty_string = ""
-    for item in assignments:
-        pretty_string += f"{item}\n"
-    if len(assignments) == 0:
-        pretty_string = "Yay, no new assignments in that range!"
-    
-    em = discord.Embed(title="New assignments", description=pretty_string)
-    em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
-    await ctx.send(embed = em)
-
-
 @bot.command()
 async def resetJack(ctx):
     await bot.reload_extension("cogs.blackjack")
