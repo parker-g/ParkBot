@@ -1,5 +1,5 @@
 import discord
-from config.config import TOKEN, CANVAS_API_KEY
+from config.config import TOKEN, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
 import logging
 from discord.ext import commands
 import helper

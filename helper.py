@@ -1,9 +1,12 @@
+from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM
+from datetime import datetime, timedelta, date
+from canvasapi import Canvas
+import pandas as pd
 import replicate
 import requests
-import os 
 import random
 import time
-import pandas as pd
+import os
 
 def get_image(args:str):
     model = replicate.models.get('borisdayma/dalle-mini')
