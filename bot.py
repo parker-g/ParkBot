@@ -3,7 +3,6 @@ from config.config import TOKEN, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_
 import logging
 from discord.ext import commands
 import helper
-from get_assignments import get_new_assignments, datetime_file
 
 #note for me:
 # when using python keyword in terminal, u must reference the direct path to the venv python executable.
@@ -35,6 +34,7 @@ async def on_ready():
     await bot.load_extension("cogs.games")
     await bot.load_extension("cogs.rewards")
     await bot.load_extension("cogs.music")
+    await bot.load_extension("cogs.canvas")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
@@ -47,7 +47,8 @@ async def help(ctx):
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     em.add_field(name='voice commands', value="`say`")
-    em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showQ`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
+    em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
+    em.add_field(name='music commands', value="`play`, `skip`, `showQ`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -121,9 +122,23 @@ async def leaveQ(ctx):
 
 @help.command()
 async def showQ(ctx):
-    em = discord.Embed(title="showQ", description= "shows the player pool") 
+    em = discord.Embed(title="showQ", description= "shows songs in queue") 
     await ctx.send(embed = em)
 
+@help.command()
+async def play(ctx):
+    em = discord.Embed(title="play", description="usage: `play <name of song>`. if a song is already playing, will queue your request")
+    await ctx.send(embed= em)
+
+@help.command()
+async def skip(ctx):
+    em = discord.Embed(title="skip", description="skips the song that's currently playing")
+    await ctx.send(embed = em)
+
+@help.command()
+async def showPlayers(ctx):
+    em = discord.Embed(title="showPlayers", description="shows all the players who are in the gaming player pool")
+    await ctx.send(embed = em)
 @help.command()
 async def clearQ(ctx):
     em = discord.Embed(title="clearQ", description= "removes all players from player pool, and returns their queued bets to each respective bank balance.") 

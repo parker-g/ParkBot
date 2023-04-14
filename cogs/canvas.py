@@ -24,6 +24,7 @@ class CanvasClient(commands.Cog):
         return result
     
     def grab_assignments(self) ->dict:
+        canvas = Canvas(self.base_url, self.key)
         course = canvas.get_course(CANVAS_COURSE_NUM)
         assignments = course.get_assignments()
         working_dict = {}
@@ -53,3 +54,6 @@ class CanvasClient(commands.Cog):
         time_dif = now - last_call
         write_iterable(datetime_file, [now])
         return assignments_due, str(time_dif)
+    
+async def on_setup(bot):
+    bot.add_cog(CanvasClient(bot, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM))
