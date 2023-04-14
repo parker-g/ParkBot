@@ -8,6 +8,12 @@ import random
 import time
 import os
 
+def write_iterable(file_path:str, iterable:list | dict) -> None:
+    with open(file_path, "w", encoding="utf-8") as file:
+        for item in iterable:
+            file.write(str(item) + ",")
+    return None
+
 def get_image(args:str):
     model = replicate.models.get('borisdayma/dalle-mini')
     output = model.predict(prompt=args, n_predictions=1)
