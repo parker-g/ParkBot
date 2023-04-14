@@ -7,3 +7,4 @@ discord.log
 data/test.mp3
 .vscode
 /data/current_audio.mp3
+test.py
