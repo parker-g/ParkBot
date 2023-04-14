@@ -3,6 +3,7 @@ import discord
 import asyncio
 from discord.ext.commands import Cog
 from discord.ext import commands
+from config.config import NAUGHTY_WORDS
 
 class Reward(Cog):
     def __init__(self, bot):
@@ -24,6 +25,9 @@ class Reward(Cog):
         speech = ""
         for arg in args:
             speech += f" {arg}"
+        for term in NAUGHTY_WORDS:
+            if term == speech:
+                speech = "You naughty boy. No no."
         await self.processAudio(ctx, speech)
 
         current_channel = ctx.author.voice.channel
