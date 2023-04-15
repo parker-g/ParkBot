@@ -108,6 +108,7 @@ class MusicController(commands.Cog):
         self.playing = False
     
     async def waitTime(self, time_in_seconds):
+        print(f"Waiting for {time_in_seconds} seconds.")
         await asyncio.sleep(float(time_in_seconds))
         self.playing = False
         print("Done waiting")
@@ -134,7 +135,7 @@ class MusicController(commands.Cog):
                 audio_elapsed_time = queue_time - self.play_time
                 audio_length = self.getAudioLength(SONG_PATH)
                 time_to_wait = audio_length - audio_elapsed_time
-                await self.waitTime(time_to_wait)
+                await self.waitTime(time_to_wait + 3.0)
 
 
         # while songs are in the queue, 
@@ -142,8 +143,8 @@ class MusicController(commands.Cog):
             next_song = self.playlist.playque[0]
             if self.playing is False:
                 processing = await ctx.send(embed = Embed(title = f"Processing {next_song[0]}."))
-                self.download_task = asyncio.create_task(self.grabber.getSong(str(next_song[1])))
-                await processing.delete()
+                self.download_coro = await self.grabber.getSong(str(next_song[1]))
+                await processing.delete(delay=5.0)
 
                 if self.grabber.downloading is False:
                     self.play_task = asyncio.create_task(self.broadcastSong(ctx, next_song))
@@ -167,7 +168,7 @@ class MusicController(commands.Cog):
                 print("Cleaning up canceled task.")
         elif self.grabber.downloading is True:
             try:
-                await self.download_task.cancel()
+                await self.download_coro.cancel()
                 self.grabber.downloading = False
             except:
                 await helper.cleanAudioLeftovers()
