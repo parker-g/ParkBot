@@ -131,7 +131,7 @@ class MusicController(commands.Cog):
         if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
                 queue_time = time.time()
                 print(f"New song queued at: {queue_time} seconds from epoch")
-                audio_elapsed_time = self.play_time - queue_time
+                audio_elapsed_time = queue_time - self.play_time
                 audio_length = self.getAudioLength(SONG_PATH)
                 time_to_wait = audio_length - audio_elapsed_time
                 await self.waitTime(time_to_wait)
