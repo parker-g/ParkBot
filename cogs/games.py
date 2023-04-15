@@ -69,14 +69,20 @@ class Player(Cog):
     def __init__(self, ctx):
         self.name = ctx.author.name
         self.hand = []
+        self.bet = 0
+        self.done = False
+        self.winner = False  
+
+        #blackjack attributes
         self.bust = False
         self.blackJack = False
         self.tie = False
-        self.done = False
         if self.bust is True:
             self.done = True
-        self.winner = False        
-        self.bet = 0
+              
+        # poker attributes
+        self.button = False
+
 
 
 
@@ -202,9 +208,6 @@ class PlayerQueue(Cog):
         blackjack = BlackJackGame(self.bot, self)
         await blackjack.play(ctx)
 
-    
-        
-
 
 
 
@@ -222,6 +225,20 @@ class Dealer(Player):
         if self.bust is True:
             self.done = True
 
+    def dealCard(self, player:Player):
+        player.hand.append(self.deck[0])
+        self.cards_in_play.append(self.deck[0])
+        self.deck.remove(self.deck[0])
+
+    def dealHands(self) -> None:
+        for i in range(2):
+            for player in self.players:
+                self.dealCard(player)
+    #return cards doesn't work, need to fix maybe
+    def returnCardsToDeck(self):
+        self.deck += self.cards_in_play
+        self.cards_in_play = []
+
     def sumCards(self) -> int:
         total = 0
         for tuple in self.hand:
@@ -238,20 +255,10 @@ class Dealer(Player):
             self.dealCard(self)
         return
         
-    def dealCard(self, player:Player):
-        player.hand.append(self.deck[0])
-        self.cards_in_play.append(self.deck[0])
-        self.deck.remove(self.deck[0])
-
-    def returnCardsToDeck(self):
-        self.deck += self.cards_in_play
-        self.cards_in_play = []
+    
         
 
-    def dealHands(self) -> None:
-        for i in range(2):
-            for player in self.players:
-                self.dealCard(player)
+    
     
     def isBlackjack(self, player:Player):
         if player.sumCards() == 21:
@@ -276,7 +283,6 @@ class BlackJackGame(Cog):
         for player, member in self.player_queue:
             self.players.append(player)
         
-
         self.dealer = Dealer(self.deck, self.players)
 
 
@@ -289,11 +295,11 @@ class BlackJackGame(Cog):
             player.tie = False
             player.hand = []
 
-    def showHands(self, players:list[Player]):
+    def showHands(self, players:list[Player]) -> None:
         for player in players:
             print(f"\n{player.name} shows their cards. Their hand looks like this: {player.hand}. ")
-
-    async def cashOut(self, ctx, players):
+    
+    async def cashOut(self, ctx, players) -> None:
         economy = Economy(self.bot)
         for player in players:
             if player.winner:
@@ -308,7 +314,7 @@ class BlackJackGame(Cog):
                 await message.delete(delay=5.0)
                     
     
-    def getWinners(self, players:Player) -> list[Player]:
+    def getWinners(self, players:list[Player]) -> list[Player]:
         dealer = None
         winners = []
         tiebabies = []
@@ -409,6 +415,60 @@ class BlackJackGame(Cog):
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
-# register cog to bot
+
+class Poker(commands.Cog):
+    def __init__(self, bot, player_queue:PlayerQueue):
+        self.bot = bot
+        self.deck = Deck()
+        self.deck.shuffle()
+        self.player_queue = player_queue
+        self.players = []
+        for player, member in self.player_queue:
+            self.players.append(player)
+        self.dealer = Dealer(self.deck, self.players)
+        
+        self.small_blind = 0
+        self.big_blind = 0
+        
+    async def firstBlind(self, ctx):
+        pass
+    
+
+    async def assignButtonAndTakeBlinds(self, ctx):
+        num_players = len(self.players)
+        i = random.randint(0, num_players-1)
+        self.players[i].button = True
+        button_msg = await ctx.send(embed=Embed(title=f"{self.players[i].name} holds the button this round."))
+        await button_msg.delete(delay=10.0)
+        if i == num_players - 1 :
+            small_blind_idx = 0
+            big_blind_idx = 1
+        elif i == num_players - 2:
+            small_blind_idx = -1
+            big_blind_idx = 0
+        else:
+            small_blind_idx = i + 1
+            big_blind_idx = i + 2
+        await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx]}.", description="Type the amount of GleepCoins you set as small blind"))
+
+
+
+    # button moves clockwise, clockwise will be right for our purposes
+    async def progressButton(self):
+        for i in range(len(self.players)-1):
+            # find player who has button, pass button to next player
+            if self.players[i].button is True:
+                self.players[i].button = False
+                if self.players[i+1] is None:
+                    self.players[0].button = True
+                else:
+                    self.players[i+1].button = True
+                return
+        
+    
+
+
+
+
 async def setup(bot):
     await bot.add_cog(PlayerQueue(bot))        

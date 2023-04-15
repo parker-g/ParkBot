@@ -110,6 +110,7 @@ class MusicController(commands.Cog):
     async def waitTime(self, time_in_seconds):
         await asyncio.sleep(float(time_in_seconds))
         self.playing = False
+        print("Done waiting")
         return
 
     @commands.command()
@@ -129,10 +130,12 @@ class MusicController(commands.Cog):
         # if music already playing: wait
         if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
                 queue_time = time.time()
+                print(f"New song queued at: {queue_time} seconds from epoch")
                 audio_elapsed_time = self.play_time - queue_time
                 audio_length = self.getAudioLength(SONG_PATH)
                 time_to_wait = audio_length - audio_elapsed_time
                 await self.waitTime(time_to_wait)
+
 
         # while songs are in the queue, 
         while (self.playlist.isEmpty() is False):
@@ -180,6 +183,7 @@ class MusicController(commands.Cog):
                 try:
                     self.voice.play(source=audio)
                     self.play_time = time.time()
+                    print(f"This song started at: {self.play_time} secs from epoch.")
                     playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours:01d}:{minutes:02d}:{seconds:02d}"))
                     await playing_message.delete(delay = length)
                     await self.waitTime(length)
