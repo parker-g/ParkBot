@@ -416,6 +416,9 @@ class BlackJackGame(Cog):
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
 
+
+# could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
+# bot, deck, player queue, players, and dealer.
 class Poker(commands.Cog):
     def __init__(self, bot, player_queue:PlayerQueue):
         self.bot = bot
@@ -427,6 +430,7 @@ class Poker(commands.Cog):
             self.players.append(player)
         self.dealer = Dealer(self.deck, self.players)
         
+        # poker specific attributes 
         self.small_blind = 0
         self.big_blind = 0
         
@@ -449,11 +453,11 @@ class Poker(commands.Cog):
         else:
             small_blind_idx = i + 1
             big_blind_idx = i + 2
-        await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx]}.", description="Type the amount of GleepCoins you set as small blind"))
+        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx]}.", description="Type the amount of GleepCoins you set as small blind"))
 
 
 
-    # button moves clockwise, clockwise will be right for our purposes
+    # button moves clockwise, clockwise will be rightwards -> for our purposes
     async def progressButton(self):
         for i in range(len(self.players)-1):
             # find player who has button, pass button to next player

@@ -128,14 +128,13 @@ class MusicController(commands.Cog):
             current_channel = ctx.author.voice.channel
             self.voice = await current_channel.connect(timeout = None)
 
-        # if music already playing: wait
-        if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
-                queue_time = time.time()
-                print(f"New song queued at: {queue_time} seconds from epoch")
-                audio_elapsed_time = queue_time - self.play_time
-                audio_length = self.getAudioLength(SONG_PATH)
-                time_to_wait = audio_length - audio_elapsed_time
-                await self.waitTime(time_to_wait + 3.0)
+        # if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
+        #         queue_time = time.time()
+        #         print(f"New song queued at: {queue_time} seconds from epoch")
+        #         audio_elapsed_time = queue_time - self.play_time
+        #         audio_length = self.getAudioLength(SONG_PATH)
+        #         time_to_wait = audio_length - audio_elapsed_time
+        #         await self.waitTime(time_to_wait + 3.0)
 
 
         # while songs are in the queue, 
@@ -149,6 +148,8 @@ class MusicController(commands.Cog):
                 if self.grabber.downloading is False:
                     self.play_task = asyncio.create_task(self.broadcastSong(ctx, next_song))
                     await self.play_task
+            else:
+                await self.timer
 
         if self.playlist.isEmpty():
             await self.voice.disconnect()
@@ -187,7 +188,7 @@ class MusicController(commands.Cog):
                     print(f"This song started at: {self.play_time} secs from epoch.")
                     playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours:01d}:{minutes:02d}:{seconds:02d}"))
                     await playing_message.delete(delay = length)
-                    await self.waitTime(length)
+                    self.timer = await self.waitTime(length)
                     self.playlist.remove()
                 except: 
                     self.playing = False
