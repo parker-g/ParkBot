@@ -419,6 +419,7 @@ class BlackJackGame(Cog):
 
 # could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
 # bot, deck, player queue, players, and dealer.
+
 class Poker(commands.Cog):
     def __init__(self, bot, player_queue:PlayerQueue):
         self.bot = bot
@@ -453,7 +454,16 @@ class Poker(commands.Cog):
         else:
             small_blind_idx = i + 1
             big_blind_idx = i + 2
-        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx]}.", description="Type the amount of GleepCoins you set as small blind"))
+        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx]}.", description=f"{self.players[small_blind_idx].capitalize()}, type the amount of GleepCoins to set as small blind."))
+        message, user = await self.bot.wait_for("message", timeout=15.0)
+        if user.name == self.players[small_blind_idx].name:
+            try:
+                small_blind = int(message)
+                # set this player's bet equal to small blind
+                self.players[small_blind_idx]
+            except TypeError:
+                error_message = await ctx.send(embed=Embed(title="Please type a valid number."))
+                await error_message.delete(delay=7.0)
 
 
 
