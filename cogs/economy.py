@@ -1,5 +1,6 @@
 import pandas as pd
 import helper
+from games import Player
 from discord.ext.commands import Context
 from discord.ext import commands
 from discord.ext.commands import Cog
@@ -8,6 +9,25 @@ from discord import Embed
 class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def withdrawMoneyPlayer(self, ctx, player:Player, money:int) -> None:
+        money = int(money)
+        bank_df = pd.read_csv(BANK_PATH, header="infer")
+        users = bank_df.Usernames
+        users = list(users)
+        # if member isn't in dataframe already, put them in and give them 100 GleepCoins
+        if player.name not in users:
+            bank_df.loc[len(bank_df.index)] = [player.name, 1000]
+        current_balance = helper.getUserAmount(bank_df, player.name)
+        # if user has insufficient funds, then don't let them withdraw
+        if money > current_balance:
+            broke_message = await ctx.send(embed = Embed(title=f"{player.name}, you're broke. Your current balance is {current_balance}."))
+            await broke_message.delete(delay=10.0)
+            return False
+        helper.setUserAmount(bank_df, player.name, current_balance - money)
+        bank_df.to_csv(BANK_PATH, index=False)
+
+
     async def withdrawMoney(self, ctx:Context, money:int) -> None:
         """
         Takes context and amount as arguments; withdraws said amount from ctx.author's bank balance.
