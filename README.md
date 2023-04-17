@@ -2,6 +2,9 @@
 
 **this discord bot has everything a college student needs for their discord server. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!**
 
+# music feature
+**let's be honest guys. why does anyone really want a discord bot? this music feature is not the fastest, or the most reliable. but it isn't banned ;D use `play` to add a song to queue, or `skip` to skip the current song. wondering what's up next? use `showQ` to see the song request queue. where does it source music from? YOU will never know unless you peer into the deep TUBE of source code provided in the music cog.**
+
 # canvas functionality breakdown
 **have u ever created a discord server to keep in touch with classmates, only to find you get little value from your server? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! It's as easy as configuring a canvas api token, setting up your canvas url and class ID in the get_assignments.py file, then booting up your bot and calling the command! I'm open to adding more canvas-api functionality to this bot upon request!**
 
@@ -9,22 +12,25 @@
 **ever wondered what you would look like as a dude in a furry animal suit? well - this bot can help you answer that age old desire. once you have the bot set up, simply use the ```$findFurry``` command in chat to be greeted with a precisely generated (just kidding, random number generated) image of your alter ego. use this on your friends, or your foes.**
 
 # gambling breakdown
-**this feature is currently a work in progress! for anyone concerned, the blackjack logic is complete, and now I simply (sophisticatedly) need to implement the ability for discord chat users to interact with the blackjack game through discord chat. one step at a time folks!**
+**gamble, without truly gambling! introducing, a blackjack game, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. the first time you ever set a bet, you will be gifted 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!****
+**blackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.
+**in development - texas hold em poker!!! keep your eyes peeled**
+
+# text to speech functionality
+**everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. if your guild members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.**
 
 # coming soon
-* currency to use in gambling (not tied to real money)
-* text-to-speech feature
 * open to suggestions! I need to challenge myself, dream big!!
 
 # dall-e-mini pitch/ set up below
 
-**Ever wanted to access Dall-E mini from your own discord server? Look no further! Using the power of replicate API hosting, anyone with a github account can use AI to generate images in discord. Side note: every request to replicate's API uses a token, of which new users have only 15 - 20. Because of that, this bot is limited to sending only 15-20 dall-E-mini generations from each github account it is associated with. NOW, there are benefits of using an API as well. You don't have to use your own local processing power to generate these images, plus replicate is free until you run out of tokens ( as long as you don't enter your card info! ) You will not be able to complete any requests after you are out of tokens. It's not like AWS where you might accidentally get $2 million charged for overdrawing on API tokens. So why not give it a try :D**
+**Ever wanted to access Dall-E mini from your own discord server? Look no further! Using the power of replicate API hosting, anyone with a github account can use AI to generate images in discord. Side note: every request to replicate's API uses a token, of which new users have only 15 - 20. Because of that, this bot is limited to sending only 15-20 dall-E-mini generations from each github account it is associated with. NOW, there are benefits of using an API as well. You don't have to use your own local processing power to generate these images, plus replicate is free until you run out of tokens ( as long as you don't enter your card info! ) You will not be able to complete any requests after you are out of tokens. It's not like AWS where you might accidentally get $2 million charged for overdrawing on API tokens. So why not give it a try :D This walkthrough assumes you are using a windows machine, and GitHub desktop installed, in the default location.**
 
 **Let's begin with creating a virtual environment**
 * Open a cmd terminal in VSCode
-* Make sure you're pathed into 'dall-e-discord-bot'
-
-```cd Documents/GitHub/dall-e-discord-bot```
+* Make sure you're pathed into 'ParkBot'
+* 
+```cd Documents/GitHub/ParkBot```
 
 * create a virtual environment using python venv library - the first 'venv' is telling windows that's the module we want to call, while the '.venv' is what we are naming our virtual environment
 
