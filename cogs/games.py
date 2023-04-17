@@ -208,6 +208,10 @@ class PlayerQueue(Cog):
         blackjack = BlackJackGame(self.bot, self)
         await blackjack.play(ctx)
 
+    @commands.command()
+    async def playPoker(self, ctx):
+        poker = Poker(self.bot, self)
+        await poker.assignButtonAndTakeBlinds(ctx)
 
 
 
@@ -427,7 +431,7 @@ class Poker(commands.Cog):
         self.deck.shuffle()
         self.player_queue = player_queue
         self.players = []
-        for player, member in self.player_queue:
+        for player, member in self.player_queue.q:
             self.players.append(player)
         self.dealer = Dealer(self.deck, self.players)
         
@@ -438,7 +442,6 @@ class Poker(commands.Cog):
     async def firstBlind(self, ctx):
         pass
     
-    @commands.commmand("pokerTest")
     async def assignButtonAndTakeBlinds(self, ctx):
         economy = Economy(self.bot)
         num_players = len(self.players)
@@ -455,12 +458,12 @@ class Poker(commands.Cog):
         else:
             small_blind_idx = i + 1
             big_blind_idx = i + 2
-        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx]}.", description=f"{self.players[small_blind_idx].capitalize()}, type the amount of GleepCoins to set as small blind."))
+        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx].name.capitalize()}.", description=f"{self.players[small_blind_idx].name.capitalize()}, type the amount of GleepCoins to set as small blind."))
         while self.small_blind == 0:
-            message, user = await self.bot.wait_for("message", timeout = None)
-            if user.name == self.players[small_blind_idx].name:
+            message = await self.bot.wait_for("message", timeout = None)
+            if message.author.name == self.players[small_blind_idx].name:
                 try:
-                    small_blind = int(message)
+                    small_blind = int(message.content)
                     await economy.withdrawMoneyPlayer(ctx, self.players[small_blind_idx], small_blind)
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
                     if self.players[small_blind_idx].bet > 0:
@@ -470,7 +473,7 @@ class Poker(commands.Cog):
                     error_message = await ctx.send(embed=Embed(title="Please type a valid number."))
                     await error_message.delete(delay=7.0)
         await input_message.delete(timeout=15.0)
-        big_message = await ctx.send(embed=Embed(title=f"Set the big blind, {self.players[big_blind_idx]}."))
+        big_message = await ctx.send(embed=Embed(title=f"Set the big blind, {self.players[big_blind_idx].name.capitalize()}."))
         while self.big_blind == 0:
             big_message, big_user = await self.bot.wait_for("message", timeout = None)
             if big_user.name == self.players[big_blind_idx].name:

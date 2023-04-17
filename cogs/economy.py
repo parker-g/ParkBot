@@ -1,16 +1,17 @@
 import pandas as pd
 import helper
-from games import Player
 from discord.ext.commands import Context
 from discord.ext import commands
 from discord.ext.commands import Cog
 from config.config import BANK_PATH
 from discord import Embed
+
+
 class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def withdrawMoneyPlayer(self, ctx, player:Player, money:int) -> None:
+    async def withdrawMoneyPlayer(self, ctx, player, money:int) -> None:
         money = int(money)
         bank_df = pd.read_csv(BANK_PATH, header="infer")
         users = bank_df.Usernames
