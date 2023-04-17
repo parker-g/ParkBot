@@ -6,20 +6,21 @@
 **let's be honest guys. why does anyone really want a discord bot? this music feature is not the fastest, or the most reliable. but it isn't banned ;D use `play` to add a song to queue, or `skip` to skip the current song. wondering what's up next? use `showQ` to see the song request queue. where does it source music from? YOU will never know unless you peer into the deep TUBE of source code provided in the music cog.**
 
 # canvas functionality breakdown
-**have u ever created a discord server to keep in touch with classmates, only to find you get little value from your server? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! It's as easy as configuring a canvas api token, setting up your canvas url and class ID in the get_assignments.py file, then booting up your bot and calling the command! I'm open to adding more canvas-api functionality to this bot upon request!**
+**have u ever created a discord server to keep in touch with classmates? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! to setup - configure a canvas api token, set up your canvas url and class ID in the config.py file. I'm open to adding more canvas-api functionality to this bot upon request!**
 
 # find your "furrsona" explanation
 **ever wondered what you would look like as a dude in a furry animal suit? well - this bot can help you answer that age old desire. once you have the bot set up, simply use the ```$findFurry``` command in chat to be greeted with a precisely generated (just kidding, random number generated) image of your alter ego. use this on your friends, or your foes.**
 
 # gambling breakdown
-**gamble, without truly gambling! introducing, a blackjack game, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. the first time you ever set a bet, you will be gifted 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!****
-**blackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.
+**gamble, without truly gambling! introducing gambling games, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. first time players begin with 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!**
+**blackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.**
 **in development - texas hold em poker!!! keep your eyes peeled**
 
 # text to speech functionality
-**everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. if your guild members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.**
+**everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. ParkBot will join your voice channel, and repeat the words you typed. if your guild members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.**
 
 # coming soon
+* texas hold'em poker
 * open to suggestions! I need to challenge myself, dream big!!
 
 # dall-e-mini pitch/ set up below
