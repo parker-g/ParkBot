@@ -11,7 +11,7 @@ class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def withdrawMoneyPlayer(self, ctx, player, money:int) -> None:
+    async def withdrawMoneyPlayer(self, ctx, player, money:int) -> bool:
         money = int(money)
         bank_df = pd.read_csv(BANK_PATH, header="infer")
         users = bank_df.Usernames
@@ -27,6 +27,7 @@ class Economy(Cog):
             return False
         helper.setUserAmount(bank_df, player.name, current_balance - money)
         bank_df.to_csv(BANK_PATH, index=False)
+        return True
 
 
     async def withdrawMoney(self, ctx:Context, money:int) -> None:

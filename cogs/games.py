@@ -458,39 +458,44 @@ class Poker(commands.Cog):
         else:
             small_blind_idx = i + 1
             big_blind_idx = i + 2
+        await ctx.send(f"Button :{self.players[i].name}, small blind: {self.players[small_blind_idx].name}, big blind: {self.players[big_blind_idx].name}")
         input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx].name.capitalize()}.", description=f"{self.players[small_blind_idx].name.capitalize()}, type the amount of GleepCoins to set as small blind."))
         while self.small_blind == 0:
             message = await self.bot.wait_for("message", timeout = None)
             if message.author.name == self.players[small_blind_idx].name:
                 try:
                     small_blind = int(message.content)
-                    await economy.withdrawMoneyPlayer(ctx, self.players[small_blind_idx], small_blind)
+                    success = await economy.withdrawMoneyPlayer(ctx, self.players[small_blind_idx], small_blind)
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
-                    if self.players[small_blind_idx].bet > 0:
+                    if success is True:
                         self.small_blind = small_blind
                         await ctx.send(embed = Embed(title=f"Small blind set at {small_blind} GleepCoins."))
                 except TypeError:
                     error_message = await ctx.send(embed=Embed(title="Please type a valid number."))
                     await error_message.delete(delay=7.0)
-        await input_message.delete(timeout=15.0)
+        await input_message.delete(delay=15.0)
         big_message = await ctx.send(embed=Embed(title=f"Set the big blind, {self.players[big_blind_idx].name.capitalize()}."))
         while self.big_blind == 0:
             big_message, big_user = await self.bot.wait_for("message", timeout = None)
             if big_user.name == self.players[big_blind_idx].name:
                 try:
-                    big_blind = int(big_message)
+                    big_blind = int(big_message.content)
                     if big_blind <= self.small_blind:
                         error_msg = await ctx.send(embed=Embed(title=f"Big blind must be larger than small blind. Please type a number larger than {self.small_blind}."))
                         await error_msg.delete(delay = 7.0)
                     elif big_blind > self.small_blind:
-                        await economy.withdrawMoneyPlayer(ctx, self.players[big_blind_idx], big_blind)
-                        if self.players[big_blind_idx].bet > 0:
+                        success = await economy.withdrawMoneyPlayer(ctx, self.players[big_blind_idx], big_blind)
+                        if success is True:
                             big_blind_alert = await ctx.send(embed = Embed(f"Big blind set at {big_blind} GleepCoins."))
                             await big_blind_alert.delete(delay = 7.0)
                             self.big_blind = big_blind
                 except TypeError:
                     int_error = await ctx.send(embed = Embed(title=f"Please type a valid integer."))
                     await int_error.delete(delay = 7.0)
+
+    async def play(self, ctx):
+        await self.assignButtonAndTakeBlinds(ctx)
+        await self.dealer.dealHands()
 
     # button moves clockwise, clockwise will be rightwards -> for our purposes
     async def progressButton(self):
