@@ -9,6 +9,7 @@ import os
 import html
 import time
 import discord
+import youtube_dl as ytdl
 import yt_dlp
 import asyncio
 
@@ -50,25 +51,27 @@ class Grabber:
         self.bot = bot
         self.downloading = False
         self.service = build('youtube', 'v3', developerKey=GOOGLE_API_KEY)
-    
-    async def getSearchResults(self, ctx=None, *args, maxResults=1):
+
+    # maxResults can be added back in for polling for more than 1 result
+    # can add ctx in to create search function for users
+    async def getSearchResults(self, *args) -> list[tuple[str, str]]:
         query = ""
         for arg in args:
             query += f"{str(arg)} "
         request = self.service.search().list(
         part='snippet',
-        maxResults=int(maxResults),
+        # maxResults=int(maxResults),
         q=str(args))
 
         response = request.execute() # response is a json object in dict format
-        titles_and_ids = []
+       # titles_and_ids = []
         for item in response["items"]:
             id = item["id"]["videoId"]
             title = html.unescape(item["snippet"]["title"])
-            titles_and_ids.append((title, id))
+            title_and_id = (title, id)
+            # titles_and_ids.append((title, id))
 
-        if ctx is None:
-            return titles_and_ids
+        return title_and_id
     
     async def getSong(self, youtube_id):
         base_address = "https://www.youtube.com/watch?v="
@@ -106,7 +109,25 @@ class MusicController(commands.Cog):
         self.grabber = Grabber(bot)
         self.voice = None
         self.playing = False
-    
+        self.FFMPEG_OPTIONS = {"before_options": "-reconnect 1 -reconnected_streamed 1 -reconnect_delay_max 5"}
+
+    # stolen from youtube guy
+    def ydlSearch(self, string) -> tuple:
+        YDL_OPTIONS = {
+            "noplaylist": "True",
+            # "max_downloads": 1,
+            'format': 'mp3/bestaudio/best',
+        }
+        with ytdl.YoutubeDL(YDL_OPTIONS) as ydl:
+            try:
+                info = ydl.extract_info(f"ytsearch:{string}", download=False)["entries"][0]
+                print(info)
+            except Exception:
+                return False
+            # url, title
+            return (info['formats'][0]['url'], info['title'])
+        
+
     async def waitTime(self, time_in_seconds):
         print(f"Waiting for {time_in_seconds} seconds.")
         await asyncio.sleep(float(time_in_seconds))
@@ -117,12 +138,62 @@ class MusicController(commands.Cog):
     @commands.command()
     async def showQ(self, ctx):
         await self.playlist.showQueue(self, ctx)
+    
+    def play_next(self):
+        if len(self.playlist.playque) > 0:
+            self.playing = True
+            song_url, title = self.playlist.playque[0]
+            self.playlist.remove() 
+            self.voice.play(discord.FFmpegPCMAudio(song_url, **self.FFMPEG_OPTIONS), after = lambda e: self.play_next())
+        else:
+            self.playing = False
+
+    async def play_music(self, ctx):
+        if len(self.playlist.playque) > 0:
+            self.playing = True
+            # store first song in queue into variable
+            author_vc = ctx.author.voice.channel
+            if self.voice == None or not self.voice.is_connected():
+                self.voice = await author_vc.connect()
+
+                if self.voice == None:
+                    await ctx.send(embed=Embed(title=f"Error while trying to connect to voice channel."))
+                    return
+            else:
+                await self.voice.move_to(author_vc)
+            song_url, title = self.playlist.playque[0]
+            self.playlist.remove()
+            self.voice.play(discord.FFmpegPCMAudio(song_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next())
+
+    @commands.command()
+    async def newPlay(self, ctx, *args):
+        query = " ".join(args)
+        author_vc = ctx.author.voice.channel
+
+        if author_vc is None:
+            await ctx.send(embed=Embed(title=f"You are not connected to a voice channel."))
+        
+        else:
+            video = self.ydlSearch(query)
+            url, title = video
+            await ctx.send(embed=Embed(title=f"{title} added to queue."))
+            self.playlist.add(video)
+
+            if self.playing == False:
+                await self.play_music(ctx)
+
+    @commands.command()
+    async def newSkip(self, ctx):
+        if self.voice != None and self.voice:
+            self.voice.stop()
+            await self.voice.play_music(ctx)
+
 
     @commands.command()
     async def play(self, ctx, *args):
         # search requested song and add it to the queue
-        title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
-        await self.playlist.addToQ(self.playlist, ctx, title_and_id[0])
+        title_and_id = await self.grabber.getSearchResults(None, args)
+        await self.playlist.addToQ(self.playlist, ctx, title_and_id)
 
         if self.voice is None:
             current_channel = ctx.author.voice.channel
@@ -149,7 +220,7 @@ class MusicController(commands.Cog):
                     self.play_task = asyncio.create_task(self.broadcastSong(ctx, next_song))
                     await self.play_task
             else:
-                await self.timer
+                await self.waitTime(15)
 
         if self.playlist.isEmpty():
             await self.voice.disconnect()
@@ -188,7 +259,6 @@ class MusicController(commands.Cog):
                     print(f"This song started at: {self.play_time} secs from epoch.")
                     playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours:01d}:{minutes:02d}:{seconds:02d}"))
                     await playing_message.delete(delay = length)
-                    self.timer = await self.waitTime(length)
                     self.playlist.remove()
                 except: 
                     self.playing = False
