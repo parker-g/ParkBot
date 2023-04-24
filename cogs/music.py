@@ -26,7 +26,6 @@ class PlayList(commands.Cog):
     def add(self, video_tuple):
         self.playque.append(video_tuple)
 
-    @commands.command()
     async def addToQ(self, ctx, video_tuple):
         self.add(video_tuple)
         added_to_q = await ctx.send(embed = Embed(title=f"{video_tuple[0]} added to queue."))
@@ -35,8 +34,6 @@ class PlayList(commands.Cog):
     def remove(self): 
         self.playque.popleft()
 
-
-    @commands.command("showQ")
     async def showQueue(self, ctx):
         pretty_string = ""
         count = 1
@@ -146,7 +143,6 @@ class MusicController(commands.Cog):
             return
 
     def _play_song(self):
-        # download song
         if not self.playlist.isEmpty():
             self.current_song = self.playlist.playque[0]
             if not self.from_skip:
@@ -168,6 +164,7 @@ class MusicController(commands.Cog):
         if self.voice is None:
             current_channel = ctx.author.voice.channel
             self.voice = await current_channel.connect(timeout = None)
+
         if self.playing is False:
             self._play_song()
         

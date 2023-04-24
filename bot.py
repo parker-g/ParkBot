@@ -48,7 +48,7 @@ async def help(ctx):
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     em.add_field(name='voice commands', value="`say`")
     em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
-    em.add_field(name='music commands', value="`play`, `skip`, `showQ`")
+    em.add_field(name='music commands', value="`play`, `skip`, `showQ`, `currentSong`, `kickBot`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -136,9 +136,20 @@ async def skip(ctx):
     await ctx.send(embed = em)
 
 @help.command()
+async def currentSong(ctx):
+    em = discord.Embed(title="currentSong", description="shows the song currently playing")
+    await ctx.send(embed = em)
+
+@help.command()
+async def kickBot(ctx):
+    em = discord.Embed(title="kickBot", description="kicks your bot from the voice channel.")
+    await ctx.send(embed = em)
+
+@help.command()
 async def showPlayers(ctx):
     em = discord.Embed(title="showPlayers", description="shows all the players who are in the gaming player pool")
     await ctx.send(embed = em)
+
 @help.command()
 async def clearQ(ctx):
     em = discord.Embed(title="clearQ", description= "removes all players from player pool, and returns their queued bets to each respective bank balance.") 
