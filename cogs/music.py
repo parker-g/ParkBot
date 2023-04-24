@@ -10,6 +10,7 @@ import html
 import time
 import discord
 import yt_dlp
+from youtube_dl import YoutubeDL
 import asyncio
 
 SONG_PATH = "data/current_audio.mp3"
@@ -58,7 +59,7 @@ class Grabber:
         request = self.service.search().list(
         part='snippet',
         maxResults=int(maxResults),
-        q=str(args))
+        q=str(query))
 
         response = request.execute() # response is a json object in dict format
         titles_and_ids = []
@@ -70,7 +71,7 @@ class Grabber:
         if ctx is None:
             return titles_and_ids
     
-    async def getSong(self, youtube_id):
+    def getSong(self, youtube_id):
         base_address = "https://www.youtube.com/watch?v="
         ytdl_format_options = {
             "no_playlist": True,
@@ -87,25 +88,20 @@ class Grabber:
 
         youtube_url = [base_address + youtube_id]
         
-        if (self.downloading is False): 
-            self.downloading = True
-            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-                ydl.download(youtube_url)
-            # check for existence of temp files to check if song's done downloading
-            self.downloading = False
-            return
-        else:
-            print("You're already downloading a song right now.")
-            return
+        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+            ydl.download(youtube_url)
+        return
 
 
 class MusicController(commands.Cog):
     def __init__(self, bot, playlist:PlayList):
         self.bot = bot
         self.playlist = playlist
+        self.current_song = None
         self.grabber = Grabber(bot)
         self.voice = None
         self.playing = False
+        self.from_skip = False
     
     async def waitTime(self, time_in_seconds):
         print(f"Waiting for {time_in_seconds} seconds.")
@@ -119,6 +115,51 @@ class MusicController(commands.Cog):
         await self.playlist.showQueue(self, ctx)
 
     @commands.command()
+    async def currentSong(self, ctx):
+        await ctx.send(embed=Embed(title=f"Current Song", description=f"{self.current_song[0]}"))
+
+    # I want to continue experimenting with this later down the line -
+    #seems there's some way to play songs without downloading ? not sure
+    async def playURL(self, ctx, url):
+        author_vc = ctx.author.voice.channel
+        if not self.voice:
+            self.voice = await author_vc.connect()
+        
+        with YoutubeDL() as ydl:
+            info = ydl.extract_info(url, download=False)
+            audio_url = info['formats'][0]['url']
+            self.voice.play(discord.FFmpegPCMAudio(audio_url))
+
+    #must take error as a parameter since it will be passed into an "after" function
+    def play_next(self, err):
+        self.playing = False
+        if not self.playlist.isEmpty():
+            self.current_song = self.playlist.playque[0]
+            self.playlist.remove()
+            self.grabber.getSong(self.current_song[1])
+            audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            if self.playing is False:
+                self.playing = True
+                self.voice.play(source = audio, after = self.play_next)
+        elif err:
+            print(err)
+            return
+
+    def _play_song(self):
+        # download song
+        if not self.playlist.isEmpty():
+            self.current_song = self.playlist.playque[0]
+            if not self.from_skip:
+                self.playlist.remove()
+            self.from_skip = False
+            self.grabber.getSong(self.current_song[1])
+            
+            audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            if self.playing is False:
+                self.playing = True
+                self.voice.play(source = audio, after = self.play_next)
+
+    @commands.command()
     async def play(self, ctx, *args):
         # search requested song and add it to the queue
         title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
@@ -127,75 +168,28 @@ class MusicController(commands.Cog):
         if self.voice is None:
             current_channel = ctx.author.voice.channel
             self.voice = await current_channel.connect(timeout = None)
-
-        # if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
-        #         queue_time = time.time()
-        #         print(f"New song queued at: {queue_time} seconds from epoch")
-        #         audio_elapsed_time = queue_time - self.play_time
-        #         audio_length = self.getAudioLength(SONG_PATH)
-        #         time_to_wait = audio_length - audio_elapsed_time
-        #         await self.waitTime(time_to_wait + 3.0)
-
-
-        # while songs are in the queue, 
-        while (self.playlist.isEmpty() is False):
-            next_song = self.playlist.playque[0]
-            if self.playing is False:
-                processing = await ctx.send(embed = Embed(title = f"Processing {next_song[0]}."))
-                self.download_coro = await self.grabber.getSong(str(next_song[1]))
-                await processing.delete(delay=5.0)
-
-                if self.grabber.downloading is False:
-                    self.play_task = asyncio.create_task(self.broadcastSong(ctx, next_song))
-                    await self.play_task
-            else:
-                await self.timer
-
-        if self.playlist.isEmpty():
-            await self.voice.disconnect()
-            self.voice = None
-
+        if self.playing is False:
+            self._play_song()
+        
+        
     @commands.command()
     async def skip(self, ctx):
-        if (self.playlist.isEmpty()) and (self.playing is False):
-            await ctx.send(embed = Embed(title="The queue must not be empty to skip a song."))
-        elif self.playing is True:
-            try:
-                await ctx.send(embed=Embed(title="Skipping current song."))
-                self.playlist.remove()
-                await self.play_task.cancel()
-                self.playing = False
-            except:
-                print("Cleaning up canceled task.")
-        elif self.grabber.downloading is True:
-            try:
-                await self.download_coro.cancel()
-                self.grabber.downloading = False
-            except:
-                await helper.cleanAudioLeftovers()
-                print("Cleaning up canceled download")
+        if self.playlist.isEmpty():
+            await ctx.send(embed=Embed(title=f"Queue is already empty."))
+        else:
+            await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
+            self.voice.stop()
+            self.playing = False
+            self.from_skip = True
+            self._play_song()
 
-    async def broadcastSong(self, ctx, name_and_id):
-        if self.grabber.downloading is False:
-            try:
-                audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
-                self.playing = True
-                length = self.getAudioLength(SONG_PATH)
-                hours, minutes, seconds = self.formatAudioLength(length)
-                try:
-                    self.voice.play(source=audio)
-                    self.play_time = time.time()
-                    print(f"This song started at: {self.play_time} secs from epoch.")
-                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours:01d}:{minutes:02d}:{seconds:02d}"))
-                    await playing_message.delete(delay = length)
-                    self.timer = await self.waitTime(length)
-                    self.playlist.remove()
-                except: 
-                    self.playing = False
-                    # this is where control flows when task is canceled
-            except:
-                self.playing = False
-                print("Error accessing song from path provided.")
+    @commands.command()
+    async def kickBot(self, ctx):
+        if self.playing is True:
+            self.voice.stop()
+        await self.voice.disconnect()
+        self.voice = None
+
 
     def getAudioLength(self, path_to_audio):
         audio = mp3.MP3(path_to_audio)
