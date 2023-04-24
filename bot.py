@@ -1,7 +1,7 @@
-import discord
-from config.config import TOKEN, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
-import logging
 from discord.ext import commands
+from config.config import TOKEN
+import logging
+import discord
 import helper
 
 #note for me:
@@ -26,8 +26,6 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 # remove the default empty help command, so i can replace it with my own
 bot.remove_command('help')
 
-
-# on the event called `on_ready`, python terminal shows that the bot is logged in by printing 
 @bot.event
 async def on_ready():
     await bot.load_extension("cogs.economy")
@@ -200,7 +198,6 @@ async def resetJack(ctx):
 #     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
 #     image = test.img_test0()
 #     await ctx.send(embed = em, file=discord.File(image))
-
 
 
 bot.run(TOKEN, log_handler=handler)

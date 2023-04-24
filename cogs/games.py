@@ -82,6 +82,7 @@ class Player(Cog):
               
         # poker attributes
         self.button = False
+        self.thread = None
 
 
 
@@ -120,11 +121,12 @@ class PlayerQueue(Cog):
     def __init__(self, bot):
         self.bot = bot
         self.q = []
-    
+
     @commands.command("joinQ")
     async def joinQueue(self, ctx):
         new_player = Player(ctx)
         # check if person using command is already in the player pool
+
         for player, member in self.q:
             if ctx.author.name == player.name:
                 # if so, tell user that they're already in the queue
@@ -132,11 +134,10 @@ class PlayerQueue(Cog):
                 message = await ctx.send(embed = Embed(title=message_str))
                 await message.delete(delay=5.0)
                 return
-        # if not, add them to player pool
 
         # so Q will be a list of tuples of (player object, discord.Member object)
         self.q.append((new_player, ctx.author))
-        message_str = f"{ctx.author.name} has been added to blackjack queue."
+        message_str = f"{ctx.author.name} has been added to players queue."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
         
@@ -211,7 +212,7 @@ class PlayerQueue(Cog):
     @commands.command()
     async def playPoker(self, ctx):
         poker = Poker(self.bot, self)
-        await poker.assignButtonAndTakeBlinds(ctx)
+        await poker.play(ctx)
 
 
 
@@ -426,6 +427,7 @@ class BlackJackGame(Cog):
 
 class Poker(commands.Cog):
     def __init__(self, bot, player_queue:PlayerQueue):
+        self.threads = {}
         self.bot = bot
         self.deck = Deck()
         self.deck.shuffle()
@@ -445,6 +447,8 @@ class Poker(commands.Cog):
     async def assignButtonAndTakeBlinds(self, ctx):
         economy = Economy(self.bot)
         num_players = len(self.players)
+        if num_players < 2:
+            await ctx.send(f"You don't have enough players to play Poker.")
         i = random.randint(0, num_players-1)
         self.players[i].button = True
         button_msg = await ctx.send(embed=Embed(title=f"{self.players[i].name} holds the button this round."))
@@ -458,7 +462,7 @@ class Poker(commands.Cog):
         else:
             small_blind_idx = i + 1
             big_blind_idx = i + 2
-        await ctx.send(f"Button :{self.players[i].name}, small blind: {self.players[small_blind_idx].name}, big blind: {self.players[big_blind_idx].name}")
+        await ctx.send(embed=Embed(title=f"Game Info:", description= f"Button :{self.players[i].name} \nSmall blind: {self.players[small_blind_idx].name} \nBig blind: {self.players[big_blind_idx].name}"))
         input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[small_blind_idx].name.capitalize()}.", description=f"{self.players[small_blind_idx].name.capitalize()}, type the amount of GleepCoins to set as small blind."))
         while self.small_blind == 0:
             message = await self.bot.wait_for("message", timeout = None)
@@ -476,8 +480,8 @@ class Poker(commands.Cog):
         await input_message.delete(delay=15.0)
         big_message = await ctx.send(embed=Embed(title=f"Set the big blind, {self.players[big_blind_idx].name.capitalize()}."))
         while self.big_blind == 0:
-            big_message, big_user = await self.bot.wait_for("message", timeout = None)
-            if big_user.name == self.players[big_blind_idx].name:
+            big_message = await self.bot.wait_for("message", timeout = None)
+            if big_message.author == self.players[big_blind_idx].name:
                 try:
                     big_blind = int(big_message.content)
                     if big_blind <= self.small_blind:
@@ -493,9 +497,26 @@ class Poker(commands.Cog):
                     int_error = await ctx.send(embed = Embed(title=f"Please type a valid integer."))
                     await int_error.delete(delay = 7.0)
 
+    # I CAN SHOW PLAYERS THEIR HANDS THROUGH PRIVATE THREADS IN DESIGNATED POKER DISCORD CHANNEL
+    async def firstBets(self, ctx):
+        pass
+
     async def play(self, ctx):
-        await self.assignButtonAndTakeBlinds(ctx)
-        await self.dealer.dealHands()
+        self.channel = await self.getPokerChannel(ctx)
+        await asyncio.wait_for(await self.assignButtonAndTakeBlinds(ctx))
+        await asyncio.wait_for(await self.dealer.dealHands())
+        await asyncio.wait_for(await self.showHands())
+
+    async def showHands(self):
+        for player in self.players:
+            if not player in self.threads:
+                thread = await self.channel.create_thread(name="Your Poker Hand", type="private_thread", reason = "poker", auto_archive_duration = 60)
+                self.threads[player] = thread
+                # need to invite player's Member object to thread
+                await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}"))
+            elif player in self.threads:
+                thread = self.threads[player]
+                await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}"))
 
     # button moves clockwise, clockwise will be rightwards -> for our purposes
     async def progressButton(self):
@@ -508,11 +529,14 @@ class Poker(commands.Cog):
                 else:
                     self.players[i+1].button = True
                 return
-        
     
-
-
-
-
+    async def getPokerChannel(self, ctx):
+        async for guild in self.bot.fetch_guilds():
+            if guild.name == "Orlando Come":
+                channels = await guild.fetch_channels()
+                for channel in channels:
+                    if channel.name == "poker":
+                        return channel
+    
 async def setup(bot):
     await bot.add_cog(PlayerQueue(bot))        
