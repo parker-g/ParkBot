@@ -13,7 +13,7 @@ class Reward(Cog):
         engine = pyttsx3.init("sapi5")
         voices = engine.getProperty('voices')
         engine.setProperty("voice", voices[0].id) # 0 for male, 1 for female
-        engine.save_to_file(string, "data/test.mp3")
+        engine.save_to_file(string, "data/say.mp3")
         # default speaking rate is 200
         engine.setProperty("rate", 125)
         engine.runAndWait()
@@ -24,16 +24,16 @@ class Reward(Cog):
     async def say(self, ctx, *args):
         speech = ""
         for arg in args:
-            speech += f" {arg}"
+            speech += f"{arg} "
         for term in NAUGHTY_WORDS:
-            if term == speech:
+            if term in speech:
                 speech = "You naughty boy. No no."
         await self.processAudio(ctx, speech)
 
         current_channel = ctx.author.voice.channel
         voice = await current_channel.connect()
         try:
-            audio = discord.FFmpegPCMAudio("data/test.mp3", executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            audio = discord.FFmpegPCMAudio("data/say.mp3", executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
         except:
             print("The audio was not properly stored in memory")
         voice.play(source=audio)
