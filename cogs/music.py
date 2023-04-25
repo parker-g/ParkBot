@@ -72,7 +72,6 @@ class Grabber:
     
     def getSong(self, youtube_id, song_name):
         base_address = "https://www.youtube.com/watch?v="
-        song_path = DATA_DIRECTORY
         ytdl_format_options = {
             "no_playlist": True,
             # "max_downloads": 1,
@@ -132,9 +131,14 @@ class MusicController(commands.Cog):
 
     #must take error as a parameter since it will be passed into an "after" function
     def play_next(self, err = None):
-        
         self.playing = False
         if not self.playlist.isEmpty():
+
+            # delete the song that just ended, if one just ended
+            if self.current_song is not None:
+                helper.cleanAudioFile(self.current_song[0])
+
+                
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
 
@@ -155,11 +159,9 @@ class MusicController(commands.Cog):
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
 
-
             print(f"downloading song from _play_song method")
             self.grabber.getSong(self.current_song[1], self.current_song[0])
             song_path = DATA_DIRECTORY + str(self.current_song[0]) + ".mp3"
-            print(f"SONG PATH: {song_path}")
             audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             # execution is flying through the download here and going straight to playing the audio
             if self.playing is False:
