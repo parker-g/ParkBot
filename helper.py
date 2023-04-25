@@ -9,6 +9,17 @@ import random
 import time
 import os
 
+SONG_PATH = "data/current_audio.mp3"
+SONG_FILE = "current_audio.mp3"
+
+def cleanAudioFile():
+    os.chdir("data")
+    files = os.listdir(os.getcwd())
+    for file in files:
+        if str(file) == SONG_FILE:
+            os.remove(file)
+    os.chdir("../")
+        
 async def cleanAudioLeftovers():
     os.chdir("data")
     files = os.listdir(os.getcwd())

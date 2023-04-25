@@ -5,7 +5,6 @@ from discord import Embed
 from mutagen import mp3
 from collections import deque
 import helper
-import os
 import html
 import time
 import discord
@@ -37,7 +36,7 @@ class PlayList(commands.Cog):
     async def showQueue(self, ctx):
         pretty_string = ""
         count = 1
-        for title, id in self.playlist.playque:
+        for title, id in self.playque:
             pretty_string += f"{count}: {title}\n"
             count += 1
         await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
@@ -109,7 +108,7 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def showQ(self, ctx):
-        await self.playlist.showQueue(self, ctx)
+        await self.playlist.showQueue(ctx)
 
     @commands.command()
     async def currentSong(self, ctx):
@@ -128,11 +127,11 @@ class MusicController(commands.Cog):
             self.voice.play(discord.FFmpegPCMAudio(audio_url))
 
     #must take error as a parameter since it will be passed into an "after" function
-    def play_next(self, err):
+    def play_next(self, err = None):
         self.playing = False
         if not self.playlist.isEmpty():
             self.current_song = self.playlist.playque[0]
-            self.playlist.remove()
+            print(f"downloading song from play_next method")
             self.grabber.getSong(self.current_song[1])
             audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             if self.playing is False:
@@ -144,13 +143,14 @@ class MusicController(commands.Cog):
 
     def _play_song(self):
         if not self.playlist.isEmpty():
+            # save first song into current song, then pop it from queue
             self.current_song = self.playlist.playque[0]
-            if not self.from_skip:
-                self.playlist.remove()
-            self.from_skip = False
+            self.playlist.remove()
+
             self.grabber.getSong(self.current_song[1])
-            
+            print(f"downloading song from _play_song method")
             audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            # execution is flying through the download here and going straight to playing the audio
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
@@ -159,7 +159,7 @@ class MusicController(commands.Cog):
     async def play(self, ctx, *args):
         # search requested song and add it to the queue
         title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
-        await self.playlist.addToQ(self.playlist, ctx, title_and_id[0])
+        await self.playlist.addToQ(ctx, title_and_id[0])
 
         if self.voice is None:
             current_channel = ctx.author.voice.channel
@@ -171,14 +171,17 @@ class MusicController(commands.Cog):
         
     @commands.command()
     async def skip(self, ctx):
-        if self.playlist.isEmpty():
+        if self.playlist.isEmpty() and self.playing is False:
             await ctx.send(embed=Embed(title=f"Queue is already empty."))
         else:
             await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
             self.voice.stop()
-            self.playing = False
-            self.from_skip = True
-            self._play_song()
+            helper.cleanAudioFile()
+            helper.cleanAudioLeftovers()
+            await ctx.send(f"Voice client stopped.")
+            
+            await ctx.send(f"Executing play_next method")
+            self.play_next()
 
     @commands.command()
     async def kickBot(self, ctx):
