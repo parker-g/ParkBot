@@ -1,34 +1,40 @@
-from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM
+from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY
 from datetime import datetime, timedelta, date
 from canvasapi import Canvas
 import pandas as pd
 import replicate
 import requests
-import asyncio
 import random
 import time
 import os
 
-SONG_PATH = "data/current_audio.mp3"
 SONG_FILE = "current_audio.mp3"
 
-def cleanAudioFile():
+def cleanAudioFile(song_name):
     os.chdir("data")
+    # in data directory 
+
     files = os.listdir(os.getcwd())
     for file in files:
-        if str(file) == SONG_FILE:
+        # if the file minus the .mp3 extension equals input song name
+        if str(file[:-4]) == song_name:
             os.remove(file)
-    os.chdir("../")
+    # change back to top level directory
+    os.chdir(WORKING_DIRECTORY)
+    print(os.getcwd())
         
-async def cleanAudioLeftovers():
+def cleanAudioLeftovers():
     os.chdir("data")
     files = os.listdir(os.getcwd())
     for file in files:
-        if (len(str(file)) > 13) and (file[:13] == "current_audio") and (file[-4:] != ".mp3"):
+        # delete any songs that are webm or ytdl extensions
+        if (file[-5:] == ".webm") or (file[-5:] == ".ytdl"):
             way = os.getcwd()
             way += f"\\{file}"
             os.remove(way)
-    os.chdir("../")
+
+    os.chdir(WORKING_DIRECTORY)
+    print(os.getcwd())
 
 def write_iterable(file_path:str, iterable:list | dict) -> None:
     with open(file_path, "w", encoding="utf-8") as file:

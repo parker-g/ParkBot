@@ -1,5 +1,6 @@
 from googleapiclient.discovery import build
-from config.config import GOOGLE_API_KEY
+from googleapiclient.errors import HttpError
+from config.config import GOOGLE_API_KEY, DATA_DIRECTORY
 from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
@@ -11,8 +12,7 @@ import discord
 import yt_dlp
 from youtube_dl import YoutubeDL
 import asyncio
-
-SONG_PATH = "data/current_audio.mp3"
+import os
 
 class PlayList(commands.Cog):
     def __init__(self, bot):
@@ -56,24 +56,28 @@ class Grabber:
         part='snippet',
         maxResults=int(maxResults),
         q=str(query))
+        try:
+            response = request.execute() # response is a json object in dict format
+            titles_and_ids = []
+            for item in response["items"]:
+                id = item["id"]["videoId"]
+                title = html.unescape(item["snippet"]["title"])
+                titles_and_ids.append((title, id))
 
-        response = request.execute() # response is a json object in dict format
-        titles_and_ids = []
-        for item in response["items"]:
-            id = item["id"]["videoId"]
-            title = html.unescape(item["snippet"]["title"])
-            titles_and_ids.append((title, id))
+            if ctx is None:
+                return titles_and_ids
+        except HttpError:
+            print(f"\nYou have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests.\n")
 
-        if ctx is None:
-            return titles_and_ids
     
-    def getSong(self, youtube_id):
+    def getSong(self, youtube_id, song_name):
         base_address = "https://www.youtube.com/watch?v="
+        song_path = DATA_DIRECTORY
         ytdl_format_options = {
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
-            "outtmpl": "data/current_audio.%(ext)s",
+            "outtmpl": DATA_DIRECTORY + song_name + ".%(ext)s",  
             "ffmpeg_location": "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
                 # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
                 'postprocessors': [{  # Extract audio using ffmpeg
@@ -128,12 +132,16 @@ class MusicController(commands.Cog):
 
     #must take error as a parameter since it will be passed into an "after" function
     def play_next(self, err = None):
+        
         self.playing = False
         if not self.playlist.isEmpty():
             self.current_song = self.playlist.playque[0]
+            self.playlist.remove()
+
             print(f"downloading song from play_next method")
-            self.grabber.getSong(self.current_song[1])
-            audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            song_path = DATA_DIRECTORY + str(self.current_song[0])  + ".mp3"
+            audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
@@ -147,9 +155,12 @@ class MusicController(commands.Cog):
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
 
-            self.grabber.getSong(self.current_song[1])
+
             print(f"downloading song from _play_song method")
-            audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            song_path = DATA_DIRECTORY + str(self.current_song[0]) + ".mp3"
+            print(f"SONG PATH: {song_path}")
+            audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             # execution is flying through the download here and going straight to playing the audio
             if self.playing is False:
                 self.playing = True
@@ -176,7 +187,7 @@ class MusicController(commands.Cog):
         else:
             await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
             self.voice.stop()
-            helper.cleanAudioFile()
+            helper.cleanAudioFile(self.current_song[0])
             helper.cleanAudioLeftovers()
             await ctx.send(f"Voice client stopped.")
             
