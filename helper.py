@@ -13,7 +13,7 @@ SONG_FILE = "current_audio.mp3"
 def slugify(string):
     new_string = ""
     for letter in string:
-        if letter != "\\":
+        if (letter != "\\") and (letter != "/"):
             new_string += letter
     return new_string
 

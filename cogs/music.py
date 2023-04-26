@@ -16,6 +16,7 @@ class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.playque = deque()
+        self.playhistory = deque(maxlen=5)
 
     def isEmpty(self):
         return len(self.playque) == 0
@@ -31,13 +32,7 @@ class PlayList(commands.Cog):
     def remove(self): 
         self.playque.popleft()
 
-    async def showQueue(self, ctx):
-        pretty_string = ""
-        count = 1
-        for title, id in self.playque:
-            pretty_string += f"{count}: {title}\n"
-            count += 1
-        await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
+    
 
 # grabs various resources from the internet
 class Grabber:
@@ -99,6 +94,7 @@ class MusicController(commands.Cog):
         self.grabber = Grabber(bot)
         self.voice = None
         self.playing = False
+        self.from_skip = False
 
     async def waitTime(self, time_in_seconds):
         print(f"Waiting for {time_in_seconds} seconds.")
@@ -109,7 +105,16 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def showQ(self, ctx):
-        await self.playlist.showQueue(ctx)
+        if self.current_song is not None:
+            pretty_string = ""
+            count = 1
+            pretty_string += f"Playing: {self.current_song[0]}\n\n"
+            for title, id in self.playlist.playque:
+                pretty_string += f"{count}: {title}\n"
+                count += 1
+            await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
+        else:
+            await ctx.send(embed = Embed(title=f"No songs in queue yet."))
 
     @commands.command()
     async def currentSong(self, ctx):
@@ -133,17 +138,21 @@ class MusicController(commands.Cog):
         self.prev_song = self.current_song
         helper.clearAllAudio()
         if not self.playlist.isEmpty():
-            self.current_song = self.playlist.playque[0]
-            self.playlist.remove()
+            if not self.from_skip:
+                self.current_song = self.playlist.playque[0]
+                self.playlist.remove()
 
-            print(f"downloading song from play_next method")
-            self.grabber.getSong(self.current_song[1], self.current_song[0])
-            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
-            audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
-            helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
-            if self.playing is False:
-                self.playing = True
-                self.voice.play(source = audio, after = self.play_next)
+                print(f"downloading song from play_next method")
+                self.grabber.getSong(self.current_song[1], self.current_song[0])
+                print(f"moved past download line")
+                song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
+                audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+                helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
+                if self.playing is False:
+                    self.playing = True
+                    self.voice.play(source = audio, after = self.play_next)
+            else:
+                self.from_skip = False
         elif err:
             print(err)
             return
@@ -151,18 +160,18 @@ class MusicController(commands.Cog):
 
     def _play_song(self):
         if not self.playlist.isEmpty():
-            if self.current_song is not None:
-                helper.clearAllAudio()
-
             # save first song into current song, then pop it from queue
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
-
+            try:
+                helper.clearAllAudio()
+            except:
+                pass
             print(f"downloading song from _play_song method")
             self.grabber.getSong(self.current_song[1], self.current_song[0])
+            print(f"moved past download line")
             song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0])) + ".mp3"
             audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
-            # execution is flying through the download here and going straight to playing the audio
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
@@ -184,7 +193,10 @@ class MusicController(commands.Cog):
         else:
             return
     
-        
+    ######    THE FABLED SKIP PROBLEM     ########
+    # after a skip, the self.voice.play() that was active, has its "after" parameter called.
+    # and at the same time, skip is calling self._play_song().
+
     @commands.command()
     async def skip(self, ctx):
         if self.playlist.isEmpty() and self.playing is False:
@@ -193,6 +205,7 @@ class MusicController(commands.Cog):
             await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
             self.voice.stop()
             self.playing = False
+            self.from_skip = True
             # voice is stopping, but it seems like audoi file isn't being deleted. put error logs in helper function to determine where its funcking up
         
             self._play_song()
