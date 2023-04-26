@@ -11,6 +11,7 @@ import os
 SONG_FILE = "current_audio.mp3"
 
 def slugify(string):
+    new_string = ""
     no_nos = [
         "\\",
         "/",
