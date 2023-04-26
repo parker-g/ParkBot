@@ -7,12 +7,10 @@ from mutagen import mp3
 from collections import deque
 import helper
 import html
-import time
 import discord
 import yt_dlp
 from youtube_dl import YoutubeDL
 import asyncio
-import os
 
 class PlayList(commands.Cog):
     def __init__(self, bot):
@@ -76,7 +74,7 @@ class Grabber:
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
-            "outtmpl": DATA_DIRECTORY + song_name + ".%(ext)s",  
+            "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
             "ffmpeg_location": "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
                 # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
                 'postprocessors': [{  # Extract audio using ffmpeg
@@ -96,12 +94,12 @@ class MusicController(commands.Cog):
     def __init__(self, bot, playlist:PlayList):
         self.bot = bot
         self.playlist = playlist
+        self.prev_song = None
         self.current_song = None
         self.grabber = Grabber(bot)
         self.voice = None
         self.playing = False
-        self.from_skip = False
-    
+
     async def waitTime(self, time_in_seconds):
         print(f"Waiting for {time_in_seconds} seconds.")
         await asyncio.sleep(float(time_in_seconds))
@@ -132,20 +130,17 @@ class MusicController(commands.Cog):
     #must take error as a parameter since it will be passed into an "after" function
     def play_next(self, err = None):
         self.playing = False
+        self.prev_song = self.current_song
+        helper.clearAllAudio()
         if not self.playlist.isEmpty():
-
-            # delete the song that just ended, if one just ended
-            if self.current_song is not None:
-                helper.cleanAudioFile(self.current_song[0])
-
-                
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
 
             print(f"downloading song from play_next method")
             self.grabber.getSong(self.current_song[1], self.current_song[0])
-            song_path = DATA_DIRECTORY + str(self.current_song[0])  + ".mp3"
+            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
             audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
@@ -153,20 +148,25 @@ class MusicController(commands.Cog):
             print(err)
             return
 
+
     def _play_song(self):
         if not self.playlist.isEmpty():
+            if self.current_song is not None:
+                helper.clearAllAudio()
+
             # save first song into current song, then pop it from queue
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
 
             print(f"downloading song from _play_song method")
             self.grabber.getSong(self.current_song[1], self.current_song[0])
-            song_path = DATA_DIRECTORY + str(self.current_song[0]) + ".mp3"
+            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0])) + ".mp3"
             audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             # execution is flying through the download here and going straight to playing the audio
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
+
 
     @commands.command()
     async def play(self, ctx, *args):
@@ -180,7 +180,10 @@ class MusicController(commands.Cog):
 
         if self.playing is False:
             self._play_song()
-        
+
+        else:
+            return
+    
         
     @commands.command()
     async def skip(self, ctx):
@@ -189,12 +192,10 @@ class MusicController(commands.Cog):
         else:
             await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
             self.voice.stop()
-            helper.cleanAudioFile(self.current_song[0])
-            helper.cleanAudioLeftovers()
-            await ctx.send(f"Voice client stopped.")
-            
-            await ctx.send(f"Executing play_next method")
-            self.play_next()
+            self.playing = False
+            # voice is stopping, but it seems like audoi file isn't being deleted. put error logs in helper function to determine where its funcking up
+        
+            self._play_song()
 
     @commands.command()
     async def kickBot(self, ctx):

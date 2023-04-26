@@ -10,6 +10,13 @@ import os
 
 SONG_FILE = "current_audio.mp3"
 
+def slugify(string):
+    new_string = ""
+    for letter in string:
+        if letter != "\\":
+            new_string += letter
+    return new_string
+
 def cleanAudioFile(song_name):
     os.chdir("data")
     # in data directory 
@@ -18,23 +25,27 @@ def cleanAudioFile(song_name):
     for file in files:
         # if the file minus the .mp3 extension equals input song name
         if str(file[:-4]) == song_name:
-            os.remove(file)
+            try:
+                os.remove(file)
+            except Exception as e:
+                print(e)
     # change back to top level directory
     os.chdir(WORKING_DIRECTORY)
-    print(os.getcwd())
-        
-def cleanAudioLeftovers():
+
+def clearAllAudio():
     os.chdir("data")
     files = os.listdir(os.getcwd())
     for file in files:
         # delete any songs that are webm or ytdl extensions
-        if (file[-5:] == ".webm") or (file[-5:] == ".ytdl"):
+        if (file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3"):
             way = os.getcwd()
             way += f"\\{file}"
-            os.remove(way)
+            try:
+                os.remove(way)
+            except Exception as e:
+                print(e)
 
     os.chdir(WORKING_DIRECTORY)
-    print(os.getcwd())
 
 def write_iterable(file_path:str, iterable:list | dict) -> None:
     with open(file_path, "w", encoding="utf-8") as file:
