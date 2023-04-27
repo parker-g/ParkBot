@@ -140,19 +140,18 @@ class MusicController(commands.Cog):
         if not self.playlist.isEmpty():
             if not self.from_skip:
                 self.current_song = self.playlist.playque[0]
-                self.playlist.remove()
+            self.playlist.remove()
+            self.from_skip = False
 
-                print(f"downloading song from play_next method")
-                self.grabber.getSong(self.current_song[1], self.current_song[0])
-                print(f"moved past download line")
-                song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
-                audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
-                helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
-                if self.playing is False:
-                    self.playing = True
-                    self.voice.play(source = audio, after = self.play_next)
-            else:
-                self.from_skip = False
+            print(f"downloading song from play_next method")
+            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            print(f"moved past download line")
+            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
+            audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
+            if self.playing is False:
+                self.playing = True
+                self.voice.play(source = audio, after = self.play_next)
         elif err:
             print(err)
             return
