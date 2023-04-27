@@ -82,6 +82,12 @@ class Economy(Cog):
         helper.setUserAmount(bank_df, player.name, current_amount + money)
         bank_df.to_csv(BANK_PATH, index=False)
 
+
+    def _getBalance(self, player):
+        bank_df = pd.read_csv(BANK_PATH, header="infer")
+        amount = helper.getUserAmount(bank_df, player.name)
+        return amount
+
     # implement later
     @commands.command("balance")
     async def getBalance(self, ctx) -> int:
