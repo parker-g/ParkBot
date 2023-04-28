@@ -587,11 +587,12 @@ class Poker(commands.Cog):
         economy = Economy(self.bot)
         self.setPlayersNotDone()
         max_idx = len(self.players) - 1
+        print(f"Max index: {max_idx}")
         for i in range(max_idx): # gives us a counter the length of our players
             player_idx = i + self.big_blind_idx
-            print(f"player_index: {player_idx}")
             if player_idx > max_idx:
                 player_idx = player_idx - max_idx
+            print(f"player_index: {player_idx}")
             player = self.players[player_idx]
             member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
             # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
@@ -607,9 +608,10 @@ class Poker(commands.Cog):
                         case "📞":
                             isSuccess = await self.player_queue._setBet(ctx, player, self.min_bet)
                             if isSuccess:
-                                await ctx.send(embed=Embed(title=f"{player.name} called the bet, {self.min_bet}."))
+                                await ctx.send(embed=Embed(title=f"{player.name} called the bet, {self.min_bet} GleepCoins."))
                                 player.pushToPot()
-                                player.done = True
+                                self.players[player_idx].done = True
+                                continue
                         case "🆙":
                             await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {self.min_bet}.", description=f"Please type your bet to raise."))
                             raise_message = await self.bot.wait_for("message")
