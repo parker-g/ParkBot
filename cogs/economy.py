@@ -90,11 +90,17 @@ class Economy(Cog):
 
     # implement later
     @commands.command("balance")
-    async def getBalance(self, ctx) -> int:
+    async def getBalance(self, ctx) -> None:
         bank_df = pd.read_csv(BANK_PATH, header="infer")
         amount = helper.getUserAmount(bank_df, ctx.author.name)
         message = await ctx.send(embed = Embed(title=f"{ctx.author.name}'s balance is: {amount} GleepCoins."))
         await message.delete(delay=7.5)
+
+    @commands.command()
+    async def pocketWatch(self, ctx):
+        bank_df = pd.read_csv(BANK_PATH, header="infer", index=False)
+        bank_df_string = helper.getAllAmounts(bank_df)
+        await ctx.send(bank_df_string)
 
 async def setup(bot):
 

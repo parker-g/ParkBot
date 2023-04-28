@@ -6,7 +6,7 @@ from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed
-from helper import getUserAmount
+from helper import getUserAmount, readThreads, writePlayerAndThread
 
 
 
@@ -83,9 +83,18 @@ class Player(Cog):
         # poker attributes
         self.button = False
         self.thread = None
+        self.chips = 0
+        self.moves = [
+            "raise",
+            "fold",
+            "call",
+            "check",
+        ]
+        self.last_move = None # will be an item from self.moves
 
-
-
+    def pushToPot(self, pot):
+        pot += self.bet
+        self.bet = 0
 
     def sumCards(self):
         total = 0
@@ -199,7 +208,7 @@ class PlayerQueue(Cog):
                 if withdraw_success is False:
                     return
                 player.bet = bet
-                message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next game, to win {int(bet) * 2} GC."
+                message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next BlackJack game, to win {int(bet) * 2} GC."
                 message = await ctx.send(embed = Embed(title=message_str))
                 await message.delete(delay=7.5)
                 return
@@ -437,9 +446,10 @@ class BlackJackGame(Cog):
 # could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
 # bot, deck, player queue, players, and dealer.
 
+
+
 class Poker(commands.Cog):
     def __init__(self, bot, player_queue:PlayerQueue):
-        self.threads = {}
         self.bot = bot
         self.deck = Deck()
         self.deck.shuffle()
@@ -459,11 +469,13 @@ class Poker(commands.Cog):
         self.threads = {} # contains player names as keys, and discord.Thread objects as values - used to send private messages to players
         self.pot = 0
 
-    def givePot():
-        pass
+    def getThreads(self):
+        self.threads = readThreads()
+        return
 
-    def addToPot():
-        pass
+    def writeNewThread(self, player, thread_id:int):
+        writePlayerAndThread(player.name, thread_id)
+        return
     
     def setPlayersNotDone(self):
         for player in self.players:
@@ -474,15 +486,19 @@ class Poker(commands.Cog):
             member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
             # player.name == member.name
             if not player.name in self.threads:
-                print(f"creating thread for {player.name}")
+                # print(f"creating thread for {player.name}")
                 thread = await self.channel.create_thread(name="Your Poker Hand", reason = "poker", auto_archive_duration = 60)
                 self.threads[player.name] = thread
+                writePlayerAndThread(player, thread.id)
                 # need to invite player's Member object to thread
                 await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}\n{member.mention}"))
                 await thread.add_user(member)
             elif player.name in self.threads:
-                print(f"using thread for {player.name}")
-                thread = self.threads[player.name]
+                # print(f"using thread for {player.name}")
+                thread_id = self.threads[player.name]
+                # print(f"Thread id: {thread_id}")
+                thread = await self.guild.fetch_channel(thread_id)
+                # print(f"thread type: {type(thread)}")
                 await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}\n{member.mention}"))
 
     # button moves clockwise, clockwise will be rightwards -> for our purposes
@@ -500,6 +516,7 @@ class Poker(commands.Cog):
     async def getPokerChannel(self, ctx):
         async for guild in self.bot.fetch_guilds():
             if guild.name == "Orlando Come":
+                self.guild = guild
                 channels = await guild.fetch_channels()
                 for channel in channels:
                     if channel.name == "poker":
@@ -523,14 +540,18 @@ class Poker(commands.Cog):
         else:
             self.small_blind_idx = i + 1
             self.big_blind_idx = i + 2
-        await ctx.send(embed=Embed(title=f"Game Info:", description= f"Button :{self.players[i].name} \nSmall blind: {self.players[self.small_blind_idx].name} \nBig blind: {self.players[self.big_blind_idx].name}"))
-        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {self.players[self.small_blind_idx].name.capitalize()}.", description=f"{self.players[self.small_blind_idx].name.capitalize()}, type the amount of GleepCoins to set as small blind."))
+        small_blind_player = self.players[self.small_blind_idx]
+        big_blind_player = self.players[self.big_blind_idx]
+        await ctx.send(embed=Embed(title=f"Game Info:", description= f"Button :{self.players[i].name} \nSmall blind: {small_blind_player.name} \nBig blind: {big_blind_player.name}"))
+        input_message = await ctx.send(embed = Embed(title=f"Set the small blind, {small_blind_player.name}.", description=f"{small_blind_player.name}, type the amount of GleepCoins to set as small blind."))
         while self.small_blind == 0:
             message = await self.bot.wait_for("message", timeout = None)
-            if message.author.name == self.players[self.small_blind_idx].name:
+            if message.author.name == small_blind_player.name:
                 try:
                     small_blind = int(message.content)
-                    is_success = await self.player_queue._setBet(ctx, self.players[self.small_blind_idx], small_blind)
+                    is_success = await self.player_queue._setBet(ctx, small_blind_player, small_blind)
+                    small_blind_player.pushToPot(self.pot)
+
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
                     if is_success is True:
                         self.small_blind = small_blind
@@ -539,17 +560,18 @@ class Poker(commands.Cog):
                     error_message = await ctx.send(embed=Embed(title="Please type a valid number."))
                     await error_message.delete(delay=7.0)
         await input_message.delete(delay=15.0)
-        big_message = await ctx.send(embed=Embed(title=f"Set the big blind, {self.players[self.big_blind_idx].name.capitalize()}."))
+        big_message = await ctx.send(embed=Embed(title=f"Set the big blind, {big_blind_player.name}."))
         while self.big_blind == 0:
             big_message = await self.bot.wait_for("message", timeout = None)
-            if big_message.author.name == self.players[self.big_blind_idx].name:
+            if big_message.author.name == big_blind_player.name:
                 try:
                     big_blind = int(big_message.content)
                     if big_blind <= self.small_blind:
                         error_msg = await ctx.send(embed=Embed(title=f"Big blind must be larger than small blind. Please type a number larger than {self.small_blind}."))
                         await error_msg.delete(delay = 7.0)
                     elif big_blind > self.small_blind:
-                        success = await self.player_queue._setBet(ctx, self.players[self.big_blind_idx], big_blind)
+                        success = await self.player_queue._setBet(ctx, big_blind_player, big_blind)
+                        big_blind_player.pushToPot(self.pot)
                         if success is True:
                             self.big_blind = big_blind
                             self.min_bet = self.big_blind
@@ -567,61 +589,72 @@ class Poker(commands.Cog):
         max_idx = len(self.players) - 1
         for i in range(max_idx): # gives us a counter the length of our players
             player_idx = i + self.big_blind_idx
+            print(f"player_index: {player_idx}")
             if player_idx > max_idx:
                 player_idx = player_idx - max_idx
             player = self.players[player_idx]
+            member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
             # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
-            input_message = await ctx.send(embed=Embed(title=f"Pre-Flop Betting", description=f"{self.players[player_idx].mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?"))
             while player.done != True:
+                input_message = await ctx.send(embed=Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?"))
                 await input_message.add_reaction("📞")
                 await input_message.add_reaction("🆙")
                 await input_message.add_reaction("🏃‍♂️")
                 reaction, user = await self.bot.wait_for("reaction_add", timeout=60.0)
+                emoji = reaction.emoji
                 if (user.name == player.name):
-                    if reaction.emoji == "📞":
-                        isSuccess = self.player_queue._setBet(ctx, player, self.min_bet)
-                        if isSuccess:
-                            await ctx.send(embed=Embed(title=f"{player.name.capitalize()} called the bet, {self.min_bet}."))
+                    match emoji:
+                        case "📞":
+                            isSuccess = await self.player_queue._setBet(ctx, player, self.min_bet)
+                            if isSuccess:
+                                await ctx.send(embed=Embed(title=f"{player.name} called the bet, {self.min_bet}."))
+                                player.pushToPot()
+                                player.done = True
+                        case "🆙":
+                            await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {self.min_bet}.", description=f"Please type your bet to raise."))
+                            raise_message = await self.bot.wait_for("message")
+                            try:
+                                raise_amount = int(raise_message.content)
+                                if raise_amount <= self.min_bet:
+                                    await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
+                                else:
+                                    success = await self.player_queue._setBet(ctx, player, raise_amount)
+                                    if success is False:
+                                        await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
+                                        continue
+                                    elif success is True:
+                                        await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
+                                        player.pushToPot()
+                                        self.min_bet = raise_amount
+                                        player.done = True
+                                        continue
+                            except ValueError as e:
+                                print(f"Error casting your message to integer:", e)
+                                await ctx.send(f"That was an invalid integer. Please react and try again.")
+                                continue
+                        case "🏃‍♂️":
+                            # in a flop, mans doesnt place a bet, he just is done betting, and leaves the active players.
+                            self.players.remove(player)
+                            leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded. Nice."))
+                            await leave_message.delete(delay=5.0)
                             player.done = True
-                    elif reaction.emoji == "🆙":
-                        raise_amount = await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {self.min_bet}.", description=f"Please type your bet to raise."))
-                        try:
-                            raise_amount = int(raise_amount)
-                            if raise_amount <= self.min_bet:
-                                await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
-                            else:
-                                success = self.player_queue._setBet(ctx, self.players[i], raise_amount)
-                                if success is False:
-                                    await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
-                                    continue
-                                elif success is True:
-                                    await ctx.send(embed=Embed(title=f"{self.players[i]} raised to {raise_amount}."))
-                                    self.min_bet = raise_amount
-                    
-                        except ValueError:
-                            await ctx.send(f"That was an invalid integer. Please react and try again.")
                             continue
-                            
-            while player.done != True:
-                try:
-                    em = Embed(title=f"Your total is {player.sumCards()}.", description="Do you want to hit? React with a ✅ for yes, or 🚫 for no.")
-                    input_message = await ctx.send(embed = em)
-                    await input_message.add_reaction("✅")
-                    await input_message.add_reaction("🚫")
-                    reaction, user = await self.bot.wait_for("reaction_add", timeout=15.0)
-                    if (user.name == player.name) and (reaction.emoji == "✅"):
+                        case _:
+                            pass
 
+                        
             
 
-
-
     async def play(self, ctx):
+        self.getThreads()
         self.channel = await self.getPokerChannel(ctx)
-        step1 = self.assignButtonAndTakeBlinds(ctx)
+        first_blind = self.assignButtonAndTakeBlinds(ctx)
         show_cards = self.showHands()
-        await asyncio.wait_for(step1, timeout=45.0)
+        preflop = self.preFlop(ctx)
+        await asyncio.wait_for(first_blind, timeout=45.0)
         self.dealer.dealHands()
         await asyncio.wait_for(show_cards, timeout=None)
+        await asyncio.wait_for(preflop, timeout=None)
 
 
 

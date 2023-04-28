@@ -7,6 +7,7 @@ import requests
 import random
 import time
 import os
+import csv
 
 SONG_FILE = "current_audio.mp3"
 
@@ -99,3 +100,21 @@ def getUserAmount(df, username) -> int:
     user_index = user_index[0]
     current_amount = df.at[user_index, "GleepCoins"]
     return int(current_amount)
+
+def getAllAmounts(df) -> str:
+    return df.to_string()
+
+def readThreads() -> None:
+    with open("data/threads.csv", "r") as file:
+        threads_dict = {}
+        reader = csv.reader(file) 
+        #use this to skip first row of csv
+        next(reader)
+        for row in reader:
+            threads_dict[row[0]] = int(row[1])
+    return threads_dict
+
+def writePlayerAndThread(player, thread_id) -> None:
+    with open("data/threads.csv", "a") as file:
+        file.write(f"\n{player.name},{thread_id}")
+    return
