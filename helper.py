@@ -18,6 +18,7 @@ def slugify(string):
         "/",
         "\'",
         "\"",
+        "|",
     ]
     for letter in string:
         if letter not in no_nos:
