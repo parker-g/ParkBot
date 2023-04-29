@@ -105,7 +105,9 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def showQ(self, ctx):
-        if self.current_song is not None:
+        if self.playing is False:
+            await ctx.send(f"Playing nothing right now.")
+        elif self.current_song is not None:
             pretty_string = ""
             count = 1
             pretty_string += f"Playing: {self.current_song[0]}\n\n"
@@ -151,7 +153,7 @@ class MusicController(commands.Cog):
             helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
             if self.playing is False:
                 self.playing = True
-                self.voice.play(source = audio, after = self.play_next)
+                self.voice.play(source = audio, after = self.play_next)      
         elif err:
             print(err)
             return
@@ -177,7 +179,7 @@ class MusicController(commands.Cog):
 
 
     @commands.command()
-    async def play(self, ctx, *args):
+    async def play(self, ctx, *args) -> None:
         # search requested song and add it to the queue
         title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
         await self.playlist.addToQ(ctx, title_and_id[0])
@@ -185,8 +187,12 @@ class MusicController(commands.Cog):
         if self.voice is None:
             current_channel = ctx.author.voice.channel
             self.voice = await current_channel.connect(timeout = None)
+            if self.playing is False:
+                self._play_song()
+                # only start this once, when voice client is first constructed - it continues to wait/recursively call until music stops, then it makes bot leave
+                await self.leaveWhenDone(ctx)
 
-        if self.playing is False:
+        elif self.playing is False:
             self._play_song()
 
         else:
@@ -230,7 +236,31 @@ class MusicController(commands.Cog):
         minutes = seconds // 60
         seconds %= 60
         return hour, minutes, seconds
-
+    
+    async def leaveWhenDone(self, ctx):
+        print(f"sleeping for 600 seconds")    
+        await asyncio.sleep(600.0)
+        print(f"done sleeping, checking if voice client playing")
+        if self.voice is not None:
+            if self.voice.is_connected():
+                if not self.voice.is_playing():
+                    try:
+                        await self.voice.disconnect()
+                        await ctx.send(embed=Embed(title=f'Disconnecting voice client.'))
+                        self.voice = None
+                        return
+                    except Exception as e:
+                        return
+                elif self.voice.is_playing():
+                    await self.leaveWhenDone(ctx)
+            else:
+                print(f"self.voice is not None, but it's not connected anywhere.")
+                self.voice = None
+                return
+        else:
+            print(f"self.voice is None")
+            return
+        
 async def setup(bot):
     await bot.add_cog(MusicController(bot, PlayList(bot)))
         
