@@ -238,7 +238,7 @@ class MusicController(commands.Cog):
         return hour, minutes, seconds
     
     async def leaveWhenDone(self, ctx):
-        print(f"sleeping for 600 seconds")    
+        print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
         print(f"done sleeping, checking if voice client playing")
         if self.voice is not None:

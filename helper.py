@@ -109,7 +109,7 @@ def readThreads() -> None:
     with open("data/threads.csv", "r") as file:
         threads_dict = {}
         reader = csv.reader(file) 
-        #use this to skip first row of csv
+        #skip first row of csv
         next(reader)
         for row in reader:
             threads_dict[row[0]] = int(row[1])
