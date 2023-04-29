@@ -17,8 +17,9 @@
 **everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. ParkBot will join your voice channel, and repeat the words you typed. if your guild members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.**
 
 # coming soon
-* texas hold'em poker
+* texas hold'em poker - almost finished!
 * thinking I could use a config json/yaml/toml file instead of using the config.py. seems more accessible to non-coders
+* working on creating a bash script/ small bash function for easy bot setup and operations (to work on windows git-bash terminal, or any unix based terminal)
 * open to suggestions! I need to challenge myself, dream big!!
 
 # dall-e-mini set up below
