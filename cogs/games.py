@@ -620,7 +620,7 @@ class Poker(commands.Cog):
                     await int_error.delete(delay = 7.0)
         return
 
-    async def takeBets(self, ctx):
+    async def takeBets(self, ctx, name_of_betting_round:str):
         economy = Economy(self.bot)
         self.setPlayersNotDone()
         max_idx = len(self.players)
@@ -640,7 +640,7 @@ class Poker(commands.Cog):
             
             message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?")
             if self.post_flop is True:
-                message_embed = Embed(title=f"Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, check ✔️, or fold 🏃‍♂️?")
+                message_embed = Embed(title=f"Taking bets for the {name_of_betting_round.capitalize()}", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, check ✔️, or fold 🏃‍♂️?")
 
             # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
             while player.done != True:
@@ -730,12 +730,12 @@ class Poker(commands.Cog):
         # turning each async function into a task
         first_blind = self.assignButtonAndTakeBlinds(ctx)
         show_cards = self.showHands()
-        preflop_bets = self.takeBets(ctx)
+        preflop_bets = self.takeBets(ctx, "flop")
         flop = self.flop(ctx)
-        turn_bets = self.takeBets(ctx)
-        turn = self.dealCommunityCard()
-        river_bets = self.takeBets(ctx)
-        river = self.dealCommunityCard()
+        turn_bets = self.takeBets(ctx, "turn")
+        turn = self.dealCommunityCard(ctx)
+        river_bets = self.takeBets(ctx, "river")
+        river = self.dealCommunityCard(ctx)
 
         # executing each task in the right order, handling states when necessary
         await asyncio.wait_for(first_blind, timeout=45.0)
