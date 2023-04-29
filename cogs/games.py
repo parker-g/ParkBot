@@ -487,8 +487,9 @@ class Poker(commands.Cog):
         self.big_blind_idx = None
         self.channel = None
         self.threads = {} # contains player names as keys, and discord.Thread objects as values - used to send private messages to players
-        self.pot = 0
-        self.post_flop = False
+        self.pot = 0 # holds all bets
+        self.post_flop = False # used to modify the self.takeBets() method to make it appropriate for a pre-flop vs a post flop betting round
+        self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
 
 
     def setPlayersNotDone(self):
@@ -518,6 +519,12 @@ class Poker(commands.Cog):
     def setPlayersNotDone(self):
         for player in self.players:
             player.done = False
+
+    async def showAllHands(self, ctx):
+        all_hands = ""
+        for player in self.players:
+            all_hands += f"{player.name}: {player.prettyHand()}\n"
+        await ctx.send(embed=Embed(title=f"Everyone's Hand", description=all_hands))
 
     async def showHands(self):
         for player in self.players:
@@ -621,105 +628,113 @@ class Poker(commands.Cog):
         return
 
     async def takeBets(self, ctx, name_of_betting_round:str):
-        economy = Economy(self.bot)
-        self.setPlayersNotDone()
-        max_idx = len(self.players)
-        initial_bet = self.min_bet
-        print(f"Max index: {max_idx}")
-        for i in range(100): # make iteration unreasonably high to ensure we don't reach it's limit
-            player_idx = i + self.big_blind_idx
-            if player_idx >= max_idx:
-                player_idx = player_idx % max_idx 
-            print(f"player_index: {player_idx}")
+        if self.early_finish is not True:
+            economy = Economy(self.bot)
+            self.setPlayersNotDone()
+            max_idx = len(self.players)
+            initial_bet = self.min_bet
+            print(f"Max index: {max_idx}")
+            for i in range(100): # make iteration unreasonably high to ensure we don't reach it's limit
+                player_idx = i + self.big_blind_idx
+                if player_idx >= max_idx:
+                    player_idx = player_idx % max_idx 
+                print(f"player_index: {player_idx}")
 
-            player = self.players[player_idx]
-            member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
-            
-            if player.bet < self.min_bet:
-                player.done = False
-            
-            message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?")
-            if self.post_flop is True:
-                message_embed = Embed(title=f"Taking bets for the {name_of_betting_round.capitalize()}", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, check ✔️, or fold 🏃‍♂️?")
+                player = self.players[player_idx]
+                member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
+                
+                if player.bet < self.min_bet:
+                    player.done = False
+                
+                message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?")
+                if self.post_flop is True:
+                    message_embed = Embed(title=f"Taking bets for the {name_of_betting_round.capitalize()}", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, check ✔️, or fold 🏃‍♂️?")
 
-            # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
-            while player.done != True:
-                input_message = await ctx.send(embed=message_embed)
-                await input_message.add_reaction("📞")
-                await input_message.add_reaction("🆙")
-                await input_message.add_reaction("🏃‍♂️")
-                if (self.post_flop is True) and (self.min_bet > initial_bet):
-                    await input_message.add_reaction("✔️")
-                try:
-                    reaction, user = await self.bot.wait_for("reaction_add", timeout=60.0)
-                    emoji = reaction.emoji
-                    if (user.name == player.name):
-                        match emoji:
-                            case "📞":
-                                isSuccess = await self.player_queue._setBet(ctx, player, self.min_bet)
-                                if isSuccess:
-                                    await ctx.send(embed=Embed(title=f"{player.name} called the bet, {self.min_bet} GleepCoins."))
-                                    player.pushToPot(self.pot)
-                                    player.done = True
-                                    
-                            case "🆙":
-                                await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {self.min_bet}.", description=f"Please type your bet to raise."))
-                                raise_message = await self.bot.wait_for("message")
-                                try:
-                                    raise_amount = int(raise_message.content)
-                                    if raise_amount <= self.min_bet:
-                                        await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
+                # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
+                while player.done != True:
+                    input_message = await ctx.send(embed=message_embed)
+                    await input_message.add_reaction("📞")
+                    await input_message.add_reaction("🆙")
+                    await input_message.add_reaction("🏃‍♂️")
+                    if (self.post_flop is True) and (self.min_bet > initial_bet):
+                        await input_message.add_reaction("✔️")
+                    try:
+                        reaction, user = await self.bot.wait_for("reaction_add", timeout=60.0)
+                        emoji = reaction.emoji
+                        if (user.name == player.name):
+                            match emoji:
+                                case "📞":
+                                    isSuccess = await self.player_queue._setBet(ctx, player, self.min_bet)
+                                    if isSuccess:
+                                        await ctx.send(embed=Embed(title=f"{player.name} called the bet, {self.min_bet} GleepCoins."))
+                                        player.pushToPot(self.pot)
+                                        player.done = True
+                                        
+                                case "🆙":
+                                    await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {self.min_bet}.", description=f"Please type your bet to raise."))
+                                    raise_message = await self.bot.wait_for("message")
+                                    try:
+                                        raise_amount = int(raise_message.content)
+                                        if raise_amount <= self.min_bet:
+                                            await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
+                                        else:
+                                            success = await self.player_queue._setBet(ctx, player, raise_amount)
+                                            if success is False:
+                                                await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
+                                                continue
+                                            elif success is True:
+                                                await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
+                                                player.pushToPot(self.pot)
+                                                self.min_bet = raise_amount
+                                                player.done = True
+
+                                    except ValueError as e:
+                                        print(f"Error casting your message to integer:", e)
+                                        await ctx.send(f"That was an invalid integer. Please react and then try again.")
+                                        continue
+                                case "✔️":
+                                    if self.post_flop is True:
+                                        player.done = True
+                                        check_msg = await ctx.send(embed=Embed(title=f"{player.name} checked."))
+                                        await check_msg.delete(delay=7.0)
                                     else:
-                                        success = await self.player_queue._setBet(ctx, player, raise_amount)
-                                        if success is False:
-                                            await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
-                                            continue
-                                        elif success is True:
-                                            await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
-                                            player.pushToPot(self.pot)
-                                            self.min_bet = raise_amount
-                                            player.done = True
-
-                                except ValueError as e:
-                                    print(f"Error casting your message to integer:", e)
-                                    await ctx.send(f"That was an invalid integer. Please react and then try again.")
-                                    continue
-                            case "✔️":
-                                if self.post_flop is True:
+                                        await ctx.send(embed=Embed(title=f"You can't check before the flop goofball!"))
+                                        continue
+                                case "🏃‍♂️":
+                                    # in a fold, mans doesnt place a bet, he just is done betting, and leaves the active players.
+                                    self.players.remove(player)
+                                    max_idx -= 1
+                                    leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded. Nice."))
+                                    await leave_message.delete(delay=5.0)
                                     player.done = True
-                                    check_msg = await ctx.send(embed=Embed(title=f"{player.name} checked."))
-                                    await check_msg.delete(delay=7.0)
-                                else:
-                                    await ctx.send(embed=Embed(title=f"You can't check before the flop goofball!"))
-                                    continue
-                            case "🏃‍♂️":
-                                # in a fold, mans doesnt place a bet, he just is done betting, and leaves the active players.
-                                self.players.remove(player)
-                                max_idx -= 1
-                                leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded. Nice."))
-                                await leave_message.delete(delay=5.0)
-                                player.done = True
-                except asyncio.TimeoutError:
-                    self.players.remove(player)
-                    max_idx -= 1
-                    player.done = True
-                    await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
-                    
-            if self.allPlayersDone():
-                break
-        pf_msg = await ctx.send(embed=Embed(title=f"Pre flop betting has come to an end."))
-        await pf_msg.delete(delay=10.0)
-        return
-       
+                    except asyncio.TimeoutError:
+                        self.players.remove(player)
+                        max_idx -= 1
+                        player.done = True
+                        await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
+                if len(self.players == 1):
+                    self.player[0].winner = True
+                    await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing."))
+                    self.early_finish = True    
+                if self.allPlayersDone():
+                    break
+            pf_msg = await ctx.send(embed=Embed(title=f"Pre flop betting has come to an end."))
+            await pf_msg.delete(delay=10.0)
+            return
+        else:
+            return
     async def flop(self, ctx):
         self.dealer.dealFlop(self)
         cards_string = self.getCommunityCardsString()
         await ctx.send(embed=Embed(title=f"Community Cards", description = cards_string))
 
     async def dealCommunityCard(self, ctx):
-        self.dealer.dealPokerCommunityCard(self)
-        cards_string = self.getCommunityCardsString()
-        await ctx.send(embed=Embed(title=f"Community Cards", description = cards_string))
+        if self.early_finish is not True:
+            self.dealer.dealPokerCommunityCard(self)
+            cards_string = self.getCommunityCardsString()
+            await ctx.send(embed=Embed(title=f"Community Cards", description = cards_string))
+        else:
+            return
     
     async def play(self, ctx):
         # setup
@@ -736,7 +751,8 @@ class Poker(commands.Cog):
         turn = self.dealCommunityCard(ctx)
         river_bets = self.takeBets(ctx, "river")
         river = self.dealCommunityCard(ctx)
-
+        hand_reveal = self.showAllHands(ctx)
+        
         # executing each task in the right order, handling states when necessary
         await asyncio.wait_for(first_blind, timeout=45.0)
         self.dealer.dealHands()
@@ -750,6 +766,7 @@ class Poker(commands.Cog):
         self.setPlayersNotDone()
         await asyncio.wait_for(river_bets, timeout=None)
         await asyncio.wait_for(river, timeout=None)
+        await asyncio.wait_for(hand_reveal, timeout=None)
         # next, program logic for calculating winner
 
 
