@@ -246,7 +246,7 @@ class MusicController(commands.Cog):
                 if not self.voice.is_playing():
                     try:
                         await self.voice.disconnect()
-                        await ctx.send(embed=Embed(title=f'Disconnecting voice client.'))
+                        await ctx.send(embed=Embed(title=f'Left voice chat due to inactivity.'))
                         self.voice = None
                         return
                     except Exception as e:

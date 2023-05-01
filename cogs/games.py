@@ -6,7 +6,7 @@ from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed
-from helper import getUserAmount, readThreads, writePlayerAndThread
+from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSort
 
 
 
@@ -61,6 +61,29 @@ class Deck:
             self.deck.append((Deck.card_legend[i], "♣"))
             self.deck.append((Deck.card_legend[i], "♥"))
             self.deck.append((Deck.card_legend[i], "♦"))
+
+
+
+    def isFlush(seven_sorted_cards:list):
+        """Takes a sorted list consisting of both a player's hand and the community cards.
+        Returns True if hand is a flush."""
+    def checkCards(seven_sorted_cards:list):
+        pass
+    
+    def isStraight(sorted_cards:list, prev_num = -999):
+        """Takes a sorted list consisting of both a player's hand and the community cards.
+        Returns True if hand is a straight."""
+        consecutive_cards = []
+        num_consecutive_cards = 0
+        for num, suit in sorted_cards:
+            if len(consecutive_cards) == 5:
+                return consecutive_cards
+            if prev_num == num - 1:
+                prev_num = num
+                Deck.isStraight(sorted_cards[1:], prev_num)
+        # for every card in the deck, we want to check if the card with one value up exists in all_cards.
+            # if so, then loop again, checking for the next highest value, repeat
+
 
     def formatCard(card_tuple:tuple) -> str:
         return f"{card_tuple[0].capitalize()} {card_tuple[1]}s"
@@ -490,6 +513,20 @@ class Poker(commands.Cog):
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
 
 
+    def resetPlayers(self) -> None:
+        economy = Economy()
+        for player in self.players:
+            player.winner = False
+            player.done = False
+            player.hand = []
+            player.button = False
+            player.thread = None
+            player.folded = False
+            if player.bet > 0:
+                economy.giveMoneyPlayer(player, player.bet)
+                player.bet = 0
+            
+
     def setPlayersNotDone(self):
         for player in self.players:
             player.done = False
@@ -623,6 +660,7 @@ class Poker(commands.Cog):
                 except ValueError or TypeError:
                     int_error = await ctx.send(embed = Embed(title=f"Please type a valid integer."))
                     await int_error.delete(delay = 7.0)
+        self.pot += self.big_blind
         return
 
     async def takePreFlopBets(self, ctx, name_of_betting_round:str):
@@ -658,17 +696,17 @@ class Poker(commands.Cog):
                         if (user.name == player.name):
                             match emoji:
                                 case "📞":
-                                    isSuccess = await self.player_queue._setBet(ctx, player, self.min_bet)
+                                    isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
                                     if isSuccess:
-                                        await ctx.send(embed=Embed(title=f"{player.name} called the bet, {self.min_bet} GleepCoins."))
+                                        await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                         player.done = True
                                         
                                 case "🆙":
-                                    await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {self.min_bet}.", description=f"Please type your bet to raise."))
+                                    await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {min_bet}.", description=f"Please type your bet to raise."))
                                     raise_message = await self.bot.wait_for("message")
                                     try:
                                         raise_amount = int(raise_message.content)
-                                        if raise_amount <= self.min_bet:
+                                        if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
                                             success = await self.player_queue._setBet(ctx, player, raise_amount)
@@ -677,7 +715,7 @@ class Poker(commands.Cog):
                                                 continue
                                             elif success is True:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
-                                                self.min_bet = raise_amount
+                                                min_bet = raise_amount
                                                 player.done = True
 
                                     except ValueError as e:
@@ -699,7 +737,7 @@ class Poker(commands.Cog):
                         max_idx -= 1
                         player.done = True
                         await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
-                if len(self.players == 1):
+                if (len(self.players) == 1):
                     self.player[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing.", description=f"{self.players[0].name} will receive the pot of {self.pot} GleepCoins."))
                     self.early_finish = True    
@@ -732,6 +770,9 @@ class Poker(commands.Cog):
                 
                 if player.bet < min_bet:
                     player.done = False
+
+                if self.allPlayersDone():
+                    break
 
                 message_embed = Embed(title=f"Taking bets for the {name_of_betting_round.capitalize()}", description=f"{member.mention}\nWould you like to raise 🆙, check ✔️, fold 🏃‍♂️, or call 📞?")
                 if min_bet == 0:
@@ -800,18 +841,37 @@ class Poker(commands.Cog):
                         max_idx -= 1
                         player.done = True
                         await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
-                if len(self.players == 1):
+                if (len(self.players) == 1):
                     self.player[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing."))
                     self.early_finish = True    
-                if self.allPlayersDone():
-                    break
+                
             pf_msg = await ctx.send(embed=Embed(title=f"Pre flop betting has come to an end."))
             await pf_msg.delete(delay=10.0)
             return
         else:
             return
         
+    async def getWinners(self, players):
+        possible_hands = {
+            "royal flush": 0,
+            "straight flush": 1,
+            "four of a kind": 2,
+            "full house": 3,
+            "flush": 4,
+            "straight": 5,
+            "three of a kind": 6,
+            "two pair": 7,
+            "pair": 8, 
+            "high card": 9,
+        }
+        if len(self.players) > 1:
+            # only do all the important stuff if there's more than one player who made it this far
+            for player in self.players:
+                # run through a list of functions that will help determine the player's ranking for their current hand.
+                pass
+        pass
+
 
     async def flop(self, ctx):
         self.dealer.dealFlop(self)
@@ -828,6 +888,7 @@ class Poker(commands.Cog):
     
     async def play(self, ctx):
         # setup
+        self.resetPlayers()
         self.post_flop = False
         self.getThreads()
         self.channel = await self.getPokerChannel(ctx)
@@ -858,6 +919,7 @@ class Poker(commands.Cog):
         await asyncio.wait_for(river, timeout=None)
         await asyncio.wait_for(hand_reveal, timeout=None)
         # next, program logic for calculating winner
+
 
 
 
