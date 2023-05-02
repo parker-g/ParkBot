@@ -271,7 +271,9 @@ class PlayerQueue(Cog):
         for player, member in self.q:
             if player.bet > 0:
                 await economy.giveMoneyPlayer(player, player.bet)
+                player.bet = 0
             self.q.remove(player, member)
+            
         message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
         await message.delete(delay=5.0)
 
