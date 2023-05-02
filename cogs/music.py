@@ -36,16 +36,21 @@ class PlayList(commands.Cog):
 
 # grabs various resources from the internet
 class Grabber:
+    """
+    Grabber is used to grab resources from the internet.\n
+    It's two methods are used to poll the YouTube API for search results given a query string,\n
+    and to download a song given the youtube video ID returned by the previous method."""
     def __init__(self, bot):
         self.bot = bot
         self.downloading = False
         self.service = build('youtube', 'v3', developerKey=GOOGLE_API_KEY)
     
     async def getSearchResults(self, ctx=None, *args, maxResults=1):
-        # need to fix this to take inputs that contain escape characters
         query = ""
+        args = args[0]
         for arg in args:
             query += f"{arg} "
+
         request = self.service.search().list(
         part='snippet',
         maxResults=int(maxResults),

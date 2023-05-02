@@ -39,9 +39,6 @@ def bubbleSortCards(cards_list):
             # can just exit the main loop.
             return
 
-# implement this
-def remove_escape_characters(string:str):
-    pass
 
 def slugify(string):
     new_string = ""
