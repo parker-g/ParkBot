@@ -251,7 +251,7 @@ class PlayerQueue(Cog):
     async def leaveQueue(self, ctx):
         # check if person using command is in player pool
         for player, member in self.q:
-            if ctx.author.name == player.name:
+            if ctx.author.name == member.name:
                 # if so, return the persons bet money to them, and remove them from player pool
                 economy = Economy(self.bot)
                 await economy.giveMoney(ctx, player.bet)
@@ -271,6 +271,7 @@ class PlayerQueue(Cog):
         for player, member in self.q:
             if player.bet > 0:
                 await economy.giveMoneyPlayer(player, player.bet)
+            self.q.remove(player, member)
         message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
         await message.delete(delay=5.0)
 
