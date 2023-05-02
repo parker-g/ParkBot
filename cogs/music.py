@@ -42,9 +42,10 @@ class Grabber:
         self.service = build('youtube', 'v3', developerKey=GOOGLE_API_KEY)
     
     async def getSearchResults(self, ctx=None, *args, maxResults=1):
+        # need to fix this to take inputs that contain escape characters
         query = ""
         for arg in args:
-            query += f"{str(arg)} "
+            query += f"{arg} "
         request = self.service.search().list(
         part='snippet',
         maxResults=int(maxResults),

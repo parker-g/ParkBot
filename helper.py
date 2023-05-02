@@ -12,8 +12,11 @@ import csv
 SONG_FILE = "current_audio.mp3"
 
 # copied from geeks for geeks website
-def bubbleSort(arr):
-    n = len(arr)
+# modified to take card tuples
+def bubbleSortCards(cards_list):
+    """
+    Function sorts a list of cards, in place."""
+    n = len(cards_list)
     # optimize code, so if the array is already sorted, it doesn't need
     # to go through the entire process
     swapped = False
@@ -27,14 +30,18 @@ def bubbleSort(arr):
             # traverse the array from 0 to n-i-1
             # Swap if the element found is greater
             # than the next element
-            if arr[j] > arr[j + 1]:
+            if cards_list[j][0] > cards_list[j + 1][0]:
                 swapped = True
-                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+                cards_list[j][0], cards_list[j + 1][0] = cards_list[j + 1][0], cards_list[j][0]
          
         if not swapped:
             # if we haven't needed to make a single swap, we
             # can just exit the main loop.
             return
+
+# implement this
+def remove_escape_characters(string:str):
+    pass
 
 def slugify(string):
     new_string = ""

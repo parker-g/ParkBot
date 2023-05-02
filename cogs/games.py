@@ -6,7 +6,7 @@ from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed
-from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSort
+from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
 
 
 
@@ -24,6 +24,11 @@ logger = logging.Logger('BJLog')
         # if player score lower, do nothing
     
 class Deck:
+    """ The Deck class represents a deck of 52 cards - meaning Jokers are not present in this deck.\n 
+    Each card in the deck is represented as a tuple of (num, suit).\n
+    This class one instance method for working with a deck `.shuffle()`, a class method for pretty printing cards, and some class methods to help determine poker hands.
+    """
+
     color_legend = {
         "♠": "black",
         "♣": "black",
@@ -62,27 +67,94 @@ class Deck:
             self.deck.append((Deck.card_legend[i], "♥"))
             self.deck.append((Deck.card_legend[i], "♦"))
 
+    def cardsToPipValues(cards_list):
+        """
+        This method returns a list of cards where all non-numerical values have been replaced by their numerical counterparts."""
+        new_list = []
+        for i in range(len(cards_list)):
+            current_tuple = cards_list[i]
+            if current_tuple[0] == "jack":
+                new_tuple = (11, current_tuple[1])
+            elif current_tuple[0] == "queen":
+                new_tuple = (12, current_tuple[1])
+            elif current_tuple[0] == "king":
+                new_tuple = (13, current_tuple[1])
+            else:
+                new_tuple = current_tuple
+            new_list.append(new_tuple)
+        return new_list
 
-
-    def isFlush(seven_sorted_cards:list):
+    def getFlush(sorted_cards_in_pip_format:list):
         """Takes a sorted list consisting of both a player's hand and the community cards.
         Returns True if hand is a flush."""
+        suits = {
+            "♠": [],
+            "♣": [],
+            "♥": [],
+            "♦": [],
+        }
+        possible_flushes = []
+        for card in sorted_cards_in_pip_format:
+            card_suit = card[1]
+            suits[card_suit].append(card)
+        # now we have populated the suits dict with cards - we need to check if any of the suit lists contain more than 5 items
+        for suit in suits:
+            while len(suits[suit]) > 5:
+                possible_flushes.append(suits[suit][-5:])
+                suits[suit].pop()
+            if len(suits[suit]) == 5:
+                possible_flushes.append(suits[suit])
+            
+        best_flush = possible_flushes[0]
+        if len(possible_flushes) > 1:
+            for flush in possible_flushes:
+                # last card in flush has a higher num value than best flush last card, make best_flush the new flush
+                if flush[-1][0] > best_flush[-1][0]:
+                    best_flush = flush
+        
+        if len(possible_flushes) >= 1:
+            # want to return all possible straights for later. will want to see if any straights match any flushes
+            return (True, best_flush, possible_flushes)
+
+        else:
+            return (False, [])
+        
     def checkCards(seven_sorted_cards:list):
         pass
     
-    def isStraight(sorted_cards:list, prev_num = -999):
-        """Takes a sorted list consisting of both a player's hand and the community cards.
-        Returns True if hand is a straight."""
+    # need to find whether a player has at least 5 cards in a row. if there are more than 5 cards in a row, take the highest 5.
+
+    def isStraight(sorted_cards_in_pip_format:list[tuple]) -> tuple:
+        """Takes a sorted list consisting of both a player's hand and the community cards.\n
+        Returns a tuple.\n
+        If given hand contains a straight, tuple contains (True, [best straight], [all straight possibilities])\n
+        Otherwise, tuple contains (False, [])"""
+
         consecutive_cards = []
-        num_consecutive_cards = 0
-        for num, suit in sorted_cards:
+        first_card = sorted_cards_in_pip_format[0]
+        consecutive_cards.append(first_card)
+        possible_straights = []
+        for num, suit in sorted_cards_in_pip_format[1:]:
+            most_recent_card = consecutive_cards[-1][0] # last card num in consecutive cards
+            if num == most_recent_card + 1:
+                consecutive_cards.append((num, suit))
+            elif num != most_recent_card + 1:
+                # the current num is not one higher than most_recent_card in consec cards, start consec cards over with the current card
+                consecutive_cards = [(num, suit)]
+
+            # check if we have a straight or not. 
             if len(consecutive_cards) == 5:
-                return consecutive_cards
-            if prev_num == num - 1:
-                prev_num = num
-                Deck.isStraight(sorted_cards[1:], prev_num)
-        # for every card in the deck, we want to check if the card with one value up exists in all_cards.
-            # if so, then loop again, checking for the next highest value, repeat
+                possible_straights.append(consecutive_cards)
+            elif len(consecutive_cards) > 5:
+                possible_straights.append(consecutive_cards[-5:])
+
+        # return the straight with the highest value (last possible straight will have highest value since the input cards are sorted)
+        if len(possible_straights) >= 1:
+            # want to return all possible straights for later. will want to see if any straights match any flushes
+            return (True, possible_straights[-1], possible_straights)
+
+        else:
+            return (False, [])
 
 
     def formatCard(card_tuple:tuple) -> str:
@@ -869,7 +941,14 @@ class Poker(commands.Cog):
             # only do all the important stuff if there's more than one player who made it this far
             for player in self.players:
                 # run through a list of functions that will help determine the player's ranking for their current hand.
-                pass
+                player_hand = Deck.cardsToPipValues(player.hand + self.community_cards)
+                bubbleSortCards(player_hand)
+                is_flush = Deck.isFlush(player_hand)
+                is_straght = Deck.isStraight()
+        elif len(self.players) == 1:
+            self.players[0].winner = True
+            # ggive this player the pot, send a congratulatory message
+
         pass
 
 
@@ -904,7 +983,8 @@ class Poker(commands.Cog):
         river = self.dealCommunityCard(ctx)
         hand_reveal = self.showAllHands(ctx)
         
-        # executing each task in the right order, handling states when necessary
+
+        # scheduling each task in the right order, handling states when necessary
         await asyncio.wait_for(first_blind, timeout=45.0)
         self.dealer.dealHands()
         await asyncio.wait_for(show_cards, timeout=None)
