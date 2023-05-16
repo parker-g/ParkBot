@@ -187,8 +187,8 @@ class MusicController(commands.Cog):
     @commands.command()
     async def play(self, ctx, *args) -> None:
         # search requested song and add it to the queue
-        title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
-        await self.playlist.addToQ(ctx, title_and_id[0])
+        song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
+        await self.playlist.addToQ(ctx, song_title_and_id[0])
 
         if self.voice is None:
             current_channel = ctx.author.voice.channel

@@ -69,7 +69,8 @@ class Deck:
 
     def cardsToPipValues(cards_list):
         """
-        This method returns a list of cards where all non-numerical values have been replaced by their numerical counterparts."""
+        This method returns a list of cards where all non-numerical values have been replaced by their numerical counterparts.
+        """
         new_list = []
         for i in range(len(cards_list)):
             current_tuple = cards_list[i]
@@ -85,8 +86,10 @@ class Deck:
         return new_list
 
     def getFlush(sorted_cards_in_pip_format:list):
-        """Takes a sorted list consisting of both a player's hand and the community cards.
-        Returns True if hand is a flush."""
+        """
+        Takes a sorted list consisting of both a player's hand and the community cards.\n
+        Returns True if hand is a flush.
+        """
         suits = {
             "♠": [],
             "♣": [],
@@ -125,10 +128,12 @@ class Deck:
     # need to find whether a player has at least 5 cards in a row. if there are more than 5 cards in a row, take the highest 5.
 
     def isStraight(sorted_cards_in_pip_format:list[tuple]) -> tuple:
-        """Takes a sorted list consisting of both a player's hand and the community cards.\n
+        """
+        Takes a sorted list consisting of both a player's hand and the community cards.\n
         Returns a tuple.\n
         If given hand contains a straight, tuple contains (True, [best straight], [all straight possibilities])\n
-        Otherwise, tuple contains (False, [])"""
+        Otherwise, tuple contains (False, [])
+        """
 
         consecutive_cards = []
         first_card = sorted_cards_in_pip_format[0]
