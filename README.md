@@ -7,8 +7,8 @@
 
 # gambling breakdown
 **gamble, without truly gambling! introducing gambling games, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. first time players begin with 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!**
-**blackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.**
-**in development - texas hold em poker!!! keep your eyes peeled**
+**\nblackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.**
+**\nin development - texas hold em poker!!! keep your eyes peeled**
 
 # canvas functionality breakdown
 **have u ever created a discord server to keep in touch with classmates? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! to setup - configure a canvas api token, set up your canvas url and class ID in the config.py file. I'm open to adding more canvas-api functionality to this bot upon request!**
