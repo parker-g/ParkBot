@@ -22,6 +22,8 @@
 * working on creating a bash script/ small bash function for easy bot setup and operations (to work on windows git-bash terminal, or any unix based terminal)
 * open to suggestions! I need to challenge myself, dream big!!
 
+# BIG NOTE - the instructions to set up dall-e-mini below need revision! some of the commands may not be appropriate for your operating system. also, I haven't checked the validity of the replicate links in months so those instructions mahy be deprecated as well. I will revise them sooner or later
+
 # dall-e-mini set up below
 
 **Ever wanted to access Dall-E mini from your own discord server? Look no further! Using the power of replicate API hosting, anyone with a github account can use AI to generate images in discord. Side note: every request to replicate's API uses a token, of which new users have only 15 - 20. Because of that, this bot is limited to sending only 15-20 dall-E-mini generations from each github account it is associated with. NOW, there are benefits of using an API as well. You don't have to use your own local processing power to generate these images, plus replicate is free until you run out of tokens ( as long as you don't enter your card info! ) You will not be able to complete any requests after you are out of tokens. It's not like AWS where you might accidentally get $2 million charged for overdrawing on API tokens. So why not give it a try :D This walkthrough assumes you are using a windows machine, and GitHub desktop installed, in the default location.**
