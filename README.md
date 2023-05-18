@@ -1,6 +1,6 @@
 # parker's perplexing, powerful discord bot !
 
-**this discord bot has everything a college student needs for their discord server. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!**
+**this discord bot has everything a college student needs for their discord server. play music in a voice channel to enhance the vibe. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!**
 
 # music feature
 **let's be honest guys. why does anyone really want a discord bot? this music feature is now very reliable! but it isn't banned ;D use `play` to add a song to queue, or `skip` to skip the current song. wondering what's up next? use `showQ` to see the song request queue. where does it source music from? YOU will never know unless you peer into the deep TUBE of source code provided in the music cog. disclaimer: you will have to download FFMPEG in order to use this music feature. once you download FFMPEG, you will need to save the path to ffmpeg.exe in config.py, as FFMPEG_PATH.**
