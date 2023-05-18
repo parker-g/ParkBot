@@ -67,7 +67,7 @@ class Deck:
             self.deck.append((Deck.card_legend[i], "♥"))
             self.deck.append((Deck.card_legend[i], "♦"))
 
-    def cardsToPipValues(cards_list):
+    def cardsToPipValues(cards_list) -> list:
         """
         This method returns a list of cards where all non-numerical values have been replaced by their numerical counterparts.
         """
@@ -88,7 +88,8 @@ class Deck:
     def getFlush(sorted_cards_in_pip_format:list):
         """
         Takes a sorted list consisting of both a player's hand and the community cards.\n
-        Returns True if hand is a flush.
+        Returns a hand's flush, or a hand's best flush if more than one exist.
+        Returns None otherwise.
         """
         suits = {
             "♠": [],
@@ -117,24 +118,22 @@ class Deck:
         
         if len(possible_flushes) >= 1:
             # want to return all possible straights for later. will want to see if any straights match any flushes
-            return (True, best_flush, possible_flushes)
+            return (best_flush) # possible_flushes)
 
         else:
-            return (False, [])
+            return None
         
     def checkCards(seven_sorted_cards:list):
         pass
     
     # need to find whether a player has at least 5 cards in a row. if there are more than 5 cards in a row, take the highest 5.
 
-    def isStraight(sorted_cards_in_pip_format:list[tuple]) -> tuple:
+    def getStraight(sorted_cards_in_pip_format:list[tuple]) -> tuple:
         """
         Takes a sorted list consisting of both a player's hand and the community cards.\n
-        Returns a tuple.\n
-        If given hand contains a straight, tuple contains (True, [best straight], [all straight possibilities])\n
-        Otherwise, tuple contains (False, [])
+        If given hand contains a straight, method returns (<best straight>, <all straight possibilities>)\n
+        Otherwise, returns None
         """
-
         consecutive_cards = []
         first_card = sorted_cards_in_pip_format[0]
         consecutive_cards.append(first_card)
@@ -156,10 +155,10 @@ class Deck:
         # return the straight with the highest value (last possible straight will have highest value since the input cards are sorted)
         if len(possible_straights) >= 1:
             # want to return all possible straights for later. will want to see if any straights match any flushes
-            return (True, possible_straights[-1], possible_straights)
+            return (possible_straights[-1], possible_straights)
 
         else:
-            return (False, [])
+            return None
 
 
     def formatCard(card_tuple:tuple) -> str:

@@ -1,6 +1,6 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from config.config import GOOGLE_API_KEY, DATA_DIRECTORY
+from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
 from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
@@ -76,7 +76,7 @@ class Grabber:
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
             "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
-            "ffmpeg_location": "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
+            "ffmpeg_location": FFMPEG_PATH,
                 # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
                 'postprocessors': [{  # Extract audio using ffmpeg
                     'key': 'FFmpegExtractAudio',
@@ -111,12 +111,12 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def showQ(self, ctx):
-        if self.playing is False:
-            await ctx.send(f"Playing nothing right now.")
-        elif self.current_song is not None:
+        # if self.playing is False:
+        #     await ctx.send(f"Playing nothing right now.")
+        if self.current_song is not None:
             pretty_string = ""
-            count = 1
             pretty_string += f"Playing: {self.current_song[0]}\n\n"
+            count = 1 # skip the first song in playque
             for title, id in self.playlist.playque:
                 pretty_string += f"{count}: {title}\n"
                 count += 1
@@ -140,10 +140,11 @@ class MusicController(commands.Cog):
             audio_url = info['formats'][0]['url']
             self.voice.play(discord.FFmpegPCMAudio(audio_url))
 
-    #must take error as a parameter since it will be passed into an "after" function
+    #must take error as a parameter since "error" will be automatically passed into an "after" function
     def play_next(self, err = None):
         self.playing = False
         self.prev_song = self.current_song
+
         helper.clearAllAudio()
         if not self.playlist.isEmpty():
             if not self.from_skip:
@@ -155,13 +156,13 @@ class MusicController(commands.Cog):
             self.grabber.getSong(self.current_song[1], self.current_song[0])
             print(f"moved past download line")
             song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
-            audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
             helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)      
         elif err:
-            print(err)
+            print(f"Error in play_next method: ", err)
             return
 
 
@@ -178,7 +179,7 @@ class MusicController(commands.Cog):
             self.grabber.getSong(self.current_song[1], self.current_song[0])
             print(f"moved past download line")
             song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0])) + ".mp3"
-            audio = discord.FFmpegPCMAudio(song_path, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
@@ -186,40 +187,57 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def play(self, ctx, *args) -> None:
-        # search requested song and add it to the queue
+        # check if user is in a voice channel
+        if ctx.author.voice.channel is None:
+            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
+            return
         song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
         await self.playlist.addToQ(ctx, song_title_and_id[0])
-
+        # check if there's already a voice connection
         if self.voice is None:
             current_channel = ctx.author.voice.channel
+            # create voice connection
             self.voice = await current_channel.connect(timeout = None)
-            if self.playing is False:
-                self._play_song()
-                # only start this once, when voice client is first constructed - it continues to wait/recursively call until music stops, then it makes bot leave
-                await self.leaveWhenDone(ctx)
-
+            self._play_song()
+            await self.leaveWhenDone(ctx)
         elif self.playing is False:
             self._play_song()
-
         else:
             return
-    
-    ######    THE FABLED SKIP PROBLEM     ########
-    # after a skip, the self.voice.play() that was active, has its "after" parameter called.
-    # and at the same time, skip is calling self._play_song().
+
+        # song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
+        # await self.playlist.addToQ(ctx, song_title_and_id[0])
+
+        # if self.voice is None:
+        #     if ctx.author.voice.channel is not None:
+        #         current_channel = ctx.author.voice.channel
+        #         self.voice = await current_channel.connect(timeout = None)
+        #         if self.playing is False:
+        #             self._play_song()
+        #             # only start this once, when voice client is first constructed - it continues to wait/recursively call until music stops, then it makes bot leave
+        #             await self.leaveWhenDone(ctx)
+        #     elif ctx.author.voice.channel is None:
+        #         await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
+
+        # elif self.playing is False:
+        #     self._play_song()
+
+        # else:
+        #     return
 
     @commands.command()
     async def skip(self, ctx):
-        if self.playlist.isEmpty() and self.playing is False:
-            await ctx.send(embed=Embed(title=f"Queue is already empty."))
-        else:
+        if self.current_song:
             await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
             self.voice.stop()
             self.playing = False
             self.from_skip = True
-            # voice is stopping, but it seems like audoi file isn't being deleted. put error logs in helper function to determine where its funcking up
-        
+            self.current_song = None
             self._play_song()
+        # need to be able to skip even if no songs are in quqeue after the current song.
+        else:
+            await ctx.send(embed=Embed(title=f"Queue is already empty."))
+            
 
     @commands.command()
     async def kickBot(self, ctx):
@@ -254,17 +272,19 @@ class MusicController(commands.Cog):
                         await self.voice.disconnect()
                         await ctx.send(embed=Embed(title=f'Left voice chat due to inactivity.'))
                         self.voice = None
+                        self.current_song = None
                         return
                     except Exception as e:
                         return
                 elif self.voice.is_playing():
                     await self.leaveWhenDone(ctx)
-            else:
-                print(f"self.voice is not None, but it's not connected anywhere.")
+            elif not self.voice.is_connected():
+                print(f"self.voice is already disconnected. setting self.voice to none.")
+                self.current_song = None
                 self.voice = None
                 return
         else:
-            print(f"self.voice is None")
+            print(f"self.voice is already None.")
             return
         
 async def setup(bot):
