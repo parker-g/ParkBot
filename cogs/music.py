@@ -241,11 +241,14 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def kickBot(self, ctx):
-        if self.playing is True:
-            self.voice.stop()
-        await self.voice.disconnect()
+        # check whether a voice connection exists in this guild
+        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice is not None:
+            if voice.is_connected():
+                if self.playing is True:
+                    voice.stop()
+                await voice.disconnect()
         self.voice = None
-
 
     def getAudioLength(self, path_to_audio):
         audio = mp3.MP3(path_to_audio)
@@ -264,6 +267,7 @@ class MusicController(commands.Cog):
     async def leaveWhenDone(self, ctx):
         print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
+        # this didn't work last time, INVESTIGATE!
         print(f"done sleeping, checking if voice client playing")
         if self.voice is not None:
             if self.voice.is_connected():

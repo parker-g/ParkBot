@@ -66,101 +66,7 @@ class Deck:
             self.deck.append((Deck.card_legend[i], "♣"))
             self.deck.append((Deck.card_legend[i], "♥"))
             self.deck.append((Deck.card_legend[i], "♦"))
-
-    def cardsToPipValues(cards_list) -> list:
-        """
-        This method returns a list of cards where all non-numerical values have been replaced by their numerical counterparts.
-        """
-        new_list = []
-        for i in range(len(cards_list)):
-            current_tuple = cards_list[i]
-            if current_tuple[0] == "jack":
-                new_tuple = (11, current_tuple[1])
-            elif current_tuple[0] == "queen":
-                new_tuple = (12, current_tuple[1])
-            elif current_tuple[0] == "king":
-                new_tuple = (13, current_tuple[1])
-            else:
-                new_tuple = current_tuple
-            new_list.append(new_tuple)
-        return new_list
-
-    def getFlush(sorted_cards_in_pip_format:list):
-        """
-        Takes a sorted list consisting of both a player's hand and the community cards.\n
-        Returns a hand's flush, or a hand's best flush if more than one exist.
-        Returns None otherwise.
-        """
-        suits = {
-            "♠": [],
-            "♣": [],
-            "♥": [],
-            "♦": [],
-        }
-        possible_flushes = []
-        for card in sorted_cards_in_pip_format:
-            card_suit = card[1]
-            suits[card_suit].append(card)
-        # now we have populated the suits dict with cards - we need to check if any of the suit lists contain more than 5 items
-        for suit in suits:
-            while len(suits[suit]) > 5:
-                possible_flushes.append(suits[suit][-5:])
-                suits[suit].pop()
-            if len(suits[suit]) == 5:
-                possible_flushes.append(suits[suit])
             
-        best_flush = possible_flushes[0]
-        if len(possible_flushes) > 1:
-            for flush in possible_flushes:
-                # last card in flush has a higher num value than best flush last card, make best_flush the new flush
-                if flush[-1][0] > best_flush[-1][0]:
-                    best_flush = flush
-        
-        if len(possible_flushes) >= 1:
-            # want to return all possible straights for later. will want to see if any straights match any flushes
-            return (best_flush) # possible_flushes)
-
-        else:
-            return None
-        
-    def checkCards(seven_sorted_cards:list):
-        pass
-    
-    # need to find whether a player has at least 5 cards in a row. if there are more than 5 cards in a row, take the highest 5.
-
-    def getStraight(sorted_cards_in_pip_format:list[tuple]) -> tuple:
-        """
-        Takes a sorted list consisting of both a player's hand and the community cards.\n
-        If given hand contains a straight, method returns (<best straight>, <all straight possibilities>)\n
-        Otherwise, returns None
-        """
-        consecutive_cards = []
-        first_card = sorted_cards_in_pip_format[0]
-        consecutive_cards.append(first_card)
-        possible_straights = []
-        for num, suit in sorted_cards_in_pip_format[1:]:
-            most_recent_card = consecutive_cards[-1][0] # last card num in consecutive cards
-            if num == most_recent_card + 1:
-                consecutive_cards.append((num, suit))
-            elif num != most_recent_card + 1:
-                # the current num is not one higher than most_recent_card in consec cards, start consec cards over with the current card
-                consecutive_cards = [(num, suit)]
-
-            # check if we have a straight or not. 
-            if len(consecutive_cards) == 5:
-                possible_straights.append(consecutive_cards)
-            elif len(consecutive_cards) > 5:
-                possible_straights.append(consecutive_cards[-5:])
-
-        # return the straight with the highest value (last possible straight will have highest value since the input cards are sorted)
-        if len(possible_straights) >= 1:
-            # want to return all possible straights for later. will want to see if any straights match any flushes
-            return (possible_straights[-1], possible_straights)
-
-        else:
-            return None
-
-
     def formatCard(card_tuple:tuple) -> str:
         return f"{card_tuple[0].capitalize()} {card_tuple[1]}s"
 
@@ -186,6 +92,7 @@ class Player(Cog):
         self.button = False
         self.thread = None
         self.folded = False
+        self.hand_rank = None
 
     def resetPlayer(self):
         self.hand = []
@@ -930,8 +837,28 @@ class Poker(commands.Cog):
             return
         else:
             return
+
+    def getHandRank(self, player):
+        ranker = PokerRanker
+        player_hand = ranker.cardsToPipValues(player.hand + self.community_cards)
+        bubbleSortCards(player_hand)
+        flushes = ranker.getFlushes(player_hand)
+        straights = ranker.getStraights(player_hand)
+        if (len(flushes) > 0) and (len(straights) > 0):
+            straight_flushes = ranker.getStraightFlushes(straights, flushes)
+            if len(straight_flushes) >= 1:
+                royal_flush = ranker.getBestStraightFlush(straight_flushes)
+                if royal_flush is not None:
+                    return 0 # royal flush
+                else:
+                    return 1 # straight flush
+        # check for 
+            
+
+
         
-    async def getWinners(self, players):
+    async def getWinners(self, players, ctx):
+        economy = Economy(self.bot)
         possible_hands = {
             "royal flush": 0,
             "straight flush": 1,
@@ -944,16 +871,19 @@ class Poker(commands.Cog):
             "pair": 8, 
             "high card": 9,
         }
+
         if len(self.players) > 1:
             # only do all the important stuff if there's more than one player who made it this far
             for player in self.players:
-                # run through a list of functions that will help determine the player's ranking for their current hand.
-                player_hand = Deck.cardsToPipValues(player.hand + self.community_cards)
-                bubbleSortCards(player_hand)
-                is_flush = Deck.isFlush(player_hand)
-                is_straght = Deck.isStraight()
+                player.hand_rank = self.getHandRank(player)
+            
+
+
         elif len(self.players) == 1:
-            self.players[0].winner = True
+            winner = self.players[0]
+            winner.winner = True
+            economy.giveMoneyPlayer(winner, self.pot)
+            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}!"))
             # ggive this player the pot, send a congratulatory message
 
         pass
@@ -1006,6 +936,7 @@ class Poker(commands.Cog):
         await asyncio.wait_for(river, timeout=None)
         await asyncio.wait_for(hand_reveal, timeout=None)
         # next, program logic for calculating winner
+        
 
 
 
@@ -1015,3 +946,138 @@ class Poker(commands.Cog):
     
 async def setup(bot):
     await bot.add_cog(PlayerQueue(bot))        
+
+
+class PokerRanker(Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    def cardsToPipValues(cards_list:list) -> list:
+        """
+        This method returns a list of cards where non-numerical values have been replaced by their numerical counterparts, and card suits are retained.
+        """
+        cards_in_pip = []
+        for i in range(len(cards_list)):
+            current_tuple = cards_list[i]
+            if current_tuple[0] == "jack":
+                new_tuple = (11, current_tuple[1])
+            elif current_tuple[0] == "queen":
+                new_tuple = (12, current_tuple[1])
+            elif current_tuple[0] == "king":
+                new_tuple = (13, current_tuple[1])
+            elif current_tuple[0] == "ace":
+                new_tuple = (14, current_tuple[1])
+            else:
+                new_tuple = current_tuple
+            cards_in_pip.append(new_tuple)
+        return cards_in_pip
+
+    def getHandTotalValue(player_hand_pip:list) -> int:
+        total = 0
+        for card in player_hand_pip:
+            total += int(card[0])
+        return total
+
+
+    def getFlushes(sorted_cards_in_pip_format:list) -> list:
+        """
+        Takes a sorted list consisting of both a player's hand and the community cards.\n
+        Returns all possible flushes in a given hand.
+        """
+        suits = {
+            "♠": [],
+            "♣": [],
+            "♥": [],
+            "♦": [],
+        }
+        possible_flushes = []
+        for card in sorted_cards_in_pip_format:
+            card_suit = card[1]
+            suits[card_suit].append(card)
+        # now we have populated the suits dict with cards - we need to check if any of the suit lists contain 5 or items
+        for suit in suits:
+            while len(suits[suit]) > 5:
+                possible_flushes.append(suits[suit][-5:])
+                suits[suit].pop()
+            if len(suits[suit]) == 5:
+                possible_flushes.append(suits[suit])
+
+        return possible_flushes
+        
+    def getBestFlush(possible_flushes:list) -> list:
+        best_flush = possible_flushes[0]
+        if len(possible_flushes) > 1:
+            for flush in possible_flushes:
+                # last card in flush has a higher num value than best flush last card, make best_flush the new flush
+                if PokerRanker.getHandTotalValue(flush) > PokerRanker.getHandTotalValue(best_flush):
+                    best_flush = flush
+        return best_flush
+
+    def getStraights(sorted_cards_in_pip_format:list[tuple]) -> tuple:
+        """
+        Takes a sorted list consisting of both a player's hand and the community cards.\n
+        If given hand contains a straight, method returns (<best straight>, <all straight possibilities>)\n
+        Otherwise, returns None
+        """
+        consecutive_cards = []
+        first_card = sorted_cards_in_pip_format[0]
+        consecutive_cards.append(first_card)
+        possible_straights = []
+        for num, suit in sorted_cards_in_pip_format[1:]:
+            most_recent_card = consecutive_cards[-1][0] # last card num in consecutive cards
+            if num == most_recent_card + 1:
+                consecutive_cards.append((num, suit))
+            elif num != most_recent_card + 1:
+                # the current num is not one higher than most_recent_card in consec cards, start consec cards over with the current card
+                consecutive_cards = [(num, suit)]
+
+            # check if we have a straight or not. 
+            if len(consecutive_cards) == 5:
+                possible_straights.append(consecutive_cards)
+            elif len(consecutive_cards) > 5:
+                possible_straights.append(consecutive_cards[-5:])
+
+        # (last possible straight will have highest value since the input cards are sorted)
+        return possible_straights
+    
+    def getBestStraight(possible_straights:list) -> list:
+        return possible_straights[-1]
+
+    def getStraightFlushes(possible_straights:list, possible_flushes:list) -> list:
+        # check if any of the straights also exist in flushes
+        possible_straight_flushes = []
+        straights = set(possible_straights)
+        flushes = set(possible_flushes)
+        for straight in straights:
+            if straight in flushes:
+                possible_straight_flushes.append(straight)
+        return possible_straight_flushes
+
+    def getBestStraightFlush(possible_straight_flushes:list) -> list:
+        best_one = possible_straight_flushes[0]
+        for flush in possible_straight_flushes:
+            if PokerRanker.getHandTotalValue(flush) > PokerRanker.getHandTotalValue(best_one):
+                best_one = flush
+        return best_one
+
+
+    def getRoyalFlush(straight_flushes:list) -> list:
+        royal_flush_key = [10, 11, 12, 13, 14]
+        # convert each straight flush to a list of its pip values
+        flush_num_values = []
+        for flush in straight_flushes:
+            pip_flush = []
+            for card in flush:
+                pip_flush += [int(card[0])]
+            flush_num_values.append(pip_flush)
+
+        # check if any of the straight flushes are royal flushes (they are already sorted)
+        for pip_flush in flush_num_values:
+            if pip_flush == royal_flush_key:
+                return pip_flush
+        return None
+    
+    # def getNofAKind(sorted_hand, num_of_same_elements):
+
+
+
