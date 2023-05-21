@@ -1,6 +1,7 @@
 import random
 import logging
 import asyncio
+from collections import Counter
 from cogs.economy import Economy
 from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
@@ -838,10 +839,15 @@ class Poker(commands.Cog):
         else:
             return
 
-    def getHandRank(self, player):
+    def getHandRank(self, player) -> int:
+        """
+        Checks all possibilities for a player's hand, returns the best hand a player has in the form of an integer that corresponds to a position in the possible_hands dictionary.
+        """
+        possible_scores = []
         ranker = PokerRanker
         player_hand = ranker.cardsToPipValues(player.hand + self.community_cards)
         bubbleSortCards(player_hand)
+        # hand's now in pip value and sorted in ascending order
         flushes = ranker.getFlushes(player_hand)
         straights = ranker.getStraights(player_hand)
         if (len(flushes) > 0) and (len(straights) > 0):
@@ -849,9 +855,34 @@ class Poker(commands.Cog):
             if len(straight_flushes) >= 1:
                 royal_flush = ranker.getBestStraightFlush(straight_flushes)
                 if royal_flush is not None:
-                    return 0 # royal flush
+                    possible_scores.append(0) # royal flush
                 else:
-                    return 1 # straight flush
+                    possible_scores.append(1) # straight flush
+        elif len(flushes) > 0:
+            possible_scores.append(4) # flush
+        elif len(straights) > 0:
+            possible_scores.append(5) # straight
+        if ranker.getFullHouse() is True:
+            possible_scores.append(3) # full house
+        max_occurences = ranker.getNthofAKind(player_hand)
+        match max_occurences:
+            case 4:
+                possible_scores.append(2) # 4 of a kind
+            case 3:
+                possible_scores.append(6) # three of a kind
+            case 2:
+                possible_scores.append(7) # 2 of a kind
+            case 1:
+                # get the highest value card
+                pass
+        
+
+
+        
+
+            
+                
+        
         # check for 
             
 
@@ -871,7 +902,6 @@ class Poker(commands.Cog):
             "pair": 8, 
             "high card": 9,
         }
-
         if len(self.players) > 1:
             # only do all the important stuff if there's more than one player who made it this far
             for player in self.players:
@@ -940,12 +970,6 @@ class Poker(commands.Cog):
 
 
 
-
-
-    
-    
-async def setup(bot):
-    await bot.add_cog(PlayerQueue(bot))        
 
 
 class PokerRanker(Cog):
@@ -1077,7 +1101,40 @@ class PokerRanker(Cog):
                 return pip_flush
         return None
     
-    # def getNofAKind(sorted_hand, num_of_same_elements):
+
+    def getNthofAKind(sorted_hand: list) -> int:
+        """
+        This method checks if a player has `n` of a kind cards in their hand.\n
+        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n
+        :returns int: Highest num of occurences of any card value in the input sorted_hand 
+        """ 
+        pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
+        pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
+        values_to_occurences = Counter(pip_hand_no_tuple)
+        max_occurences = 0
+        for card_value in values_to_occurences:
+            occurences = values_to_occurences[card_value]
+            if occurences > max_occurences:
+                max_occurences = occurences
+        return max_occurences
+        
+    def getFullHouse(sorted_hand:list) -> bool:
+        """
+        Checks whether a player's hand is a full house.\n
+        Returns True if so, False otherwise.\n
+        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
+        pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
+        pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
+        values_to_occurences = Counter(pip_hand_no_tuple)
+        # check if there is a 3 and a 2 occurences in values_to_occurences
+        if all(occurence in values_to_occurences.values() for occurence in (2, 3)): # if there's 2 of one value and 3 of another, we have a full house 
+            return True
+        return False
+            
+    
 
 
+
+async def setup(bot):
+    await bot.add_cog(PlayerQueue(bot))        
 
