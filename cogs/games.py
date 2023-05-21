@@ -874,8 +874,8 @@ class Poker(commands.Cog):
                 possible_scores.append(7) # 2 of a kind
             case 1:
                 # get the highest value card
-                pass
-        
+                possible_scores.append(8)
+        return min(possible_scores)
 
 
         
@@ -903,11 +903,15 @@ class Poker(commands.Cog):
             "high card": 9,
         }
         if len(self.players) > 1:
-            # only do all the important stuff if there's more than one player who made it this far
             for player in self.players:
                 player.hand_rank = self.getHandRank(player)
-            
+            # player with lowest hand_rank gets the win
+            # provide conditionals for if players are tied 
+                # i think generally - highest cards are compared in a tie between hands
 
+            # for straights and flushes - the highest top card determines winner
+            # for one pair and two-pair hands, highest kicker wins (kicker is the card that doesn't contribute to the current hand)
+            # 
 
         elif len(self.players) == 1:
             winner = self.players[0]
@@ -1125,14 +1129,21 @@ class PokerRanker(Cog):
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
-        values_to_occurences = Counter(pip_hand_no_tuple)
-        # check if there is a 3 and a 2 occurences in values_to_occurences
-        if all(occurence in values_to_occurences.values() for occurence in (2, 3)): # if there's 2 of one value and 3 of another, we have a full house 
+        occurences_dict = Counter(pip_hand_no_tuple)
+        if all(occurence_count in occurences_dict.values() for occurence_count in (2, 3)): # if there's 2 of one value and 3 of another, we have a full house 
             return True
         return False
-            
     
-
+    def getHighCard(sorted_hand):
+        """
+        Returns highest value card in a player's hand.
+        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
+        pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
+        high_card = 0
+        for value, suit in pip_hand:    
+            if int(value) > high_card:
+                high_card = int(value)
+        return high_card
 
 
 async def setup(bot):
