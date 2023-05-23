@@ -1,3 +1,5 @@
+![ParkBot logo(3)](https://github.com/parker-g/ParkBot/assets/94263482/edfbdf37-3d3d-456b-b393-a717b75816f5)
+
 # parker's perplexing, powerful discord bot !
 
 **this discord bot has everything a college student needs for their discord server. play music in a voice channel to enhance the vibe. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!**
