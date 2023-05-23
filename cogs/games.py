@@ -94,6 +94,12 @@ class Player(Cog):
         self.thread = None
         self.folded = False
         self.hand_rank = None
+        self.complete_hand = []
+        self.ranked_hand = []
+
+    def setBestHand(self, new_best_hand:list) -> None:
+        self.ranked_hand = new_best_hand
+
 
     def resetPlayer(self):
         self.hand = []
@@ -133,6 +139,16 @@ class Player(Cog):
         last_num, last_suit = self.hand[-1]
         pretty_string += f"{last_num} {last_suit}"
         return pretty_string
+
+    # used in Poker
+    def getCompleteHand(self, community_cards:list):
+        """
+        Combines the input player's hand and the community cards on the table, returns them in a new list.\n
+        I use the term 'complete hand' to refer to a hand which including BOTH the player's cards, and the community cards.\n
+        """
+        return self.hand + community_cards
+
+
 
 # use playerqueue to queue up players and control the creation of game classes.
 class PlayerQueue(Cog):
@@ -839,14 +855,16 @@ class Poker(commands.Cog):
         else:
             return
 
-    def getHandRank(self, player) -> int:
+    def getHandRank(self, player:Player) -> int:
         """
         Checks all possibilities for a player's hand, returns the best hand a player has in the form of an integer that corresponds to a position in the possible_hands dictionary.
         """
         possible_scores = []
         ranker = PokerRanker
-        player_hand = ranker.cardsToPipValues(player.hand + self.community_cards)
+        player.complete_hand = player.getCompleteHand(self.community_cards)
+        player_hand = ranker.cardsToPipValues(player.complete_hand)
         bubbleSortCards(player_hand)
+        
         # hand's now in pip value and sorted in ascending order
         flushes = ranker.getFlushes(player_hand)
         straights = ranker.getStraights(player_hand)
@@ -856,8 +874,10 @@ class Poker(commands.Cog):
                 royal_flush = ranker.getBestStraightFlush(straight_flushes)
                 if royal_flush is not None:
                     possible_scores.append(0) # royal flush
+                    player.setBestHand(royal_flush)
                 else:
                     possible_scores.append(1) # straight flush
+                    player.setBestHand()
         elif len(flushes) > 0:
             possible_scores.append(4) # flush
         elif len(straights) > 0:
@@ -875,20 +895,43 @@ class Poker(commands.Cog):
             case 1:
                 # get the highest value card
                 possible_scores.append(8)
+        
         return min(possible_scores)
 
-
+    def compareRanks(self, ctx):
+        best_score = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
+        winners = []
+        # get the best score
+        for player in self.players:
+            if player.hand_rank < best_score:
+                best_score = player.hand_rank
+        # check if any two players share the best score
+        for player in self.players:
+            if player.hand_rank == best_score:
+                winners.append(player)
+            else:
+                self.players.remove(player)
         
+        if len(winners) == 1:
+            return winners[0]
+        elif len(winners) > 1:
+        # depending on what hand the players share, 
+            match best_score:
+                case 1:
+                    pass
+                case 2:
+                    pass
+                case 3:
+                    pass
+                case 4:
+                    pass
+                case 5:
+                    pass
+                case _:
+                    pass
 
-            
-                
-        
-        # check for 
-            
 
-
-        
-    async def getWinners(self, players, ctx):
+    async def getWinners(self, ctx):
         economy = Economy(self.bot)
         possible_hands = {
             "royal flush": 0,
@@ -905,13 +948,7 @@ class Poker(commands.Cog):
         if len(self.players) > 1:
             for player in self.players:
                 player.hand_rank = self.getHandRank(player)
-            # player with lowest hand_rank gets the win
-            # provide conditionals for if players are tied 
-                # i think generally - highest cards are compared in a tie between hands
-
-            # for straights and flushes - the highest top card determines winner
-            # for one pair and two-pair hands, highest kicker wins (kicker is the card that doesn't contribute to the current hand)
-            # 
+            self.compareRanks(ctx)
 
         elif len(self.players) == 1:
             winner = self.players[0]
@@ -920,7 +957,7 @@ class Poker(commands.Cog):
             await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}!"))
             # ggive this player the pot, send a congratulatory message
 
-        pass
+            pass
 
 
     async def flop(self, ctx):
@@ -953,6 +990,7 @@ class Poker(commands.Cog):
         river_bets = self.takePostFlopBets(ctx, "river")
         river = self.dealCommunityCard(ctx)
         hand_reveal = self.showAllHands(ctx)
+        determine_winner = self.getWinners(ctx)
         
 
         # scheduling each task in the right order, handling states when necessary
@@ -1006,6 +1044,21 @@ class PokerRanker(Cog):
             total += int(card[0])
         return total
 
+    def compareFlushes(player_one, player_two) -> list[Player]:
+        """
+        Given two players with flushes, this method returns whichever player has the better flush.\n
+        In cases where both flushes are the same, the players tie and both players are returned."""
+        hand1 = player_one.ranking_hand
+        hand2 = player_two.ranking_hand
+        # iterate through each card in the two hands at the same time, whichever flush has highest value at highest card wins
+        for i in range(len(hand1)):
+            if hand1[i] > hand2[i]:
+                return [player_one]
+            elif hand1[i] < hand2[i]:
+                return [player_two]
+        # if both hands have the same value at each index, 
+        return [player_one, player_two]
+    
 
     def getFlushes(sorted_cards_in_pip_format:list) -> list:
         """
