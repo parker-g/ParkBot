@@ -1,4 +1,6 @@
-![ParkBot logo(3)](https://github.com/parker-g/ParkBot/assets/94263482/edfbdf37-3d3d-456b-b393-a717b75816f5)
+<p align="center">
+  <img width="500" height="500" src="images/ParkBot-logo.png">
+</p>
 
 # parker's perplexing, powerful discord bot !
 
