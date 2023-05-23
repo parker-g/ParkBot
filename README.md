@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="500" height="500" src="images/ParkBot-logo.png">
+  <img width="500" height="500" src="images/ParkBot-logo (1).png">
 </p>
 
 # parker's perplexing, powerful discord bot !
