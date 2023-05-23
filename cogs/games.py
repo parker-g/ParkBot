@@ -865,6 +865,8 @@ class Poker(commands.Cog):
         player_hand = ranker.cardsToPipValues(player.complete_hand)
         bubbleSortCards(player_hand)
         
+        # need to have access to the best hand a player has in order to handle tie scenarios
+
         # hand's now in pip value and sorted in ascending order
         flushes = ranker.getFlushes(player_hand)
         straights = ranker.getStraights(player_hand)
