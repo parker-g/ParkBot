@@ -27,7 +27,7 @@ logger = logging.Logger('BJLog')
 class Deck:
     """ The Deck class represents a deck of 52 cards - meaning Jokers are not present in this deck.\n 
     Each card in the deck is represented as a tuple of (num, suit).\n
-    This class one instance method for working with a deck `.shuffle()`, a class method for pretty printing cards, and some class methods to help determine poker hands.
+    This class provides methods for working with a deck such as  `.shuffle()`, and for pretty printing cards.
     """
 
     color_legend = {
@@ -94,8 +94,12 @@ class Player(Cog):
         self.thread = None
         self.folded = False
         self.hand_rank = None
+        # the combination of a player's cards and the community cards
         self.complete_hand = []
+        # a player's best hand, which assigned them their hand_rank
         self.ranked_hand = []
+        self.possible_hands = {}
+        
 
     def setBestHand(self, new_best_hand:list) -> None:
         self.ranked_hand = new_best_hand
@@ -143,7 +147,7 @@ class Player(Cog):
     # used in Poker
     def getCompleteHand(self, community_cards:list):
         """
-        Combines the input player's hand and the community cards on the table, returns them in a new list.\n
+        Combines a player's hand with the community cards on the table, returns them in a new list.\n
         I use the term 'complete hand' to refer to a hand which including BOTH the player's cards, and the community cards.\n
         """
         return self.hand + community_cards
@@ -855,17 +859,28 @@ class Poker(commands.Cog):
         else:
             return
 
-    def getHandRank(self, player:Player) -> int:
+    def getHandRankAndPossibleHands(self, player:Player) -> int:
         """
-        Checks all possibilities for a player's hand, returns the best hand a player has in the form of an integer that corresponds to a position in the possible_hands dictionary.
+        Checks all possibilities for a player's hand, returns the best hand a player has in the form of an integer.\n
+        This integer corresponds to a key in the possible_hands dictionary.\n
+        Lower is better.
         """
         possible_scores = []
+        possible_hands = {
+            0: [], #royal flush 
+            1: [],
+            2: [],
+            3: [],
+            4: [],
+            5: [],
+            6: [],
+            7: [],
+            8: [], # high card
+        }
         ranker = PokerRanker
         player.complete_hand = player.getCompleteHand(self.community_cards)
-        player_hand = ranker.cardsToPipValues(player.complete_hand)
+        player_hand = ranker.cardsToPipValues(player.complete_hand) # complete hand in pip value
         bubbleSortCards(player_hand)
-        
-        # need to have access to the best hand a player has in order to handle tie scenarios
 
         # hand's now in pip value and sorted in ascending order
         flushes = ranker.getFlushes(player_hand)
@@ -873,61 +888,79 @@ class Poker(commands.Cog):
         if (len(flushes) > 0) and (len(straights) > 0):
             straight_flushes = ranker.getStraightFlushes(straights, flushes)
             if len(straight_flushes) >= 1:
-                royal_flush = ranker.getBestStraightFlush(straight_flushes)
+                royal_flush = ranker.getRoyalFlush(straight_flushes)
                 if royal_flush is not None:
-                    possible_scores.append(0) # royal flush
-                    player.setBestHand(royal_flush)
+                    rank = 0 # royal flush
+                    possible_scores.append(rank) 
+                    possible_hands[rank].append(player_hand)
                 else:
-                    possible_scores.append(1) # straight flush
-                    player.setBestHand()
+                    rank = 1 # straight flush
+                    possible_scores.append(rank) 
+                    possible_hands[rank].append(ranker.getBestStraightFlush(straight_flushes))
         elif len(flushes) > 0:
-            possible_scores.append(4) # flush
+            rank = 4 # flush
+            possible_scores.append(rank)
+            possible_hands[rank].append(ranker.getBestFlush(flushes))
         elif len(straights) > 0:
-            possible_scores.append(5) # straight
-        if ranker.getFullHouse() is True:
-            possible_scores.append(3) # full house
+            rank = 5 # straight
+            possible_scores.append(rank) 
+            possible_hands[rank].append(ranker.getBestStraight(straights))
+        full_house = ranker.getFullHouse(player_hand)
+        if full_house is True:
+            rank = 3 # full house
+            possible_scores.append(rank) 
+            possible_hands[rank].append(player_hand) 
         max_occurences = ranker.getNthofAKind(player_hand)
+
         match max_occurences:
             case 4:
-                possible_scores.append(2) # 4 of a kind
+                rank = 2 # 4 of a kind
             case 3:
-                possible_scores.append(6) # three of a kind
-            case 2:
-                possible_scores.append(7) # 2 of a kind
+                rank = 6 # three of a kind
+            case 2: # if there's a max of 2 occurences, the hand could contain a solo pair OR a two pair
+                two_pair = ranker.getTwoPair(player_hand)
+                if two_pair is True:
+                    rank = 7 # two pair
+                else:
+                    rank = 8 # 2 of a kind
             case 1:
-                # get the highest value card
-                possible_scores.append(8)
-        
+                rank = 9 # high card
+        possible_scores.append(rank) 
+        possible_hands[rank].append(player_hand)
+
+        player.possible_hands = possible_hands
         return min(possible_scores)
 
     def compareRanks(self, ctx):
-        best_score = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
+        ranker = PokerRanker
+        best_rank = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
         winners = []
         # get the best score
         for player in self.players:
-            if player.hand_rank < best_score:
-                best_score = player.hand_rank
+            if player.hand_rank < best_rank:
+                best_rank = player.hand_rank
         # check if any two players share the best score
         for player in self.players:
-            if player.hand_rank == best_score:
+            if player.hand_rank == best_rank:
                 winners.append(player)
             else:
                 self.players.remove(player)
-        
+
         if len(winners) == 1:
             return winners[0]
+        
         elif len(winners) > 1:
         # depending on what hand the players share, 
-            match best_score:
-                case 1:
+            match best_rank:
+                case 1: # straight flush
+                    ranker.getBestStraightFlush()
+                case 2: # 4 of a kind
                     pass
-                case 2:
+                case 3: # full house
                     pass
-                case 3:
+                case 4: # flush
                     pass
-                case 4:
-                    pass
-                case 5:
+                case 5: # straight
                     pass
                 case _:
                     pass
@@ -949,7 +982,7 @@ class Poker(commands.Cog):
         }
         if len(self.players) > 1:
             for player in self.players:
-                player.hand_rank = self.getHandRank(player)
+                player.hand_rank = self.getHandRankAndPossibleHands(player)
             self.compareRanks(ctx)
 
         elif len(self.players) == 1:
@@ -1098,9 +1131,8 @@ class PokerRanker(Cog):
 
     def getStraights(sorted_cards_in_pip_format:list[tuple]) -> tuple:
         """
-        Takes a sorted list consisting of both a player's hand and the community cards.\n
-        If given hand contains a straight, method returns (<best straight>, <all straight possibilities>)\n
-        Otherwise, returns None
+        Returns a list of all possible straights in the given hand.\n
+        If no straights exist in the hand, returns None.
         """
         consecutive_cards = []
         first_card = sorted_cards_in_pip_format[0]
@@ -1138,9 +1170,10 @@ class PokerRanker(Cog):
 
     def getBestStraightFlush(possible_straight_flushes:list) -> list:
         best_one = possible_straight_flushes[0]
-        for flush in possible_straight_flushes:
-            if PokerRanker.getHandTotalValue(flush) > PokerRanker.getHandTotalValue(best_one):
-                best_one = flush
+        if len(possible_straight_flushes) > 1:
+            for flush in possible_straight_flushes:
+                if PokerRanker.getHandTotalValue(flush) > PokerRanker.getHandTotalValue(best_one):
+                    best_one = flush
         return best_one
 
 
@@ -1163,13 +1196,13 @@ class PokerRanker(Cog):
 
     def getNthofAKind(sorted_hand: list) -> int:
         """
-        This method checks if a player has `n` of a kind cards in their hand.\n
+        This method checks all cards in a hand and returns the maximum amount of times any card number value appears in the hand.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n
         :returns int: Highest num of occurences of any card value in the input sorted_hand 
         """ 
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
-        pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
-        values_to_occurences = Counter(pip_hand_no_tuple)
+        pip_hand = [int(hand[0]) for hand in pip_hand] # remove the unecessary card suit for now
+        values_to_occurences = Counter(pip_hand)
         max_occurences = 0
         for card_value in values_to_occurences:
             occurences = values_to_occurences[card_value]
@@ -1178,15 +1211,37 @@ class PokerRanker(Cog):
         return max_occurences
         
     def getFullHouse(sorted_hand:list) -> bool:
+        # need to change this to return the full house cards
         """
-        Checks whether a player's hand is a full house.\n
+        Checks whether a player's hand contains a full house.\n
         Returns True if so, False otherwise.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
         occurences_dict = Counter(pip_hand_no_tuple)
         if all(occurence_count in occurences_dict.values() for occurence_count in (2, 3)): # if there's 2 of one value and 3 of another, we have a full house 
+
             return True
+        return False
+    
+    def getTwoPair(sorted_hand:list) -> bool:
+        # need to change this to return the twopair hand/ two pairs of cards
+        """
+        Checks whether a player's hand contains two pairs.\n
+        Returns True if so, False otherwise.\n
+        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
+        pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
+        pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
+        occurences_dict = Counter(pip_hand_no_tuple)
+        pairs = 0
+        for key in occurences_dict:
+            if occurences_dict[key] == 2:
+                del occurences_dict[key]
+                pairs += 1
+        for key in occurences_dict:
+            if occurences_dict[key] == 2:
+                pairs += 1
+                return True
         return False
     
     def getHighCard(sorted_hand):
