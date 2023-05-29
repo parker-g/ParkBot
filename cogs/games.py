@@ -1214,14 +1214,25 @@ class PokerRanker(Cog):
         # need to change this to return the full house cards
         """
         Checks whether a player's hand contains a full house.\n
-        Returns True if so, False otherwise.\n
+        Returns a list of card values representing the full house if so, otherwise returns None.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
         occurences_dict = Counter(pip_hand_no_tuple)
-        if all(occurence_count in occurences_dict.values() for occurence_count in (2, 3)): # if there's 2 of one value and 3 of another, we have a full house 
-            return True
-        return False
+        full_house = []
+        for card_value in occurences_dict:
+            if (occurences_dict[card_value] == 3):
+                three_piece = [card_value, card_value, card_value]
+                full_house += three_piece
+                del occurences_dict[card_value]
+
+        for card_value in occurences_dict:
+            if (occurences_dict[card_value] == 2):
+                pair = [card_value, card_value]
+                full_house += pair
+            if len(full_house) == 5:
+                return full_house
+        return None
     
     def getTwoPair(sorted_hand:list) -> bool:
         """
