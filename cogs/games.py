@@ -1220,12 +1220,10 @@ class PokerRanker(Cog):
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
         occurences_dict = Counter(pip_hand_no_tuple)
         if all(occurence_count in occurences_dict.values() for occurence_count in (2, 3)): # if there's 2 of one value and 3 of another, we have a full house 
-
             return True
         return False
     
     def getTwoPair(sorted_hand:list) -> bool:
-        # need to change this to return the twopair hand/ two pairs of cards
         """
         Checks whether a player's hand contains two pairs.\n
         Returns True if so, False otherwise.\n
@@ -1233,16 +1231,16 @@ class PokerRanker(Cog):
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
         occurences_dict = Counter(pip_hand_no_tuple)
-        pairs = 0
-        for key in occurences_dict:
-            if occurences_dict[key] == 2:
-                del occurences_dict[key]
-                pairs += 1
-        for key in occurences_dict:
-            if occurences_dict[key] == 2:
-                pairs += 1
-                return True
-        return False
+        pairs = []
+        # find all pairs
+        for card_value in occurences_dict:
+            if occurences_dict[card_value] == 2:
+                pair_to_add = [card_value, card_value]
+                pairs.append(pair_to_add)
+                del occurences_dict[card_value]
+        if len(pairs) >= 2:
+            return pairs
+        return None
     
     def getHighCard(sorted_hand):
         """
