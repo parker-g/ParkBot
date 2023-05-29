@@ -1210,7 +1210,7 @@ class PokerRanker(Cog):
                 max_occurences = occurences
         return max_occurences
         
-    def getFullHouse(sorted_hand:list) -> bool:
+    def getFullHouse(sorted_hand:list) -> list:
         # need to change this to return the full house cards
         """
         Checks whether a player's hand contains a full house.\n
@@ -1234,10 +1234,10 @@ class PokerRanker(Cog):
                 return full_house
         return None
     
-    def getTwoPair(sorted_hand:list) -> bool:
+    def getTwoPair(sorted_hand:list) -> list:
         """
         Checks whether a player's hand contains two pairs.\n
-        Returns True if so, False otherwise.\n
+        Returns the two-pair hand as a list if so, otherwise returns None.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
