@@ -931,6 +931,7 @@ class Poker(commands.Cog):
         player.possible_hands = possible_hands
         return min(possible_scores)
 
+
     def compareRanks(self, ctx):
         ranker = PokerRanker
         best_rank = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
@@ -952,6 +953,8 @@ class Poker(commands.Cog):
         elif len(winners) > 1:
         # depending on what hand the players share, 
             match best_rank:
+                case 0: # royal flush
+                    pass
                 case 1: # straight flush
                     ranker.getBestStraightFlush()
                 case 2: # 4 of a kind
@@ -962,7 +965,13 @@ class Poker(commands.Cog):
                     pass
                 case 5: # straight
                     pass
-                case _:
+                case 6: # 3 of a kind
+                    pass
+                case 7: # two pair
+                    pass
+                case 8: # pair
+                    pass
+                case 9: # high card
                     pass
 
 
@@ -1043,6 +1052,7 @@ class Poker(commands.Cog):
         await asyncio.wait_for(river, timeout=None)
         await asyncio.wait_for(hand_reveal, timeout=None)
         # next, program logic for calculating winner
+        await asyncio.wait_for(determine_winner, timeout=None)
         
 
 
