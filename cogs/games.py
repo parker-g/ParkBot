@@ -23,7 +23,39 @@ logger = logging.Logger('BJLog')
         # compare player score to dealer score
         # if player score higher, player added to winners
         # if player score lower, do nothing
+
+class Card:
+
+    legend = {
+        1: "ace",
+        2: "2",
+        3: "3",
+        4: "4",
+        5: "5",
+        6: "6",
+        7: "7",
+        8: "8",
+        9: "9",
+        10: "10",
+        11: "jack",
+        12: "queen",
+        13: "king",
+    }
+
+    def __init__(self, face_value, suit:str):
+        self.face_value = face_value
+        self.suit = suit
+        self.pip_value = Card.legend[face_value]
     
+    def getPipValue(self):
+        return self.pip_value
+    
+    def getSuit(self):
+        return self.suit
+    
+
+
+
 class Deck:
     """ The Deck class represents a deck of 52 cards - meaning Jokers are not present in this deck.\n 
     Each card in the deck is represented as a tuple of (num, suit).\n
@@ -67,7 +99,8 @@ class Deck:
             self.deck.append((Deck.card_legend[i], "♣"))
             self.deck.append((Deck.card_legend[i], "♥"))
             self.deck.append((Deck.card_legend[i], "♦"))
-            
+    
+    @staticmethod
     def formatCard(card_tuple:tuple) -> str:
         return f"{card_tuple[0].capitalize()} {card_tuple[1]}s"
 
@@ -117,8 +150,8 @@ class Player(Cog):
 
     def sumCards(self):
         total = 0
-        for tuple in self.hand:
-            num = tuple[0]
+        for tup in self.hand:
+            num = tup[0]
             try:
                 num = int(num)
             except:
@@ -204,7 +237,7 @@ class PlayerQueue(Cog):
             if player.bet > 0:
                 await economy.giveMoneyPlayer(player, player.bet)
                 player.bet = 0
-            self.q.remove(player, member)
+            self.q.remove((player, member))
             
         message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
         await message.delete(delay=5.0)
@@ -388,7 +421,12 @@ class BlackJackGame(Cog):
                 await message.delete(delay=5.0)
                     
     
-    def getWinners(self, players:list[Player]) -> list[Player]:
+
+    # clean up / make this not fucky wucky
+    def getWinners(self, players:list[Player]) -> tuple[list, list] | None:
+        """
+        Returns a tuple of (winners, tiers). \n
+        May return None if the dealer has been removed from the player pool."""
         dealer = None
         winners = []
         tiebabies = []
@@ -399,7 +437,7 @@ class BlackJackGame(Cog):
                 continue
         if dealer is None:
             print("There was an error - the dealer is not in the player pool")
-            return
+            return None
         
         #store dealer sum
         dealer_total = dealer.sumCards()
@@ -467,19 +505,20 @@ class BlackJackGame(Cog):
         await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
 
         # print(self.players)
-        winners, ties = self.getWinners(self.players) 
-        await self.cashOut(ctx, self.players)
-        # if there are no winners, and no ties, send "Everyone lost."
-        # else if there are winners, send "Here are our winners: "
-        # else if there are no winners but there are ties, send "These players tied:"
-        if (len(winners) == 0) and (len(ties) == 0):
-            await ctx.send(embed = Embed(title="You're All Losers!"))
-        elif len(winners) > 0:  
-            winners = [winner.name for winner in winners]  
-            await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
-        elif len(ties) > 0:
-            ties = [tie.name for tie in ties]
-            await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
+        if self.getWinners(self.players) is not None:
+            winners, ties = self.getWinners(self.players)
+            await self.cashOut(ctx, self.players)
+            # if there are no winners, and no ties, send "Everyone lost."
+            # else if there are winners, send "Here are our winners: "
+            # else if there are no winners but there are ties, send "These players tied:"
+            if (len(winners) == 0) and (len(ties) == 0):
+                await ctx.send(embed = Embed(title="You're All Losers!"))
+            elif len(winners) > 0:  
+                winners = [winner.name for winner in winners]  
+                await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
+            elif len(ties) > 0:
+                ties = [tie.name for tie in ties]
+                await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
             
         
         await ctx.send("\nHere's everyone's hands.\n")
@@ -512,7 +551,7 @@ class Poker(commands.Cog):
         self.small_blind = 0
         self.big_blind = 0
         self.small_blind_idx = None
-        self.big_blind_idx = None
+        self.big_blind_idx = 0
         self.channel = None
         self.threads = {} # contains player names as keys, and discord.Thread objects as values - used to send private messages to players
         self.pot = 0 # holds all bets
@@ -520,8 +559,8 @@ class Poker(commands.Cog):
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
 
 
-    def resetPlayers(self) -> None:
-        economy = Economy()
+    async def resetPlayers(self) -> None:
+        economy = Economy(self.bot)
         for player in self.players:
             player.winner = False
             player.done = False
@@ -530,13 +569,9 @@ class Poker(commands.Cog):
             player.thread = None
             player.folded = False
             if player.bet > 0:
-                economy.giveMoneyPlayer(player, player.bet)
+                await economy.giveMoneyPlayer(player, player.bet)
                 player.bet = 0
-            
 
-    def setPlayersNotDone(self):
-        for player in self.players:
-            player.done = False
 
     def getCommunityCardsString(self):
         pretty_string = ""
@@ -551,10 +586,16 @@ class Poker(commands.Cog):
         return True
 
     def getThreads(self):
+        """
+        Stores any previously used discord threads in memory for sending poker hands to players during the upcoming game of Poker.
+        """
         self.threads = readThreads()
         return
 
     def writeNewThread(self, player, thread_id:int):
+        """
+        Writes a username and their discord thread identifier to the threads.csv file.
+        """
         writePlayerAndThread(player.name, thread_id)
         return
     
@@ -745,7 +786,7 @@ class Poker(commands.Cog):
                         player.done = True
                         await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
                 if (len(self.players) == 1):
-                    self.player[0].winner = True
+                    self.players[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing.", description=f"{self.players[0].name} will receive the pot of {self.pot} GleepCoins."))
                     self.early_finish = True    
                 if self.allPlayersDone():
@@ -849,7 +890,7 @@ class Poker(commands.Cog):
                         player.done = True
                         await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
                 if (len(self.players) == 1):
-                    self.player[0].winner = True
+                    self.players[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing."))
                     self.early_finish = True    
                 
@@ -885,33 +926,33 @@ class Poker(commands.Cog):
         # hand's now in pip value and sorted in ascending order
         flushes = ranker.getFlushes(player_hand)
         straights = ranker.getStraights(player_hand)
-        if (len(flushes) > 0) and (len(straights) > 0):
+        if (flushes is not None) and (straights is not None):
             straight_flushes = ranker.getStraightFlushes(straights, flushes)
-            if len(straight_flushes) >= 1:
+            if straight_flushes is not None:
                 royal_flush = ranker.getRoyalFlush(straight_flushes)
                 if royal_flush is not None:
                     rank = 0 # royal flush
                     possible_scores.append(rank) 
-                    possible_hands[rank].append(player_hand)
+                    possible_hands[rank].append(royal_flush)
                 else:
                     rank = 1 # straight flush
                     possible_scores.append(rank) 
                     possible_hands[rank].append(ranker.getBestStraightFlush(straight_flushes))
-        elif len(flushes) > 0:
-            rank = 4 # flush
-            possible_scores.append(rank)
-            possible_hands[rank].append(ranker.getBestFlush(flushes))
-        elif len(straights) > 0:
+        elif straights is not None:
             rank = 5 # straight
             possible_scores.append(rank) 
             possible_hands[rank].append(ranker.getBestStraight(straights))
+        elif flushes is not None:
+            rank = 4 # flush
+            possible_scores.append(rank)
+            possible_hands[rank].append(ranker.getBestFlush(flushes))
         full_house = ranker.getFullHouse(player_hand)
-        if full_house is True:
+        if full_house is not None:
             rank = 3 # full house
             possible_scores.append(rank) 
-            possible_hands[rank].append(player_hand) 
-        max_occurences = ranker.getNthofAKind(player_hand)
+            possible_hands[rank].append(full_house) 
 
+        max_occurences = ranker.getNthofAKind(player_hand)
         match max_occurences:
             case 4:
                 rank = 2 # 4 of a kind
@@ -923,16 +964,19 @@ class Poker(commands.Cog):
                     rank = 7 # two pair
                 else:
                     rank = 8 # 2 of a kind
-            case 1:
+            case _: 
                 rank = 9 # high card
         possible_scores.append(rank) 
         possible_hands[rank].append(player_hand)
-
+        
         player.possible_hands = possible_hands
         return min(possible_scores)
 
 
-    def compareRanks(self, ctx):
+    def _getWinners(self, players) -> list[Player]:
+        """
+        Returns the winner or list of winners from the input players, in list format.
+        """
         ranker = PokerRanker
         best_rank = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
         winners = []
@@ -947,6 +991,7 @@ class Poker(commands.Cog):
             else:
                 self.players.remove(player)
 
+        # leaves only players who are tied with the best rank
         if len(winners) == 1:
             return winners[0]
         
@@ -954,7 +999,7 @@ class Poker(commands.Cog):
         # depending on what hand the players share, 
             match best_rank:
                 case 0: # royal flush
-                    pass
+                    return players
                 case 1: # straight flush
                     ranker.getBestStraightFlush()
                 case 2: # 4 of a kind
@@ -975,8 +1020,8 @@ class Poker(commands.Cog):
                     pass
 
 
-    async def getWinners(self, ctx):
-        economy = Economy(self.bot)
+    async def getWinners(self, ctx) -> list[Player]:
+        winners = []
         possible_hands = {
             "royal flush": 0,
             "straight flush": 1,
@@ -992,17 +1037,26 @@ class Poker(commands.Cog):
         if len(self.players) > 1:
             for player in self.players:
                 player.hand_rank = self.getHandRankAndPossibleHands(player)
-            self.compareRanks(ctx)
+            interim_winners= self._getWinners(self.players)
+            for winner in interim_winners:
+                winners.append(winner)
+
 
         elif len(self.players) == 1:
             winner = self.players[0]
             winner.winner = True
-            economy.giveMoneyPlayer(winner, self.pot)
+            winners.append(winner)
+
+        return winners
+
+    async def rewardWinners(self, ctx, winners):
+        economy = Economy(self.bot)
+
+        for winner in winners:
+            await economy.giveMoneyPlayer(winner, self.pot)
             await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}!"))
             # ggive this player the pot, send a congratulatory message
-
             pass
-
 
     async def flop(self, ctx):
         self.dealer.dealFlop(self)
@@ -1063,7 +1117,8 @@ class PokerRanker(Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    def cardsToPipValues(cards_list:list) -> list:
+    @staticmethod
+    def cardsToPipValues(cards_list:list[tuple]) -> list[tuple]:
         """
         This method returns a list of cards where non-numerical values have been replaced by their numerical counterparts, and card suits are retained.
         """
@@ -1082,14 +1137,16 @@ class PokerRanker(Cog):
                 new_tuple = current_tuple
             cards_in_pip.append(new_tuple)
         return cards_in_pip
-
+    
+    @staticmethod
     def getHandTotalValue(player_hand_pip:list) -> int:
         total = 0
         for card in player_hand_pip:
             total += int(card[0])
         return total
 
-    def compareFlushes(player_one, player_two) -> list[Player]:
+    @staticmethod
+    def getBetterFlush(player_one, player_two) -> list[Player]:
         """
         Given two players with flushes, this method returns whichever player has the better flush.\n
         In cases where both flushes are the same, the players tie and both players are returned."""
@@ -1104,8 +1161,8 @@ class PokerRanker(Cog):
         # if both hands have the same value at each index, 
         return [player_one, player_two]
     
-
-    def getFlushes(sorted_cards_in_pip_format:list) -> list:
+    @staticmethod
+    def getFlushes(sorted_cards_in_pip_format:list) -> list | None:
         """
         Takes a sorted list consisting of both a player's hand and the community cards.\n
         Returns all possible flushes in a given hand.
@@ -1127,9 +1184,10 @@ class PokerRanker(Cog):
                 suits[suit].pop()
             if len(suits[suit]) == 5:
                 possible_flushes.append(suits[suit])
-
-        return possible_flushes
-        
+        if len(possible_flushes) > 0:
+            return possible_flushes
+        return None
+    @staticmethod
     def getBestFlush(possible_flushes:list) -> list:
         best_flush = possible_flushes[0]
         if len(possible_flushes) > 1:
@@ -1139,15 +1197,17 @@ class PokerRanker(Cog):
                     best_flush = flush
         return best_flush
 
-    def getStraights(sorted_cards_in_pip_format:list[tuple]) -> tuple:
+    @staticmethod
+    def getStraights(sorted_cards_in_pip_format:list[tuple]) -> list[list[tuple]] | None: # returns list of hands which are in format [list[tuple]]
         """
         Returns a list of all possible straights in the given hand.\n
         If no straights exist in the hand, returns None.
         """
-        consecutive_cards = []
+        consecutive_cards = [] # list of tuples (each one represents a card)
         first_card = sorted_cards_in_pip_format[0]
         consecutive_cards.append(first_card)
         possible_straights = []
+
         for num, suit in sorted_cards_in_pip_format[1:]:
             most_recent_card = consecutive_cards[-1][0] # last card num in consecutive cards
             if num == most_recent_card + 1:
@@ -1162,13 +1222,17 @@ class PokerRanker(Cog):
             elif len(consecutive_cards) > 5:
                 possible_straights.append(consecutive_cards[-5:])
 
-        # (last possible straight will have highest value since the input cards are sorted)
-        return possible_straights
+        if len(possible_straights) > 0:
+            return possible_straights
+        return None
     
+    @staticmethod
     def getBestStraight(possible_straights:list) -> list:
+        # (last possible straight will have highest value since the input cards are sorted)
         return possible_straights[-1]
 
-    def getStraightFlushes(possible_straights:list, possible_flushes:list) -> list:
+    @staticmethod
+    def getStraightFlushes(possible_straights:list, possible_flushes:list) -> list | None:
         # check if any of the straights also exist in flushes
         possible_straight_flushes = []
         straights = set(possible_straights)
@@ -1176,8 +1240,12 @@ class PokerRanker(Cog):
         for straight in straights:
             if straight in flushes:
                 possible_straight_flushes.append(straight)
-        return possible_straight_flushes
+        if len(possible_straight_flushes) > 0:
+            return possible_straight_flushes
+        return None
+    
 
+    @staticmethod
     def getBestStraightFlush(possible_straight_flushes:list) -> list:
         best_one = possible_straight_flushes[0]
         if len(possible_straight_flushes) > 1:
@@ -1186,8 +1254,8 @@ class PokerRanker(Cog):
                     best_one = flush
         return best_one
 
-
-    def getRoyalFlush(straight_flushes:list) -> list:
+    @staticmethod
+    def getRoyalFlush(straight_flushes:list) -> list | None:
         royal_flush_key = [10, 11, 12, 13, 14]
         # convert each straight flush to a list of its pip values
         flush_num_values = []
@@ -1203,7 +1271,7 @@ class PokerRanker(Cog):
                 return pip_flush
         return None
     
-
+    @staticmethod
     def getNthofAKind(sorted_hand: list) -> int:
         """
         This method checks all cards in a hand and returns the maximum amount of times any card number value appears in the hand.\n
@@ -1219,9 +1287,9 @@ class PokerRanker(Cog):
             if occurences > max_occurences:
                 max_occurences = occurences
         return max_occurences
-        
-    def getFullHouse(sorted_hand:list) -> list:
-        # need to change this to return the full house cards
+    
+    @staticmethod
+    def getFullHouse(sorted_hand:list) -> list | None:
         """
         Checks whether a player's hand contains a full house.\n
         Returns a list of card values representing the full house if so, otherwise returns None.\n
@@ -1244,7 +1312,8 @@ class PokerRanker(Cog):
                 return full_house
         return None
     
-    def getTwoPair(sorted_hand:list) -> list:
+    @staticmethod
+    def getTwoPair(sorted_hand:list) -> list | None:
         """
         Checks whether a player's hand contains two pairs.\n
         Returns the two-pair hand as a list if so, otherwise returns None.\n
@@ -1263,9 +1332,10 @@ class PokerRanker(Cog):
             return pairs
         return None
     
-    def getHighCard(sorted_hand):
+    @staticmethod
+    def getHighCard(sorted_hand) -> int:
         """
-        Returns highest value card in a player's hand.
+        Returns the highest pip value of all cards in a player's hand.
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         high_card = 0

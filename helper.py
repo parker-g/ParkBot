@@ -136,7 +136,9 @@ def getUserAmount(df, username) -> int:
 def getAllAmounts(df) -> str:
     return df.to_string()
 
-def readThreads() -> None:
+def readThreads() -> dict[str, int]:
+    """
+    Reads threads.csv file into a dictionary format."""
     with open("data/threads.csv", "r") as file:
         threads_dict = {}
         reader = csv.reader(file) 

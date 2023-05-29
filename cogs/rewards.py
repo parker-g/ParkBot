@@ -25,9 +25,9 @@ class Reward(Cog):
         speech = ""
         for arg in args:
             speech += f"{arg} "
-        for term in NAUGHTY_WORDS:
-            if term in speech:
-                speech = "You naughty boy. No no."
+            if arg in NAUGHTY_WORDS:
+                speech = "You said a naughty word. Bad."
+                break
         await self.processAudio(ctx, speech)
 
         current_channel = ctx.author.voice.channel
