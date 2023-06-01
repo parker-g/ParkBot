@@ -25,8 +25,44 @@ logger = logging.Logger('BJLog')
         # if player score lower, do nothing
 
 class Card:
+    """
+    The Card is the most basic data structure used in the games cog.\n
+    Make sure to specify which game your card will be used for when constructing cards."""
 
-    legend = {
+
+
+    FACE_TO_PIP_POKER = {
+         "2": 2,
+         "3": 3,
+         "4": 4,
+         "5": 5,
+         "6": 6,
+         "7": 7,
+         "8": 8,
+         "9": 9,
+         "10": 10,
+         "jack": 11,
+         "queen": 12,
+         "king": 13,
+         "ace": 14,
+    }
+    PIP_TO_FACE_POKER = {
+        2: "2",
+        3: "3",
+        4: "4",
+        5: "5",
+        6: "6",
+        7: "7",
+        8: "8",
+        9: "9",
+        10: "10",
+        11: "jack",
+        12: "queen",
+        13: "king",
+        14: "ace",
+    }
+
+    PIP_TO_FACE_BLACKJACK = {
         1: "ace",
         2: "2",
         3: "3",
@@ -42,10 +78,51 @@ class Card:
         13: "king",
     }
 
-    def __init__(self, face_value, suit:str):
-        self.face_value = face_value
+    FACE_TO_PIP_BLACKJACK = {
+         "ace": 1,
+         "2": 2,
+         "3": 3,
+         "4": 4,
+         "5": 5,
+         "6": 6,
+         "7": 7,
+         "8": 8,
+         "9": 9,
+         "10": 10,
+         "jack": 11,
+         "queen": 12,
+         "king": 13,
+    }
+
+    SUITS_WORDS_TO_
+
+    def __init__(self, game:str, value: int | str, suit:str):
+        """
+        str - game : A string representing which game the card will be used for. Important because card values vary from game to game.\n
+        int | str - value : The value of the card you're creating. Accepted as a lowercase string such as <"jack", "ace", "2"> or an integer value such as <2, 7, 14>.
+        str - suit : String representing the suit of the card being constructed. Accepts strings in word format or simple unicode symbol format.
+        """
         self.suit = suit
-        self.pip_value = Card.legend[face_value]
+
+        match game:
+            case "blackjack":
+                if isinstance(value, str):
+                    self.face_value = value
+                    self.pip_value = Card.FACE_TO_PIP_BLACKJACK[value]
+                elif isinstance(value, int):
+                    self.pip_value = value
+                    self.face_value = Card.PIP_TO_FACE_BLACKJACK[value]
+            case "poker":
+                if isinstance(value, str):
+                    self.face_value = value
+                    self.pip_value = Card.FACE_TO_PIP_POKER[value]
+                elif isinstance(value, int):
+                    self.pip_value = value
+                    self.face_value = Card.PIP_TO_FACE_POKER[value]
+            case _:
+                raise ValueError("Game parameter must be a valid game string: 'blackjack' or 'poker' are the only acceptable inputs.")
+                
+        self.suit = suit
     
     def getPipValue(self):
         return self.pip_value
@@ -197,14 +274,13 @@ class PlayerQueue(Cog):
     async def joinQueue(self, ctx):
         new_player = Player(ctx)
         # check if person using command is already in the player pool
-
-        # for player, member in self.q:
-        #     if ctx.author.name == player.name:
-        #         # if so, tell user that they're already in the queue
-        #         message_str = f"{ctx.author.name} is already in queue."
-        #         message = await ctx.send(embed = Embed(title=message_str))
-        #         await message.delete(delay=5.0)
-        #         return
+        for player, member in self.q:
+            if ctx.author.name == player.name:
+                # if so, tell user that they're already in the queue
+                message_str = f"{ctx.author.name} is already in queue."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=5.0)
+                return
 
         # so Q will be a list of tuples of (player object, discord.Member object)
         self.q.append((new_player, ctx.author))
@@ -1107,10 +1183,6 @@ class Poker(commands.Cog):
         await asyncio.wait_for(hand_reveal, timeout=None)
         # next, program logic for calculating winner
         await asyncio.wait_for(determine_winner, timeout=None)
-        
-
-
-
 
 
 class PokerRanker(Cog):
