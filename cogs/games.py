@@ -9,10 +9,17 @@ from discord.ext import commands
 from discord import Member, Embed
 from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
 
-
+# things to do 
+    # finish poker logic
+        # make sure player's best hands are stored in possible_hands
+        # handle tie cases in _getWinners()
+    # test/ debug poker logic
+    # implement Card class
+    # change Player class to include a players discord.Member object representation as an attribute - ultimately allowing the playerqueue.q to just be a simple list of Player objects
 
 logger = logging.Logger('BJLog')
 
+# blackjack note - 
 # need to modify game play function so that 
     # dealer deals cards to players besides himself
     # dealer deals himself two cards, shows only one
@@ -31,6 +38,8 @@ class Card:
 
 
 
+    # PIP EXPLANATION | EXPLAIN PIP | PIP
+    # "pip" value is a term used to describe a card's value in a numerical form. in 'pip' form, a jack would be an 11, a queen would be a 12, etc
     FACE_TO_PIP_POKER = {
          "2": 2,
          "3": 3,
@@ -61,7 +70,6 @@ class Card:
         13: "king",
         14: "ace",
     }
-
     PIP_TO_FACE_BLACKJACK = {
         1: "ace",
         2: "2",
@@ -77,7 +85,6 @@ class Card:
         12: "queen",
         13: "king",
     }
-
     FACE_TO_PIP_BLACKJACK = {
          "ace": 1,
          "2": 2,
@@ -93,8 +100,10 @@ class Card:
          "queen": 12,
          "king": 13,
     }
+    SUIT_STRING_TO_SYMBOL = {
 
-    SUITS_WORDS_TO_
+    }
+
 
     def __init__(self, game:str, value: int | str, suit:str):
         """
@@ -204,10 +213,11 @@ class Player(Cog):
         self.thread = None
         self.folded = False
         self.hand_rank = None
-        # the combination of a player's cards and the community cards
+        # the combination of a player's cards and the community cards (7 cards)
         self.complete_hand = []
-        # a player's best hand, which assigned them their hand_rank
+        # a player's best hand, which assigned them their hand_rank (less than 7 cards)
         self.ranked_hand = []
+        # possible_hands contains a player's best possible hand at each possible hand rank
         self.possible_hands = {}
         
 
@@ -266,6 +276,10 @@ class Player(Cog):
 
 # use playerqueue to queue up players and control the creation of game classes.
 class PlayerQueue(Cog):
+    """
+    The PlayerQueue class is used as a controller of the games available in the games.py 'cog'.\n
+    self.q is a list[tuple], where each tuple represents one player in the player queue. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
+    Right now, I'm actually realizing that it would be much more simple if I instead just incorporated the discord.Member object into the Player class as an attribute. Removing the possibility of confusing others with tuples in the player queue."""
     def __init__(self, bot):
         self.bot = bot
         self.q = []
@@ -612,6 +626,21 @@ class BlackJackGame(Cog):
 
 
 class Poker(commands.Cog):
+
+    HANDS_TO_RANKS = {
+        "royal flush": 0,
+        "straight flush": 1,
+        "four of a kind": 2,
+        "full house": 3,
+        "flush": 4,
+        "straight": 5,
+        "three of a kind": 6,
+        "two pair": 7,
+        "pair": 8, 
+        "high card": 9,
+    }
+
+
     def __init__(self, bot, player_queue:PlayerQueue):
         self.bot = bot
         self.deck = Deck()
@@ -637,16 +666,18 @@ class Poker(commands.Cog):
 
     async def resetPlayers(self) -> None:
         economy = Economy(self.bot)
-        for player in self.players:
-            player.winner = False
-            player.done = False
-            player.hand = []
-            player.button = False
-            player.thread = None
-            player.folded = False
-            if player.bet > 0:
-                await economy.giveMoneyPlayer(player, player.bet)
-                player.bet = 0
+        if self.players:
+            for player in self.players:
+                player.winner = False
+                player.done = False
+                player.hand = []
+                player.button = False
+                player.thread = None
+                player.folded = False
+                if player.bet > 0:
+                    await economy.giveMoneyPlayer(player, player.bet)
+                    player.bet = 0
+
 
 
     def getCommunityCardsString(self):
@@ -787,7 +818,7 @@ class Poker(commands.Cog):
         self.pot += self.big_blind
         return
 
-    async def takePreFlopBets(self, ctx, name_of_betting_round:str):
+    async def takePreFlopBets(self, ctx):
         if self.early_finish is not True:
             economy = Economy(self.bot)
             self.setPlayersNotDone()
@@ -1028,22 +1059,25 @@ class Poker(commands.Cog):
             possible_scores.append(rank) 
             possible_hands[rank].append(full_house) 
 
-        max_occurences = ranker.getNthofAKind(player_hand)
-        match max_occurences:
-            case 4:
-                rank = 2 # 4 of a kind
-            case 3:
-                rank = 6 # three of a kind
-            case 2: # if there's a max of 2 occurences, the hand could contain a solo pair OR a two pair
-                two_pair = ranker.getTwoPair(player_hand)
-                if two_pair is True:
-                    rank = 7 # two pair
-                else:
-                    rank = 8 # 2 of a kind
-            case _: 
-                rank = 9 # high card
-        possible_scores.append(rank) 
-        possible_hands[rank].append(player_hand)
+        max_occurences = ranker.getMaxOccurences(player_hand)
+        if max_occurences <= 4:
+            match max_occurences:
+                case 4:
+                    rank = 2 # 4 of a kind
+                    player_hand = ranker.getNofAKind(max_occurences, player_hand)
+                case 3:
+                    rank = 6 # three of a kind
+                case 2: # if there's a max of 2 occurences, the hand could contain a solo pair OR a two pair
+                    two_pair = ranker.getTwoPair(player_hand)
+                    if two_pair is True:
+                        rank = 7 # two pair
+                        player_hand = two_pair 
+                    else:
+                        rank = 8 # 2 of a kind
+                case _: 
+                    rank = 9 # high card
+            possible_scores.append(rank) 
+            possible_hands[rank].append(player_hand) # the twopair hand is appended if there is one
         
         player.possible_hands = possible_hands
         return min(possible_scores)
@@ -1055,6 +1089,7 @@ class Poker(commands.Cog):
         """
         ranker = PokerRanker
         best_rank = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
+        interim_winners = []
         winners = []
         # get the best score
         for player in self.players:
@@ -1063,23 +1098,23 @@ class Poker(commands.Cog):
         # check if any two players share the best score
         for player in self.players:
             if player.hand_rank == best_rank:
-                winners.append(player)
+                interim_winners.append(player)
             else:
                 self.players.remove(player)
 
         # leaves only players who are tied with the best rank
-        if len(winners) == 1:
-            return winners[0]
+        if len(interim_winners) == 1:
+            winners = [interim_winners[0]]
         
-        elif len(winners) > 1:
+        elif len(interim_winners) > 1:
         # depending on what hand the players share, 
             match best_rank:
                 case 0: # royal flush
-                    return players
+                    winners = interim_winners
                 case 1: # straight flush
-                    ranker.getBestStraightFlush()
+                    winners = ranker.breakStraightFlushTie(interim_winners)
                 case 2: # 4 of a kind
-                    pass
+                    winners = 
                 case 3: # full house
                     pass
                 case 4: # flush
@@ -1094,10 +1129,11 @@ class Poker(commands.Cog):
                     pass
                 case 9: # high card
                     pass
-
+        
+        return winners
 
     async def getWinners(self, ctx) -> list[Player]:
-        winners = []
+        final_winners = []
         possible_hands = {
             "royal flush": 0,
             "straight flush": 1,
@@ -1113,26 +1149,30 @@ class Poker(commands.Cog):
         if len(self.players) > 1:
             for player in self.players:
                 player.hand_rank = self.getHandRankAndPossibleHands(player)
-            interim_winners= self._getWinners(self.players)
+            interim_winners = self._getWinners(self.players)
             for winner in interim_winners:
-                winners.append(winner)
-
+                final_winners.append(winner)
 
         elif len(self.players) == 1:
-            winner = self.players[0]
-            winner.winner = True
-            winners.append(winner)
+            final_winners.append(self.players[0])
 
-        return winners
+        return final_winners
 
     async def rewardWinners(self, ctx, winners):
         economy = Economy(self.bot)
 
+        # if more than one winner, split the pot rounding to the nearest whole number, give each winner their split
+        if len(winners) > 1:
+            cut = self.pot // len(winners)
+        elif len(winners) == 1:
+            cut = self.pot
+        else:
+            cut = 0
+            print(f"The amount of winners was less than 1. Please fix this, self")
+
         for winner in winners:
-            await economy.giveMoneyPlayer(winner, self.pot)
-            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}!"))
-            # ggive this player the pot, send a congratulatory message
-            pass
+            await economy.giveMoneyPlayer(winner, cut)
+            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!"))
 
     async def flop(self, ctx):
         self.dealer.dealFlop(self)
@@ -1149,7 +1189,7 @@ class Poker(commands.Cog):
     
     async def play(self, ctx):
         # setup
-        self.resetPlayers()
+        await self.resetPlayers()
         self.post_flop = False
         self.getThreads()
         self.channel = await self.getPokerChannel(ctx)
@@ -1157,7 +1197,7 @@ class Poker(commands.Cog):
         # turning each async function into a task
         first_blind = self.assignButtonAndPostBlinds(ctx)
         show_cards = self.showHands()
-        preflop_bets = self.takePreFlopBets(ctx, "flop")
+        preflop_bets = self.takePreFlopBets(ctx)
         flop = self.flop(ctx)
         turn_bets = self.takePostFlopBets(ctx, "turn")
         turn = self.dealCommunityCard(ctx)
@@ -1212,6 +1252,9 @@ class PokerRanker(Cog):
     
     @staticmethod
     def getHandTotalValue(player_hand_pip:list) -> int:
+        """
+        Takes any length series of cards in a list, and returns the sum of their values.
+        """
         total = 0
         for card in player_hand_pip:
             total += int(card[0])
@@ -1259,6 +1302,7 @@ class PokerRanker(Cog):
         if len(possible_flushes) > 0:
             return possible_flushes
         return None
+    
     @staticmethod
     def getBestFlush(possible_flushes:list) -> list:
         best_flush = possible_flushes[0]
@@ -1315,14 +1359,40 @@ class PokerRanker(Cog):
         if len(possible_straight_flushes) > 0:
             return possible_straight_flushes
         return None
-    
 
     @staticmethod
-    def getBestStraightFlush(possible_straight_flushes:list) -> list:
+    def breakStraightFlushTie(players:list[Player]) -> list[Player]:
+        """
+        Compares an input list of player's straight flushes, returns the player(s) with the best one."""
+        ranker = PokerRanker
+        rank = Poker.HANDS_TO_RANKS["straight flush"]
+
+        hands_to_players = {}
+        hands_for_comparison = []
+        # the tie could potentially remain if the players have the same hand, so this method will return a list
+        best_players = []
+        # populate dict and hands for comparison 
+        for player in players:
+            best_hand = player.possible_hands[rank][0]
+            hands_to_players[best_hand] = player
+            hands_for_comparison.append(best_hand)
+        best_straight_flush = PokerRanker.getBestStraightFlush(hands_for_comparison)
+        # see how many people have the best hand
+        for straight_flush in hands_for_comparison:
+            if ranker.getHighCard(straight_flush) == ranker.getHighCard(best_straight_flush):
+                best_players.append(hands_to_players[straight_flush])
+
+        return best_players
+
+    @staticmethod
+    def getBestStraightFlush(possible_straight_flushes:list[list[Card]]) -> list:
+        ranker = PokerRanker
+        """
+        Possible straight flushes should be a list of 5 card combos (straight flushes)"""
         best_one = possible_straight_flushes[0]
         if len(possible_straight_flushes) > 1:
             for flush in possible_straight_flushes:
-                if PokerRanker.getHandTotalValue(flush) > PokerRanker.getHandTotalValue(best_one):
+                if ranker.getHighCard(flush) > ranker.getHighCard(best_one):
                     best_one = flush
         return best_one
 
@@ -1344,7 +1414,23 @@ class PokerRanker(Cog):
         return None
     
     @staticmethod
-    def getNthofAKind(sorted_hand: list) -> int:
+    def breakFOAKTie
+    @staticmethod
+    def getNofAKind(num_occurences, sorted_hand: list) -> list:
+        """
+        Returns a list of of same-valued cards, if those cards exist in the given `sorted_hand`."""
+        pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
+        pip_hand = [int(hand[0]) for hand in pip_hand] # remove the unecessary card suit for now
+        values_to_occurences = Counter(pip_hand)
+
+        for value in values_to_occurences:
+            if values_to_occurences[value] == num_occurences:
+                # return the value which occurs the same amount as num_occurences
+                return [value for i in range(num_occurences)]
+        raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")
+
+    @staticmethod
+    def getMaxOccurences(sorted_hand: list) -> int:
         """
         This method checks all cards in a hand and returns the maximum amount of times any card number value appears in the hand.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n
@@ -1405,10 +1491,10 @@ class PokerRanker(Cog):
         return None
     
     @staticmethod
-    def getHighCard(sorted_hand) -> int:
+    def getHighCard(sorted_hand:list) -> int:
         """
         Returns the highest pip value of all cards in a player's hand.
-        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
+        :param list sorted_hand: A list of cards sorted in ascending order - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         high_card = 0
         for value, suit in pip_hand:    
