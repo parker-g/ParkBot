@@ -213,9 +213,9 @@ class Player(Cog):
         self.thread = None
         self.folded = False
         self.hand_rank = None
-        # the combination of a player's cards and the community cards (7 cards)
+        # the combination of a player's cards and the community cards (7 cards) - stored in pip format
         self.complete_hand = []
-        # a player's best hand, which assigned them their hand_rank (less than 7 cards)
+        # a player's best hand, which assigned them their hand_rank (5 or less cards) 
         self.ranked_hand = []
         # possible_hands contains a player's best possible hand at each possible hand rank
         self.possible_hands = {}
@@ -265,7 +265,7 @@ class Player(Cog):
         return pretty_string
 
     # used in Poker
-    def getCompleteHand(self, community_cards:list):
+    def getCompleteHand(self, community_cards:list) -> list[tuple[str, str]]: # tuple(value, int)
         """
         Combines a player's hand with the community cards on the table, returns them in a new list.\n
         I use the term 'complete hand' to refer to a hand which including BOTH the player's cards, and the community cards.\n
@@ -1023,11 +1023,13 @@ class Poker(commands.Cog):
             5: [],
             6: [],
             7: [],
-            8: [], # high card
+            8: [],
+            9: [], # high card
         }
         ranker = PokerRanker
         player.complete_hand = player.getCompleteHand(self.community_cards)
-        player_hand = ranker.cardsToPipValues(player.complete_hand) # complete hand in pip value
+        player.complete_hand = ranker.cardsToPipValues(player.complete_hand)
+        player_hand = player.complete_hand # complete hand in pip value
         bubbleSortCards(player_hand)
 
         # hand's now in pip value and sorted in ascending order
@@ -1067,6 +1069,7 @@ class Poker(commands.Cog):
                     player_hand = ranker.getNofAKind(max_occurences, player_hand)
                 case 3:
                     rank = 6 # three of a kind
+                    player_hand = ranker.getNofAKind(max_occurences, player_hand)
                 case 2: # if there's a max of 2 occurences, the hand could contain a solo pair OR a two pair
                     two_pair = ranker.getTwoPair(player_hand)
                     if two_pair is True:
@@ -1074,8 +1077,10 @@ class Poker(commands.Cog):
                         player_hand = two_pair 
                     else:
                         rank = 8 # 2 of a kind
+                        player_hand = ranker.getTwoPair(player_hand)
                 case _: 
                     rank = 9 # high card
+                    player_hand = ranker.getHighCard(player_hand)
             possible_scores.append(rank) 
             possible_hands[rank].append(player_hand) # the twopair hand is appended if there is one
         
@@ -1114,7 +1119,7 @@ class Poker(commands.Cog):
                 case 1: # straight flush
                     winners = ranker.breakStraightFlushTie(interim_winners)
                 case 2: # 4 of a kind
-                    winners = 
+                    winners = ranker.breakFOAKTie(interim_winners)
                 case 3: # full house
                     pass
                 case 4: # flush
@@ -1366,7 +1371,6 @@ class PokerRanker(Cog):
         Compares an input list of player's straight flushes, returns the player(s) with the best one."""
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["straight flush"]
-
         hands_to_players = {}
         hands_for_comparison = []
         # the tie could potentially remain if the players have the same hand, so this method will return a list
@@ -1412,9 +1416,44 @@ class PokerRanker(Cog):
             if pip_flush == royal_flush_key:
                 return pip_flush
         return None
-    
+
+    #FOAK = four of a kind
     @staticmethod
-    def breakFOAKTie
+    def breakFOAKTie(players:list[Player]) -> list[Player]:
+        rank = Poker.HANDS_TO_RANKS["four of a kind"]
+        players_to_kickers = {}
+        best_players = []
+        # populate players to kickers dict
+        for player in players:
+            complete_hand = player.complete_hand
+            foak = player.possible_hands[rank]
+            # so remove the four of a kind from the complete hand, then get high card to find each players highest kicker
+            working_list = 0
+            foak_value = foak[0] # select a card from the four of a kind
+            for value, suit in complete_hand:
+                if value == foak_value:
+                    complete_hand.remove((value, suit))
+            # all foak values are removed
+            kicker = 0
+            for value, suit in complete_hand:
+                if value > kicker:
+                    kicker = value
+            players_to_kickers[player] = kicker
+
+        # find best kicker val
+        best_kicker_val = 0
+        for player in players_to_kickers:
+            player_kicker = players_to_kickers[player]
+            if player_kicker > best_kicker_val:
+                best_kicker_val = player_kicker
+        # check how many players have a kicker of the best value
+        for player in players_to_kickers:
+            player_kicker = players_to_kickers[player]
+            if player_kicker == best_kicker_val:
+                best_players.append(player)
+        # return any players who have the best kicker 
+        return best_players
+        
     @staticmethod
     def getNofAKind(num_occurences, sorted_hand: list) -> list:
         """
