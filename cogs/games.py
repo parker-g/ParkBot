@@ -36,8 +36,6 @@ class Card:
     The Card is the most basic data structure used in the games cog.\n
     Make sure to specify which game your card will be used for when constructing cards."""
 
-
-
     # PIP EXPLANATION | EXPLAIN PIP | PIP
     # "pip" value is a term used to describe a card's value in a numerical form. in 'pip' form, a jack would be an 11, a queen would be a 12, etc
     FACE_TO_PIP_POKER = {
@@ -133,9 +131,12 @@ class Card:
                 
         self.suit = suit
     
-    def getPipValue(self):
+    def getValuePip(self):
         return self.pip_value
     
+    def getValueString(self):
+        return self.face_value
+
     def getSuit(self):
         return self.suit
     
@@ -1123,9 +1124,9 @@ class Poker(commands.Cog):
                 case 3: # full house
                     winners = ranker.breakFullHouseTie(interim_winners)
                 case 4: # flush
-                    pass
+                    winners = ranker.breakFlushTie(interim_winners)
                 case 5: # straight
-                    pass
+                    winners = ranker.breakStraightTie(interim_winners)
                 case 6: # 3 of a kind
                     pass
                 case 7: # two pair
@@ -1288,6 +1289,7 @@ class PokerRanker(Cog):
         Returns all possible flushes in a given hand.
         """
         suits = {
+            # str, list[(value, suit), (value, suit)]
             "♠": [],
             "♣": [],
             "♥": [],
@@ -1308,6 +1310,40 @@ class PokerRanker(Cog):
             return possible_flushes
         return None
     
+    @staticmethod
+    def breakFlushTie(players:list[Player], length_of_remaining_cards:int = 5) -> list[Player]:
+        # in a flush tie, the winner is determined by who has the highest card in the flush
+        ranker = PokerRanker
+        rank = Poker.HANDS_TO_RANKS["flush"]
+        players_to_high_card = {
+            # player: 8,
+            # player2: 9,
+        }
+        # populate dict
+        for player in players:
+            flush = player.possible_hands[rank][:length_of_remaining_cards]
+            best_card = ranker.getHighCard(flush)
+            players_to_high_card[player] = best_card
+        
+        #compare high cards
+        remaining_players = []
+        best_high_card = 0
+        for player in players_to_high_card:
+            high_card = players_to_high_card[player]
+            if high_card > best_high_card:
+                best_high_card = high_card
+                remaining_players.clear()
+                remaining_players.append(player)
+            elif high_card == best_high_card:
+                remaining_players.append(player)
+        
+        if (len(remaining_players) == 1) or (length_of_remaining_cards == 1):
+            return remaining_players
+        else:
+            length_of_remaining_cards -= 1
+            return(ranker.breakFlushTie(remaining_players, length_of_remaining_cards))
+
+
     @staticmethod
     def getBestFlush(possible_flushes:list) -> list:
         best_flush = possible_flushes[0]
@@ -1347,6 +1383,10 @@ class PokerRanker(Cog):
             return possible_straights
         return None
     
+    @staticmethod
+    def breakStraightTie(players:list[Player]) -> list[Player]:
+        
+
     @staticmethod
     def getBestStraight(possible_straights:list) -> list:
         # (last possible straight will have highest value since the input cards are sorted)
