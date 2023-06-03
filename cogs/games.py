@@ -1128,7 +1128,7 @@ class Poker(commands.Cog):
                 case 5: # straight
                     winners = ranker.breakStraightTie(interim_winners)
                 case 6: # 3 of a kind
-                    pass
+                    winners = ranker.breakTripleTie(interim_winners)
                 case 7: # two pair
                     pass
                 case 8: # pair
@@ -1498,24 +1498,28 @@ class PokerRanker(Cog):
         rank = Poker.HANDS_TO_RANKS["four of a kind"]
         players_to_kickers = {}
         best_players = []
+        ####################################
+        # need to compare the player's four of a kind values before resorting to comparing kickers
+
+        # can use the below algorithm in breaking a three of a kind tie as well - below algorithm compares each players kickers
+        ###################################
         # populate players to kickers dict
         for player in players:
             complete_hand = player.complete_hand
             foak = player.possible_hands[rank]
-            # so remove the four of a kind from the complete hand, then get high card to find each players highest kicker
-            working_list = 0
-            foak_value = foak[0] # select a card from the four of a kind
+            # remove the four of a kind from the complete hand, then get high card to find each players highest kicker
+            foak_value = foak[0] # get the value of cards from the four of a kind
             for value, suit in complete_hand:
                 if value == foak_value:
                     complete_hand.remove((value, suit))
-            # all foak values are removed
+            # all foak values are removed, now store current player's best kicker in dict
             kicker = 0
             for value, suit in complete_hand:
                 if value > kicker:
                     kicker = value
             players_to_kickers[player] = kicker
 
-        # find best kicker val
+        # find best kicker val of all players
         best_kicker_val = 0
         for player in players_to_kickers:
             player_kicker = players_to_kickers[player]
@@ -1607,6 +1611,40 @@ class PokerRanker(Cog):
                 # return the value which occurs the same amount as num_occurences
                 return [value for i in range(num_occurences)]
         raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")
+
+    @staticmethod
+    def breakTripleTie(players:list[Player]) -> list[Player]:
+        rank = Poker.HANDS_TO_RANKS["three of a kind"]
+        players_to_hand_value = {
+            # 
+        }
+        # three of a kind ties are broken by finding who has the higher value 3oak. 
+        # if two players have the same 3oak, the highest kicker wins
+        
+        # populate dict
+        for player in players:
+            hand_value = player.possible_hands[rank][0]
+            players_to_hand_value[player] = hand_value
+        
+        best_triple_value = 0
+        players_with_best_value = []
+
+        for player in players_to_hand_value:
+            player_trip_value = players_to_hand_value[player][0]
+            if player_trip_value > best_triple_value:
+                best_triple_value = player_trip_value
+                players_with_best_value.clear()
+                players_with_best_value.append(player)
+            elif player_trip_value == best_triple_value:
+                players_with_best_value.append(player)
+
+        if len(players_with_best_value) < 1:
+            raise Exception("You have made a grave mistake while coding this tie case. Please revise")
+        elif len(players_with_best_value) == 1:
+            return players_with_best_value
+        else:
+
+
 
     @staticmethod
     def getMaxOccurences(sorted_hand: list) -> int:
