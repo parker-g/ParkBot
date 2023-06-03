@@ -1015,7 +1015,7 @@ class Poker(commands.Cog):
         """
         possible_scores = []
         possible_hands = {
-            0: [], #royal flush 
+            0: [], #royal flush [10, 11, 12, 13, 14]
             1: [],
             2: [],
             3: [],
@@ -1121,7 +1121,7 @@ class Poker(commands.Cog):
                 case 2: # 4 of a kind
                     winners = ranker.breakFOAKTie(interim_winners)
                 case 3: # full house
-                    pass
+                    winners = ranker.breakFullHouseTie(interim_winners)
                 case 4: # flush
                     pass
                 case 5: # straight
@@ -1402,6 +1402,8 @@ class PokerRanker(Cog):
 
     @staticmethod
     def getRoyalFlush(straight_flushes:list) -> list | None:
+        """
+        If hand contains a Royal Flush, returns the royal flush. Otherwise, returns None."""
         royal_flush_key = [10, 11, 12, 13, 14]
         # convert each straight flush to a list of its pip values
         flush_num_values = []
@@ -1420,6 +1422,8 @@ class PokerRanker(Cog):
     #FOAK = four of a kind
     @staticmethod
     def breakFOAKTie(players:list[Player]) -> list[Player]:
+        """
+        Compares the input players hands to find who has the best kicker in their hand. Returns player or players with the highest value kicker, in a list."""
         rank = Poker.HANDS_TO_RANKS["four of a kind"]
         players_to_kickers = {}
         best_players = []
@@ -1453,7 +1457,72 @@ class PokerRanker(Cog):
                 best_players.append(player)
         # return any players who have the best kicker 
         return best_players
+    
+    @staticmethod
+    def breakFullHouseTie(players:list[Player]) -> list[Player]:
+        rank = Poker.HANDS_TO_RANKS["full house"]
+        players_to_houses = {
+            # player : [value of triple, value of double]
+            # player : [3, 9],
+            # player2 : [7, 10],
+        }
+
+        # populate players_to_houses dict
+        for player in players:
+            full_house = player.possible_hands[rank]
+            triple_value = [tup for tup in full_house if len(tup) == 3][0][0] # get the len == 3 tuple in full_house, then access an element from that tuple (all elmements in the tuple should be the same integer)
+            dub_value = [tup for tup in full_house if len(tup) == 2][0][0]
+            players_to_houses[player] = [triple_value, dub_value]
         
+        # compare player's triples
+        players_with_best_triple = []
+        best_triple_value = 0
+        # get the best triple value, and store all players with that value
+        for player in players_to_houses:
+            player_trip_value = players_to_houses[player][0]
+            if player_trip_value > best_triple_value:
+                best_triple_value = player_trip_value
+                players_with_best_triple.clear()
+                players_with_best_triple.append(player)
+            elif player_trip_value == best_triple_value:
+                players_with_best_triple.append(player)
+        
+        # check if we need to continue, (to compare doubles) 
+        if len(players_with_best_triple) < 1:
+            raise Exception("Somehow, in this tie - no player was evaluated to have the best triple from a comparison of full houses.")
+        elif len(players_with_best_triple) == 1:
+            return players_with_best_triple
+        else: # we need to compare doubles
+            # find best double, store all players with best double
+            players_with_best_double = []
+            best_dub_value = 0
+            for player in players_to_houses:
+                player_dub_value = players_to_houses[player][1]
+                if player_dub_value > best_dub_value:
+                    best_dub_value = player_dub_value
+                    players_with_best_double.clear()
+                    players_with_best_double.append(player)
+                elif player_dub_value == best_dub_value:
+                    players_with_best_double.append(player)
+
+            # check if there's still a tie or we should return just one player
+            if len(players_with_best_double) < 1:
+                raise Exception("No players were put into the 'players with best double' list. Revise the code bro")
+            else:
+                # return whoever is still alive - if there is one that's fine, and if there are more than one that's fine too
+                return players_with_best_double
+
+
+
+        # compare triples first, see if anyone has a higher triple
+            # if so, return the highest player
+
+            # else, its still a tie - 
+                # then compare doubles
+                    # if anyone has a double higher than anyone else, return that player
+                    
+                    # else, the tied players have the same triple and double, return all remaining players
+
     @staticmethod
     def getNofAKind(num_occurences, sorted_hand: list) -> list:
         """
@@ -1490,21 +1559,23 @@ class PokerRanker(Cog):
         """
         Checks whether a player's hand contains a full house.\n
         Returns a list of card values representing the full house if so, otherwise returns None.\n
-        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
+        :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n
+        :returns list full_house: A list of values in this format - [(3, 3, 3), (5, 5)]"""
+        
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
         occurences_dict = Counter(pip_hand_no_tuple)
-        full_house = []
+        full_house = [] 
         for card_value in occurences_dict:
             if (occurences_dict[card_value] == 3):
-                three_piece = [card_value, card_value, card_value]
-                full_house += three_piece
+                three_piece = (card_value, card_value, card_value)
+                full_house.append(three_piece)
                 del occurences_dict[card_value]
 
         for card_value in occurences_dict:
             if (occurences_dict[card_value] == 2):
-                pair = [card_value, card_value]
-                full_house += pair
+                pair = (card_value, card_value)
+                full_house.append(pair)
             if len(full_house) == 5:
                 return full_house
         return None
