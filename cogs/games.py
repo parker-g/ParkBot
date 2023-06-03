@@ -1311,7 +1311,7 @@ class PokerRanker(Cog):
         return None
     
     @staticmethod
-    def breakFlushTie(players:list[Player], length_of_remaining_cards:int = 5) -> list[Player]:
+    def breakFlushTie(players:list[Player], length_of_remaining_cards = 5) -> list[Player]:
         # in a flush tie, the winner is determined by who has the highest card in the flush
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["flush"]
@@ -1321,10 +1321,12 @@ class PokerRanker(Cog):
         }
         # populate dict
         for player in players:
-            flush = player.possible_hands[rank][:length_of_remaining_cards]
+            flush = player.possible_hands[rank]
             best_card = ranker.getHighCard(flush)
             players_to_high_card[player] = best_card
-        
+            player.possible_hands[rank].remove(best_card)
+        length_of_remaining_cards -= 1
+
         #compare high cards
         remaining_players = []
         best_high_card = 0
@@ -1340,7 +1342,6 @@ class PokerRanker(Cog):
         if (len(remaining_players) == 1) or (length_of_remaining_cards == 1):
             return remaining_players
         else:
-            length_of_remaining_cards -= 1
             return(ranker.breakFlushTie(remaining_players, length_of_remaining_cards))
 
 
@@ -1384,8 +1385,38 @@ class PokerRanker(Cog):
         return None
     
     @staticmethod
-    def breakStraightTie(players:list[Player]) -> list[Player]:
+    def breakStraightTie(players:list[Player], length_of_remaining_cards:int = 5) -> list[Player]:
+        ranker = PokerRanker
+        rank = Poker.HANDS_TO_RANKS["straight"]
+        players_to_high_card = {
+            # player: 8,
+            # player2: 9,
+        }
+
+        # populate dict
+        for player in players:
+            straight = player.possible_hands[rank]
+            best_card = ranker.getHighCard(straight)
+            players_to_high_card[player] = best_card
+            player.possible_hands[rank].remove(best_card)
+        length_of_remaining_cards -= 1
+
+        #compare high cards
+        remaining_players = []
+        best_high_card = 0
+        for player in players_to_high_card:
+            high_card = players_to_high_card[player]
+            if high_card > best_high_card:
+                best_high_card = high_card
+                remaining_players.clear()
+                remaining_players.append(player)
+            elif high_card == best_high_card:
+                remaining_players.append(player)
         
+        if (len(remaining_players) == 1) or (length_of_remaining_cards == 1):
+            return remaining_players
+        else:
+            return(ranker.breakStraightTie(remaining_players, length_of_remaining_cards))
 
     @staticmethod
     def getBestStraight(possible_straights:list) -> list:
