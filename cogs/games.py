@@ -1599,7 +1599,7 @@ class PokerRanker(Cog):
                     # else, the tied players have the same triple and double, return all remaining players
 
     @staticmethod
-    def getNofAKind(num_occurences, sorted_hand: list) -> list:
+    def getNofAKind(num_occurences:int, sorted_hand: list) -> list:
         """
         Returns a list of of same-valued cards, if those cards exist in the given `sorted_hand`."""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
@@ -1610,27 +1610,69 @@ class PokerRanker(Cog):
             if values_to_occurences[value] == num_occurences:
                 # return the value which occurs the same amount as num_occurences
                 return [value for i in range(num_occurences)]
-        raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")
+        raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")        
+
+    @staticmethod
+    def getBestKicker(players_to_leftovers:dict[Player, list], remaining_cards:int) -> list[Player]:
+        """
+        Players to leftovers is a dict containing Player objects as keys, and a list of values which DONT contribute to the player's ranked hand, as the dict's values.\n
+        Returns player/players with best kicker"""
+        ranker = PokerRanker
+        players_to_kickers = {
+            # player: 5, 
+        }
+        # get each players best kicker
+        for player in players_to_leftovers:
+            leftovers = players_to_leftovers[player]
+            best_kicker = ranker.getHighCard(leftovers)
+            players_to_leftovers[player].remove(best_kicker)
+        remaining_cards -= 1
+
+        # find the best kicker, and store players who have the best kicker
+        remaining_players = []
+        winning_kicker = 0
+        for player in players_to_kickers:
+            if players_to_kickers[player] > winning_kicker:
+                winning_kicker = players_to_kickers[player]
+                remaining_players.clear()
+                remaining_players.append(player)
+            elif players_to_kickers[player] == winning_kicker:
+                remaining_players.append(player)
+        
+        # only recurse if there are cards left to compare, and there is more than one player left
+        if (len(remaining_players) > 1) and (remaining_cards > 0):
+            # remove players who aren't in remaining players from players_to_leftovers, and then call getBestKicker with tihs modified dict
+            for player in players_to_leftovers:
+                if not player in remaining_players:
+                    del players_to_leftovers[player]
+            return ranker.getBestKicker(players_to_leftovers, remaining_cards)
+        
+        elif (len(remaining_players) == 1) or (remaining_cards == 0):
+            return remaining_players
+        
+        else:
+            raise Exception("You really fucked up")
 
     @staticmethod
     def breakTripleTie(players:list[Player]) -> list[Player]:
+        ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["three of a kind"]
         players_to_hand_value = {
-            # 
+            # player: 9,
         }
-        # three of a kind ties are broken by finding who has the higher value 3oak. 
-        # if two players have the same 3oak, the highest kicker wins
-        
+    
         # populate dict
         for player in players:
-            hand_value = player.possible_hands[rank][0]
+            hand_value = player.possible_hands[rank][0] # int
             players_to_hand_value[player] = hand_value
+
         
         best_triple_value = 0
         players_with_best_value = []
 
+        # get the player or players with the highest '3 of a kind' value
         for player in players_to_hand_value:
-            player_trip_value = players_to_hand_value[player][0]
+            player_trip_value = players_to_hand_value[player]
             if player_trip_value > best_triple_value:
                 best_triple_value = player_trip_value
                 players_with_best_value.clear()
@@ -1639,13 +1681,28 @@ class PokerRanker(Cog):
                 players_with_best_value.append(player)
 
         if len(players_with_best_value) < 1:
-            raise Exception("You have made a grave mistake while coding this tie case. Please revise")
+            raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
         elif len(players_with_best_value) == 1:
             return players_with_best_value
         else:
-
-
-
+            players_to_leftovers = {
+            # player: [4, 5, 7, 9],
+            }
+            players_to_kickers = {
+                # same format as players_to_hand_value
+            }
+            # populate players to kickers
+            leftovers_length = 0
+            for player in players:
+                leftovers = [value for value, suit in player.complete_hand if value != players_to_hand_value[player]]
+                leftovers_len = len(leftovers)
+                players_to_leftovers[player] = leftovers
+                best_kicker = ranker.getHighCard(leftovers)
+                players_to_kickers[player] = best_kicker
+            
+            winners = ranker.getBestKicker(players_to_leftovers, leftovers_length)
+            return winners
+        
     @staticmethod
     def getMaxOccurences(sorted_hand: list) -> int:
         """
@@ -1712,7 +1769,7 @@ class PokerRanker(Cog):
     @staticmethod
     def getHighCard(sorted_hand:list) -> int:
         """
-        Returns the highest pip value of all cards in a player's hand.
+        Returns the highest pip value of all cards in a player's hand with (value, suit) format.
         :param list sorted_hand: A list of cards sorted in ascending order - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         high_card = 0
