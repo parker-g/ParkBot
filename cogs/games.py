@@ -1614,10 +1614,12 @@ class PokerRanker(Cog):
     @staticmethod
     def getBestKicker(players_to_leftovers:dict[Player, list], remaining_cards:int) -> list[Player]:
         """
-        Players to leftovers is a dict containing Player objects as keys, and a list of values which DONT contribute to the player's ranked hand, as the dict's values.\n
+        Players to leftovers is a dict containing Player objects as keys, and a list of int values which DONT contribute to the player's ranked hand, as the dict's values.\n
         Checks which input player has the best kicker - recursively if all their first kickers are the same.\n
-        Returns player/players with best kicker"""
-
+        Returns player/players with best kicker\n
+        
+        :param int remaining_cards: `remaining_cards` is the difference between 5 and how big a player's ranked hand is.
+        Since a Texas Hold 'em hand can only be 5 cards max, this means kickers only exist within these 5 cards."""
         ranker = PokerRanker
         players_to_kickers = {
             # player: 5, 
@@ -1656,52 +1658,55 @@ class PokerRanker(Cog):
 
     @staticmethod
     def breakTripleTie(players:list[Player]) -> list[Player]:
+
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["three of a kind"]
-        players_to_hand_value = {
+        players_to_hand_values = {
             # player: 9,
         }
-    
+        
+        def getBestTrip(players_dict:dict[Player, int]):
+            best_trip = 0
+            for player in players_dict:
+                trip = players_dict[player]
+                if trip > best_trip:
+                    best_trip = trip
+            return best_trip
+        
+        def getLeftovers(player:Player, triple_val:int) -> list:
+            leftovers = player.complete_hand
+            for i in range(3):
+                leftovers.remove(triple_val)
+            return leftovers
+
+
         # populate dict
         for player in players:
             hand_value = player.possible_hands[rank][0] # int
-            players_to_hand_value[player] = hand_value
+            players_to_hand_values[player] = hand_value
 
-        
-        best_triple_value = 0
-        players_with_best_value = []
+        best_triple_value = getBestTrip(players_to_hand_values)
 
-        # get the player or players with the highest '3 of a kind' value
-        for player in players_to_hand_value:
-            player_trip_value = players_to_hand_value[player]
-            if player_trip_value > best_triple_value:
-                best_triple_value = player_trip_value
-                players_with_best_value.clear()
-                players_with_best_value.append(player)
-            elif player_trip_value == best_triple_value:
-                players_with_best_value.append(player)
+        # remove players who dont have the best 3 of a kind
+        for player in players_to_hand_values:
+            player_trip_value = players_to_hand_values[player]
+            if player_trip_value < best_triple_value:
+                del players_to_hand_values[player]
 
-        if len(players_with_best_value) < 1:
+        if len(players_to_hand_values) < 1:
             raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
-        elif len(players_with_best_value) == 1:
-            return players_with_best_value
+        elif len(players_to_hand_values) == 1:
+            return list(players_to_hand_values.keys())
+        
         else: # if len players with best value is greater than 1
             players_to_leftovers = {
             # player: [4, 5, 7, 9],
             }
-            players_to_kickers = {
-                # same format as players_to_hand_value
-            }
             # populate players to kickers
-            leftovers_length = 0
             for player in players:
-                leftovers = [value for value, suit in player.complete_hand if value != players_to_hand_value[player]]
-                leftovers_len = len(leftovers)
+                leftovers = getLeftovers(player, players_to_hand_values[player])
                 players_to_leftovers[player] = leftovers
-                best_kicker = ranker.getHighCard(leftovers)
-                players_to_kickers[player] = best_kicker
-            
-            winners = ranker.getBestKicker(players_to_leftovers, leftovers_length)
+            winners = ranker.getBestKicker(players_to_leftovers, 2)
             return winners
         
     @staticmethod
@@ -1751,7 +1756,7 @@ class PokerRanker(Cog):
     def getTwoPair(sorted_hand:list) -> list | None:
         """
         Checks whether a player's hand contains two pairs.\n
-        Returns the two-pair hand as a list if so, otherwise returns None.\n
+        Returns the two-pair hand as a list if so, in format [[value1, value1], [value2, value2]], otherwise returns None.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
         pip_hand = PokerRanker.cardsToPipValues(sorted_hand)
         pip_hand_no_tuple = [int(hand[0]) for hand in pip_hand]
@@ -1768,7 +1773,7 @@ class PokerRanker(Cog):
         return None
     
     @staticmethod
-    def breakTwoPairTie(players:list[Player]) -> list[Player]:
+    def breakPairTie(players:list[Player]) -> list[Player]:
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["two pair"]
         players_to_hand_value = {
@@ -1800,20 +1805,92 @@ class PokerRanker(Cog):
             players_to_leftovers = {
             # player: [4, 5, 7, 9],
             }
-            players_to_kickers = {
-                # same format as players_to_hand_value
-            }
             # populate players to kickers
-            leftovers_length = 0
             for player in players:
                 leftovers = [value for value, suit in player.complete_hand if value != players_to_hand_value[player]]
-                leftovers_len = len(leftovers)
                 players_to_leftovers[player] = leftovers
-                best_kicker = ranker.getHighCard(leftovers)
-                players_to_kickers[player] = best_kicker
-            
-            winners = ranker.getBestKicker(players_to_leftovers, leftovers_length)
+            winners = ranker.getBestKicker(players_to_leftovers, 3)
             return winners
+    
+    @staticmethod
+    def breakTwoPairTie(players:list[Player]) -> list[Player]:
+        """
+        Compares the input players' two pair values to get the best ranked player.\n
+        If two pairs are equal, winner is determined by highest kicker."""
+        ranker = PokerRanker
+        rank = Poker.HANDS_TO_RANKS["two pair"]
+        players_to_two_pair_values = {
+            # player: [value1, value2],
+        }
+
+        def findBestPair(players_to_pairs:dict) -> int:
+            best_pair_value = 0
+            for player in players_to_pairs:
+                for pair_val in players_to_pairs[player]:
+                    if pair_val > best_pair_value:
+                        best_pair_value = pair_val
+            return best_pair_value
+        
+        def getLeftovers(player:Player, two_pair_vals:list) -> list:
+            leftovers = player.complete_hand
+            for i in range(2):
+                leftovers.remove(two_pair_vals[0])
+                leftovers.remove(two_pair_vals[1])
+            return leftovers
+        
+        # populate dict with two-pair's values
+        for player in players:
+            value1 = player.possible_hands[rank][0][0]
+            value2 = player.possible_hands[rank][1][0] 
+            players_to_two_pair_values[player] = [value1, value2]
+
+        # need to store the player with the highest pair1 value
+            # if any players share the highest pair value, compare their next highest pairs
+                # if still tied, compare kickers and return player with best kicker
+
+        # get the best pair
+        best_pair = findBestPair(players_to_two_pair_values)
+
+        # store all players who have a pair the value of best pair, and remove this value from players who have it
+        for player in players_to_two_pair_values:
+            player_pairs = players_to_two_pair_values[player]
+            if best_pair in player_pairs:
+                players_to_two_pair_values[player].remove(best_pair) # remove instances of best value from players who have it
+            elif best_pair not in player_pairs:
+                del players_to_two_pair_values[player] # completely remove players who don't have the best value
+
+        if len(players_to_two_pair_values) < 1:
+            raise Exception("bruh moment")
+        elif len(players_to_two_pair_values) == 1:
+            return list(players_to_two_pair_values.keys())
+        else:
+            # get the next best pair (all instances of the last best pair were removed)
+            best_pair = findBestPair(players_to_two_pair_values)
+
+            # repeat steps used in previous half of method 
+            for player in players_to_two_pair_values:
+                player_pairs = players_to_two_pair_values[player]
+                if best_pair in player_pairs:
+                    players_to_two_pair_values[player].remove(best_pair)
+                elif best_pair not in player_pairs:
+                    del players_to_two_pair_values[player]
+
+            if len(players_to_two_pair_values) < 1:
+                raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
+            elif len(players_to_two_pair_values) == 1:
+                return list(players_to_two_pair_values.keys())
+            else: 
+                # if there are still tied players, winner is determined by whoever has the best kicker
+                players_to_leftovers = {
+                # player: [4, 5, 7, 9],
+                }
+                # populate players to kickers
+                for player in players:
+                    leftovers = getLeftovers(player, players_to_two_pair_values[player])
+                    players_to_leftovers[player] = leftovers
+                # pass in 1 as 'remaining cards' since a hold em hand consists of 5 cards, so the only kicker would be the player's next highest card
+                winners = ranker.getBestKicker(players_to_leftovers, 1)
+                return winners
         
     @staticmethod
     def getHighCard(sorted_hand:list) -> int:
