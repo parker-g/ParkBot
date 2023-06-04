@@ -1130,7 +1130,7 @@ class Poker(commands.Cog):
                 case 6: # 3 of a kind
                     winners = ranker.breakTripleTie(interim_winners)
                 case 7: # two pair
-                    pass
+                    winners = ranker.breakTwoPairTie(interim_winners)
                 case 8: # pair
                     pass
                 case 9: # high card
@@ -1343,7 +1343,6 @@ class PokerRanker(Cog):
             return remaining_players
         else:
             return(ranker.breakFlushTie(remaining_players, length_of_remaining_cards))
-
 
     @staticmethod
     def getBestFlush(possible_flushes:list) -> list:
@@ -1616,7 +1615,9 @@ class PokerRanker(Cog):
     def getBestKicker(players_to_leftovers:dict[Player, list], remaining_cards:int) -> list[Player]:
         """
         Players to leftovers is a dict containing Player objects as keys, and a list of values which DONT contribute to the player's ranked hand, as the dict's values.\n
+        Checks which input player has the best kicker - recursively if all their first kickers are the same.\n
         Returns player/players with best kicker"""
+
         ranker = PokerRanker
         players_to_kickers = {
             # player: 5, 
@@ -1684,7 +1685,7 @@ class PokerRanker(Cog):
             raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
         elif len(players_with_best_value) == 1:
             return players_with_best_value
-        else:
+        else: # if len players with best value is greater than 1
             players_to_leftovers = {
             # player: [4, 5, 7, 9],
             }
@@ -1766,6 +1767,54 @@ class PokerRanker(Cog):
             return pairs
         return None
     
+    @staticmethod
+    def breakTwoPairTie(players:list[Player]) -> list[Player]:
+        ranker = PokerRanker
+        rank = Poker.HANDS_TO_RANKS["two pair"]
+        players_to_hand_value = {
+
+        }
+        # populate dict
+        for player in players:
+            hand_value = player.possible_hands[rank][0] # int
+            players_to_hand_value[player] = hand_value
+
+        best_pair = 0
+        players_with_best_value = []
+
+        # get the player or players with the highest pair value
+        for player in players_to_hand_value:
+            player_pair = players_to_hand_value[player]
+            if player_pair > best_pair:
+                best_pair = player_pair
+                players_with_best_value.clear()
+                players_with_best_value.append(player)
+            elif player_pair == best_pair:
+                players_with_best_value.append(player)
+
+        if len(players_with_best_value) < 1:
+            raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
+        elif len(players_with_best_value) == 1:
+            return players_with_best_value
+        else: # if len players with best value is greater than 1
+            players_to_leftovers = {
+            # player: [4, 5, 7, 9],
+            }
+            players_to_kickers = {
+                # same format as players_to_hand_value
+            }
+            # populate players to kickers
+            leftovers_length = 0
+            for player in players:
+                leftovers = [value for value, suit in player.complete_hand if value != players_to_hand_value[player]]
+                leftovers_len = len(leftovers)
+                players_to_leftovers[player] = leftovers
+                best_kicker = ranker.getHighCard(leftovers)
+                players_to_kickers[player] = best_kicker
+            
+            winners = ranker.getBestKicker(players_to_leftovers, leftovers_length)
+            return winners
+        
     @staticmethod
     def getHighCard(sorted_hand:list) -> int:
         """
