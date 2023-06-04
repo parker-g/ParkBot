@@ -34,7 +34,10 @@ logger = logging.Logger('BJLog')
 class Card:
     """
     The Card is the most basic data structure used in the games cog.\n
-    Make sure to specify which game your card will be used for when constructing cards."""
+    Make sure to specify which game your card will be used for when constructing cards.
+    attributes -
+    :str suit: The suit of the card in word form.
+    :int pip_value: Value of the card in integer form - can change depending on the game where the card is used."""
 
     # PIP EXPLANATION | EXPLAIN PIP | PIP
     # "pip" value is a term used to describe a card's value in a numerical form. in 'pip' form, a jack would be an 11, a queen would be a 12, etc
@@ -98,8 +101,23 @@ class Card:
          "queen": 12,
          "king": 13,
     }
+    SUIT_SYMBOL_TO_STRING = {
+        "♠": "spade",
+        "♣": "club",
+        "♥": "heart",
+        "♦": "diamond",
+    }
     SUIT_STRING_TO_SYMBOL = {
-
+        "spade": "♠",
+        "club": "♣",
+        "heart": "♥",
+        "diamond": "♦",
+    }
+    SUIT_TO_COLOR = {
+        "♠": "black",
+        "♣": "black",
+        "♥": "red",
+        "♦": "red",
     }
 
 
@@ -109,8 +127,14 @@ class Card:
         int | str - value : The value of the card you're creating. Accepted as a lowercase string such as <"jack", "ace", "2"> or an integer value such as <2, 7, 14>.
         str - suit : String representing the suit of the card being constructed. Accepts strings in word format or simple unicode symbol format.
         """
-        self.suit = suit
 
+        if suit in Card.SUIT_STRING_TO_SYMBOL:
+            self.suit = suit
+        elif suit in Card.SUIT_SYMBOL_TO_STRING:
+            self.suit = Card.SUIT_SYMBOL_TO_STRING[suit]
+        else:
+            raise ValueError("Inappropriate argument value of `suit`. Refer to Card class for valid argument options.")
+        
         match game:
             case "blackjack":
                 if isinstance(value, str):
@@ -131,15 +155,25 @@ class Card:
                 
         self.suit = suit
     
-    def getValuePip(self):
+    def setValue(self, new_value:int) -> None:
+        self.pip_value = new_value
+
+    def getValuePip(self) -> int:
         return self.pip_value
     
-    def getValueString(self):
+    def getValueString(self) -> str:
         return self.face_value
 
-    def getSuit(self):
+    def getSuit(self) -> str:
+        """
+        Returns suit of a card, in word form - example: 'spade'"""
         return self.suit
+
+    def getSuitSymbol(self) -> str:
+        return Card.SUIT_STRING_TO_SYMBOL[self.suit]
     
+    def stringify(self):
+        return f"{self.face_value.capitalize()} {self.getSuitSymbol()}"
 
 
 
@@ -149,29 +183,6 @@ class Deck:
     This class provides methods for working with a deck such as  `.shuffle()`, and for pretty printing cards.
     """
 
-    color_legend = {
-        "♠": "black",
-        "♣": "black",
-        "♥": "red",
-        "♦": "red",
-    }
-
-    card_legend = {
-        1: "ace",
-        2: "2",
-        3: "3",
-        4: "4",
-        5: "5",
-        6: "6",
-        7: "7",
-        8: "8",
-        9: "9",
-        10: "10",
-        11: "jack",
-        12: "queen",
-        13: "king",
-    }
-
     blackjack_face_legend = {
         "ace": 1,
         "jack": 10,
@@ -179,17 +190,25 @@ class Deck:
         "king": 10,
     }
 
-    def __init__(self):
+    def __init__(self, game:str):
+        """
+        Game accepts 'poker' or 'blackjack' as arguments."""
         self.deck = []
-        for i in range(1, 14):
-            self.deck.append((Deck.card_legend[i], "♠"))
-            self.deck.append((Deck.card_legend[i], "♣"))
-            self.deck.append((Deck.card_legend[i], "♥"))
-            self.deck.append((Deck.card_legend[i], "♦"))
-    
-    @staticmethod
-    def formatCard(card_tuple:tuple) -> str:
-        return f"{card_tuple[0].capitalize()} {card_tuple[1]}s"
+        match game.lower():
+            case "blackjack":
+                for i in range(1, 14):
+                    self.deck.append(Card(game, i, "spade"))
+                    self.deck.append(Card(game, i, "club"))
+                    self.deck.append(Card(game, i, "heart"))
+                    self.deck.append(Card(game, i, "diamond"))
+            case "poker":
+                # texas hold em poker uses 2 decks at a time
+                for i in range(2):
+                    for i in range(1, 14):
+                        self.deck.append(Card(game, i, "spade"))
+                        self.deck.append(Card(game, i, "club"))
+                        self.deck.append(Card(game, i, "heart"))
+                        self.deck.append(Card(game, i, "diamond"))
 
     def shuffle(self) -> None:
         random.shuffle(self.deck)
@@ -220,39 +239,44 @@ class Player(Cog):
         self.ranked_hand = []
         # possible_hands contains a player's best possible hand at each possible hand rank
         self.possible_hands = {}
-        
-
+    
+    # poker method. ACTUALLY NOT USED LOL
     def setBestHand(self, new_best_hand:list) -> None:
         self.ranked_hand = new_best_hand
 
-
-    def resetPlayer(self):
+    def resetPlayer(self) -> None:
+        """
+        Resets a player's state attributes."""
         self.hand = []
         self.bet = 0
         self.done = False
         self.winner = False
 
-    def pushToPot(self, pot):
+    def pushToPot(self, pot) -> None:
+        """
+        Pushes a player's current bet to the input pot, and clears the player's current bet."""
         pot += self.bet
         self.bet = 0
 
-    def sumCards(self):
+    def sumCards(self) -> int:
+        """
+        Returns the sum of card values in the player's hand."""
         total = 0
-        for tup in self.hand:
-            num = tup[0]
-            try:
-                num = int(num)
-            except:
-                num = Deck.blackjack_face_legend[num]
-            total += num
+        for card in self.hand:
+            total += card.pip_value
         return total
 
-    def isBlackJack(self):
+    def isBlackJack(self) -> bool:
+        """
+        If player has blackjack, sets the player's blackjack attribute to True and returns it.\n
+        Otherwise, returns False."""
         if self.sumCards() == 21:
             self.blackJack = True
         return self.blackJack
 
-    def isBust(self):
+    def isBust(self) -> bool:
+        """
+        Checks if a player has busted. Returns True if so, False otherwise."""
         if self.sumCards() > 21:
             self.bust = True
         return self.bust
