@@ -1,6 +1,7 @@
 from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY
 from datetime import datetime, timedelta, date
 from canvasapi import Canvas
+from cogs.games import Card
 import pandas as pd
 import replicate
 import requests
@@ -12,8 +13,8 @@ import csv
 SONG_FILE = "current_audio.mp3"
 
 # copied from geeks for geeks website
-# modified to take card tuples
-def bubbleSortCards(cards_list):
+# modified to take Card objects
+def bubbleSortCards(cards_list:list[Card]):
     """
     Function sorts a list of cards, in place."""
     n = len(cards_list)
@@ -30,9 +31,9 @@ def bubbleSortCards(cards_list):
             # traverse the array from 0 to n-i-1
             # Swap if the element found is greater
             # than the next element
-            if cards_list[j][0] > cards_list[j + 1][0]:
+            if cards_list[j].pip_value > cards_list[j + 1].pip_value:
                 swapped = True
-                cards_list[j][0], cards_list[j + 1][0] = cards_list[j + 1][0], cards_list[j][0]
+                cards_list[j].pip_value, cards_list[j + 1].pip_value = cards_list[j + 1].pip_value, cards_list[j].pip_value
          
         if not swapped:
             # if we haven't needed to make a single swap, we
