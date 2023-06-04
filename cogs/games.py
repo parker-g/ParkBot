@@ -1320,27 +1320,6 @@ class Poker(commands.Cog):
 class PokerRanker(Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    # @staticmethod
-    # def cardsToPipValues(cards_list:list[tuple]) -> list[tuple]:
-    #     """
-    #     This method returns a list of cards where non-numerical values have been replaced by their numerical counterparts, and card suits are retained.
-    #     """
-    #     cards_in_pip = []
-    #     for i in range(len(cards_list)):
-    #         current_card = cards_list[i]
-    #         if current_tuple.face_value == "jack":
-    #             new_tuple = (11, current_tuple[1])
-    #         elif current_tuple[0] == "queen":
-    #             new_tuple = (12, current_tuple[1])
-    #         elif current_tuple[0] == "king":
-    #             new_tuple = (13, current_tuple[1])
-    #         elif current_tuple[0] == "ace":
-    #             new_tuple = (14, current_tuple[1])
-    #         else:
-    #             new_tuple = current_tuple
-    #         cards_in_pip.append(new_tuple)
-    #     return cards_in_pip
     
     @staticmethod
     def getHandTotalValue(player_hand:list[Card]) -> int:
@@ -1709,7 +1688,7 @@ class PokerRanker(Cog):
         raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")        
 
     @staticmethod
-    def getBestKicker(players_to_leftovers:dict[Player, list], remaining_cards:int) -> list[Player]:
+    def getBestKicker(players_to_leftovers:dict[Player, list[int]], remaining_cards:int) -> list[Player]:
         """
         Players to leftovers is a dict containing Player objects as keys, and a list of int values which DONT contribute to the player's ranked hand, as the dict's values.\n
         Checks which input player has the best kicker - recursively if all their first kickers are the same.\n
