@@ -1132,7 +1132,7 @@ class Poker(commands.Cog):
                 case 7: # two pair
                     winners = ranker.breakTwoPairTie(interim_winners)
                 case 8: # pair
-                    pass
+                    winners = ranker.breakPairTie(interim_winners)
                 case 9: # high card
                     pass
         
@@ -1775,33 +1775,42 @@ class PokerRanker(Cog):
     @staticmethod
     def breakPairTie(players:list[Player]) -> list[Player]:
         ranker = PokerRanker
-        rank = Poker.HANDS_TO_RANKS["two pair"]
+        rank = Poker.HANDS_TO_RANKS["pair"]
         players_to_hand_value = {
-
+            # player: 5,
+            # player2: 7,
         }
+
+        def getBestPair(players_dict:dict[Player, int]) -> int:
+            best_pair = 0
+            for player in players_dict:
+                pair = players_dict[player]
+                if pair > best_pair:
+                    best_pair = pair
+            return best_pair
+        
+        def getLeftovers(player:Player, pair_val:int) -> list:
+            leftovers = player.complete_hand
+            
         # populate dict
         for player in players:
             hand_value = player.possible_hands[rank][0] # int
             players_to_hand_value[player] = hand_value
 
-        best_pair = 0
-        players_with_best_value = []
-
-        # get the player or players with the highest pair value
+        # get best pair
+        best_pair = getBestPair(players_to_hand_value)
+        # remove players who don't have best pair
         for player in players_to_hand_value:
             player_pair = players_to_hand_value[player]
-            if player_pair > best_pair:
-                best_pair = player_pair
-                players_with_best_value.clear()
-                players_with_best_value.append(player)
-            elif player_pair == best_pair:
-                players_with_best_value.append(player)
+            if player_pair < best_pair:
+                del players_to_hand_value[player]
 
-        if len(players_with_best_value) < 1:
+        if len(players_to_hand_value) < 1:
             raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
-        elif len(players_with_best_value) == 1:
-            return players_with_best_value
-        else: # if len players with best value is greater than 1
+        elif len(players_to_hand_value) == 1:
+            return list(players_to_hand_value.keys())
+        
+        else: # if len players with best value is greater than 1, get best kicker
             players_to_leftovers = {
             # player: [4, 5, 7, 9],
             }
@@ -1809,7 +1818,7 @@ class PokerRanker(Cog):
             for player in players:
                 leftovers = [value for value, suit in player.complete_hand if value != players_to_hand_value[player]]
                 players_to_leftovers[player] = leftovers
-            winners = ranker.getBestKicker(players_to_leftovers, 3)
+            winners = ranker.getBestKicker(players_to_leftovers, 4)
             return winners
     
     @staticmethod
@@ -1831,8 +1840,9 @@ class PokerRanker(Cog):
                         best_pair_value = pair_val
             return best_pair_value
         
+        ### needs to be revised
         def getLeftovers(player:Player, two_pair_vals:list) -> list:
-            leftovers = player.complete_hand
+            leftovers = player.complete_hand # player complete hand is a list of tuples: [(value, suit), (value, suit)]
             for i in range(2):
                 leftovers.remove(two_pair_vals[0])
                 leftovers.remove(two_pair_vals[1])
