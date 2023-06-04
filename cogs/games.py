@@ -6,7 +6,7 @@ from cogs.economy import Economy
 from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
-from discord import Member, Embed
+from discord import Member, Embed, TextChannel, Thread
 from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
 
 # things to do 
@@ -192,8 +192,9 @@ class Deck:
 
     def __init__(self, game:str):
         """
-        Game accepts 'poker' or 'blackjack' as arguments."""
-        self.deck = []
+        Game accepts 'poker' or 'blackjack' as arguments.\n
+        :attr list self.deck: A list of Card objects. Populates according to the game that the deck will be used for."""
+        self.deck = [] # list of Card
         match game.lower():
             case "blackjack":
                 for i in range(1, 14):
@@ -282,15 +283,19 @@ class Player(Cog):
         return self.bust
     
     def prettyHand(self) -> str:
+        """
+        Returns a pretty string representing a player's hand of cards."""
         pretty_string = "A"
-        for num, suit in self.hand[:-1]:
-            pretty_string += f" {num} {suit}, "
-        last_num, last_suit = self.hand[-1]
-        pretty_string += f"{last_num} {last_suit}"
+        for card in self.hand[:-1]:
+            suit_symbol = Card.SUIT_STRING_TO_SYMBOL[card.suit]
+            pretty_string += f" {card.pip_value} {suit_symbol}, "
+        last_card = self.hand[-1]
+        last_symbol = Card.SUIT_STRING_TO_SYMBOL[last_card.suit]
+        pretty_string += f"{last_card.pip_value} {last_symbol}"
         return pretty_string
 
     # used in Poker
-    def getCompleteHand(self, community_cards:list) -> list[tuple[str, str]]: # tuple(value, int)
+    def addCardsToHand(self, community_cards:list) -> list[tuple[str, str]]: # tuple(value, int)
         """
         Combines a player's hand with the community cards on the table, returns them in a new list.\n
         I use the term 'complete hand' to refer to a hand which including BOTH the player's cards, and the community cards.\n
@@ -303,7 +308,7 @@ class Player(Cog):
 class PlayerQueue(Cog):
     """
     The PlayerQueue class is used as a controller of the games available in the games.py 'cog'.\n
-    self.q is a list[tuple], where each tuple represents one player in the player queue. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
+    self.q is a list[Card]. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
     Right now, I'm actually realizing that it would be much more simple if I instead just incorporated the discord.Member object into the Player class as an attribute. Removing the possibility of confusing others with tuples in the player queue."""
     def __init__(self, bot):
         self.bot = bot
@@ -311,6 +316,8 @@ class PlayerQueue(Cog):
 
     @commands.command("joinQ")
     async def joinQueue(self, ctx):
+        """
+        This is a command giving Discord server members the ability to join the PlayerQueue, by executing the command in a text channel."""
         new_player = Player(ctx)
         # check if person using command is already in the player pool
         for player, member in self.q:
@@ -329,6 +336,8 @@ class PlayerQueue(Cog):
         
     @commands.command("leaveQ")
     async def leaveQueue(self, ctx):
+        """
+        This command gives users the ability to leave the PlayerQueue. If a player leaves the queue, any bet they had previously set will be returned to their bank."""
         # check if person using command is in player pool
         for player, member in self.q:
             if ctx.author.name == member.name:
@@ -347,6 +356,8 @@ class PlayerQueue(Cog):
 
     @commands.command("clearQ")
     async def clearQueue(self, ctx):
+        """
+        Discord server members can clear the PlayerQueue with this command."""
         economy = Economy(self.bot)
         for player, member in self.q:
             if player.bet > 0:
@@ -359,6 +370,8 @@ class PlayerQueue(Cog):
 
     @commands.command("showPlayers")
     async def showQueue(self, ctx):
+        """
+        This command provides users the ability to see who is currently in the PlayerQueue."""
         players_string = ""
         for player, member in self.q:
             players_string += f"{player.name}\n"
@@ -366,6 +379,8 @@ class PlayerQueue(Cog):
         await ctx.send(embed = em)
 
     async def _setBet(self, ctx, inputPlayer, bet:int):
+        """
+        This method accomplishes the same thing as the setBet() method, without sending messages to the Discord chat."""
         bet = int(bet)
         for player, member in self.q:
             if inputPlayer.name == player.name:
@@ -380,8 +395,11 @@ class PlayerQueue(Cog):
                         return True
                 except Exception as e:
                     print(f"Error while _setBet executing for player, {player.name} : {e}")
+
     @commands.command()
     async def setBet(self, ctx, bet:int):
+        """
+        Discord users who have joined the PlayerQueue can use this command to set a bet, valid for the next game of BlackJack.\n"""
         bet = int(bet)
         for player, member in self.q:
             if ctx.author.name == player.name:
@@ -402,6 +420,8 @@ class PlayerQueue(Cog):
 
     @commands.command()
     async def beg(self, ctx):
+        """
+        Players who have exhausted their bank account can use this command to make money."""
         economy = Economy(self.bot)
         amount = random.randint(1, 20)
         await economy.giveMoney(ctx, float(amount))
@@ -410,11 +430,15 @@ class PlayerQueue(Cog):
 
     @commands.command()
     async def playJack(self, ctx):
+        """
+        This command is the PlayerQueue's interface with a blackjack game. It begins a game of blackjack, using all the players in the queue."""
         blackjack = BlackJackGame(self.bot, self)
         await blackjack.play(ctx)
 
     @commands.command()
     async def playPoker(self, ctx):
+        """
+        This command puts all players in the PlayerQueue in a game of Texas Hold'em Poker."""
         poker = Poker(self.bot, self)
         await poker.play(ctx)
 
@@ -434,78 +458,74 @@ class Dealer(Player):
         if self.bust is True:
             self.done = True
 
-
-    def dealFlop(self, pokerGame):
+    # poker methods
+    def dealFlop(self, poker_instance) -> None:
+        """
+        Ejects top card then deals three cards to the community cards."""
         # throw out the top card
         self.deck.pop(0)
-        self.dealPokerCommunityCard(pokerGame, 3)
-        
-    def dealPokerCommunityCard(self, pokerGame, cards = 1):
+        self.dealPokerCommunityCard(poker_instance, 3)
+    
+    def dealPokerCommunityCard(self, poker_instance, cards = 1) -> None:
+        """
+        Deals `cards` amount of cards to the `poker_instance`'s community cards."""
         for i in range(cards):
-            pokerGame.community_cards.append(self.deck[0])
+            poker_instance.community_cards.append(self.deck[0])
             self.deck.pop(0)
 
-
-    def dealCard(self, player:Player):
+    def dealCard(self, player:Player) -> None:
+        """
+        Removes one card from this `Dealer`'s deck and puts that card in the `player`'s hand."""
         player.hand.append(self.deck[0])
         self.cards_in_play.append(self.deck[0])
         self.deck.remove(self.deck[0])
 
     def dealHands(self) -> None:
+        """
+        Deals 2 cards to each player.\n
+        Used in Blackjack and Poker."""
         for i in range(2):
             for player in self.players:
                 self.dealCard(player)
-    #return cards doesn't work, need to fix maybe
 
-    def returnCardsToDeck(self):
-        self.deck += self.cards_in_play
-        self.cards_in_play = []
+    #return cards doesn't work, need to fix maybe.
+    def returnCardsToDeck(self) -> None:
+        self.deck = self.deck + self.cards_in_play
+        self.cards_in_play.clear()
 
     def sumCards(self) -> int:
+        """
+        Returns sum of cards in the dealer's hand."""
         total = 0
-        for tuple in self.hand:
-            num = tuple[0]
-            try:
-                num = int(num)
-            except:
-                num = Deck.blackjack_face_legend[num]
-            total += num
+        for card in self.hand:
+            total += card.pip_value
         return total
 
-    def dealToSelf(self):
+    def dealToSelf(self) -> None:
+        """
+        Dealer deals cards to himself until he reaches 17 or busts."""
         while self.sumCards() < 17:
             self.dealCard(self)
         return
-        
     
-        
-
-    
-    
-    def isBlackjack(self, player:Player):
+    ##################################################### not sure this is actually used
+    def isBlackjack(self, player:Player) -> None:
         if player.sumCards() == 21:
             player.blackJack = True
-    
-    def isBust(self):
+    ####################################################
+    def isBust(self) -> None:
         if self.sumCards() > 21:
             self.bust = True
-
-
-    # def getWinner(self, players) -> tuple[str | list[str], int]:
-    #     winner = players[0]
-    #     highest_score = 0
+    ################################################### not sure if isBust is used either
 
 class BlackJackGame(Cog):
     def __init__(self, bot:commands.Bot, player_queue:PlayerQueue):
         self.bot = bot
-        self.deck = Deck()
-        self.deck.shuffle()
         self.player_queue = player_queue.q
         self.players = []
         for player, member in self.player_queue:
             self.players.append(player)
         
-        self.dealer = Dealer(self.deck, self.players)
 
 
     def resetPlayers(self) -> None:
@@ -522,6 +542,8 @@ class BlackJackGame(Cog):
             print(f"\n{player.name} shows their cards. Their hand looks like this: {player.hand}. ")
     
     async def cashOut(self, ctx, players) -> None:
+        """
+        Method used to award players who didn't lose in the most recent hand of blackjack."""
         economy = Economy(self.bot)
         for player in players:
             if player.winner:
@@ -538,7 +560,7 @@ class BlackJackGame(Cog):
     
 
     # clean up / make this not fucky wucky
-    def getWinners(self, players:list[Player]) -> tuple[list, list] | None:
+    def getWinners(self, players:list[Player]) -> tuple[list, list]:
         """
         Returns a tuple of (winners, tiers). \n
         May return None if the dealer has been removed from the player pool."""
@@ -551,8 +573,7 @@ class BlackJackGame(Cog):
                 dealer = player # save dealer object in variable dealer
                 continue
         if dealer is None:
-            print("There was an error - the dealer is not in the player pool")
-            return None
+            raise Exception("The dealer was prematurely removed from the player pool somewhere along the way. Please reboot the BlackJack cog.")
         
         #store dealer sum
         dealer_total = dealer.sumCards()
@@ -577,13 +598,15 @@ class BlackJackGame(Cog):
         return winners, tiebabies
 
     async def play(self, ctx):
+        """
+        Wrapper method to hold and execute all the BlackJack logic in a sequential order."""
         self.resetPlayers()
-        deck = Deck()
+        deck = Deck("blackjack")
         deck.shuffle()
         # create a new dealer each round - he deals his own hand first, and shows his first card.
         dealer = Dealer(deck, self.players)
         dealer.dealToSelf()
-        dealer_shows = Embed(title=f"Dealer's Showing: {dealer.hand[0][0]} of {dealer.hand[0][1]}.")
+        dealer_shows = Embed(title=f"Dealer's Showing: {dealer.hand[0].face_value} of {dealer.hand[0].getSuitSymbol()}.")
         dealer_hand_message = await ctx.send(embed = dealer_shows)
 
         # dealer now deals a hand to all players in player pool
@@ -616,26 +639,22 @@ class BlackJackGame(Cog):
         #when all players are done with their turns
         self.players.append(dealer)
 
-        # dealer is successfully getting added here
         await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
 
-        # print(self.players)
-        if self.getWinners(self.players) is not None:
-            winners, ties = self.getWinners(self.players)
-            await self.cashOut(ctx, self.players)
-            # if there are no winners, and no ties, send "Everyone lost."
-            # else if there are winners, send "Here are our winners: "
-            # else if there are no winners but there are ties, send "These players tied:"
-            if (len(winners) == 0) and (len(ties) == 0):
-                await ctx.send(embed = Embed(title="You're All Losers!"))
-            elif len(winners) > 0:  
-                winners = [winner.name for winner in winners]  
-                await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
-            elif len(ties) > 0:
-                ties = [tie.name for tie in ties]
-                await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
+        winners, ties = self.getWinners(self.players)
+        await self.cashOut(ctx, self.players)
+        # if there are no winners, and no ties, send "Everyone lost."
+        # else if there are winners, send "Here are our winners: "
+        # else if there are no winners but there are ties, send "These players tied:"
+        if (len(winners) == 0) and (len(ties) == 0):
+            await ctx.send(embed = Embed(title="You're All Losers!"))
+        elif len(winners) > 0:  
+            winners = [winner.name for winner in winners]  
+            await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
+        elif len(ties) > 0:
+            ties = [tie.name for tie in ties]
+            await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
             
-        
         await ctx.send("\nHere's everyone's hands.\n")
         long_ass_string = ""
         for player in self.players:
@@ -644,14 +663,34 @@ class BlackJackGame(Cog):
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
 
-
 # could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
 # bot, deck, player queue, players, and dealer.
 
 
 
 class Poker(commands.Cog):
-
+    """
+    The Poker class contains all logic necessary for carrying out a game of texas hold'em poker and evaluating winners for a game.
+    
+    attributes required for construction:
+    :discord.ext.commands.Bot bot: A discord Bot object, used to communicate with Discord servers.\n
+    :Deck deck: A Deck object representing two decks to be used in a poker game.\n
+    :PlayerQueue player_queue: A PlayerQueue object which is used to access the players who are in the game.\n
+    :list players: The list that becomes populated with any players in the game whenever a Poker game is constructed.\n
+    :Dealer dealer: A Dealer is used to deal cards to the community and to the rest of the players in the Poker game.\n
+    
+    attributes instantiated upon construction:
+    :list[Card] community_cards: The cards available to any player in the game to help them form the best hand possible.\n
+    :int small_blind: Used to store the small blind, set during a game of Poker.\n
+    :int big_blind: Used to store the big blind, set during a game of Poker.\n
+    :int small_blind_idx: The index of the player in self.players who sets the small blind.\n
+    :int big_blind_idx: The index of the player in self.players who sets the big blind.\n
+    :discord.TextChannel channel: A text channel accessed in your Discord server where the bot will send poker related messages, necesary to run the game.\n
+    :dict[str, discord.Thread] threads: A dictionary used to store private threads for each player in the game. These threads are used to privately send players their poker hand.\n
+    :int pot: Represents the pot of bets in a game of Poker.\n
+    :bool postFlop: A boolean used as a way to control state of the poker game.\n
+    :bool earlyFinish: A boolean used to control state of poker game, if True, game ends early as all players but 1 have folded.\n
+    """
     HANDS_TO_RANKS = {
         "royal flush": 0,
         "straight flush": 1,
@@ -665,10 +704,9 @@ class Poker(commands.Cog):
         "high card": 9,
     }
 
-
     def __init__(self, bot, player_queue:PlayerQueue):
         self.bot = bot
-        self.deck = Deck()
+        self.deck = Deck("poker")
         self.deck.shuffle()
         self.player_queue = player_queue
         self.players = []
@@ -677,17 +715,16 @@ class Poker(commands.Cog):
         self.dealer = Dealer(self.deck, self.players)
         
         # poker specific attributes 
-        self.community_cards = []
+        self.community_cards:list[Card] = []
         self.small_blind = 0
         self.big_blind = 0
         self.small_blind_idx = None
         self.big_blind_idx = 0
         self.channel = None
-        self.threads = {} # contains player names as keys, and discord.Thread objects as values - used to send private messages to players
+        self.threads:dict[str, Thread] = {} # contains player names as keys, and discord.Thread objects as values - used to send private messages to players
         self.pot = 0 # holds all bets
         self.post_flop = False # used to modify the self.takeBets() method to make it appropriate for a pre-flop vs a post flop betting round
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
-
 
     async def resetPlayers(self) -> None:
         economy = Economy(self.bot)
@@ -705,10 +742,10 @@ class Poker(commands.Cog):
 
 
 
-    def getCommunityCardsString(self):
+    def getCommunityCardsString(self) -> str:
         pretty_string = ""
         for card in self.community_cards:
-            pretty_string += f"{Deck.formatCard(card)}\n"
+            pretty_string += f"{(card.stringify())}\n"
         return pretty_string
 
     def allPlayersDone(self) -> bool:
@@ -747,7 +784,7 @@ class Poker(commands.Cog):
             # player.name == member.name
             if not player.name in self.threads:
                 # print(f"creating thread for {player.name}")
-                thread = await self.channel.create_thread(name="Your Poker Hand", reason = "poker", auto_archive_duration = 60)
+                thread = await self.channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
                 self.threads[player.name] = thread
                 writePlayerAndThread(player, thread.id)
                 # need to invite player's Member object to thread
@@ -773,7 +810,7 @@ class Poker(commands.Cog):
                     self.players[i+1].button = True
                 return
 
-    async def getPokerChannel(self, ctx):
+    async def getPokerChannel(self, ctx) -> TextChannel:
         async for guild in self.bot.fetch_guilds():
             if guild.name == "Orlando Come":
                 self.guild = guild
@@ -781,6 +818,7 @@ class Poker(commands.Cog):
                 for channel in channels:
                     if channel.name == "poker":
                         return channel
+        raise Exception("Your guild isn't named Orlando Come, or you don't have a text channel named poker. Please change this code Parker to be more easy to use for other people. Perhaps create a new channel named poker and then access that one after its created.")
     
     async def assignButtonAndPostBlinds(self, ctx):
         num_players = len(self.players)
@@ -1052,7 +1090,7 @@ class Poker(commands.Cog):
             9: [], # high card
         }
         ranker = PokerRanker
-        player.complete_hand = player.getCompleteHand(self.community_cards)
+        player.complete_hand = player.addCardsToHand(self.community_cards)
         player.complete_hand = ranker.cardsToPipValues(player.complete_hand)
         player_hand = player.complete_hand # complete hand in pip value
         bubbleSortCards(player_hand)
