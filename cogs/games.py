@@ -233,7 +233,7 @@ class Player(Cog):
         self.button = False
         self.thread = None
         self.folded = False
-        self.hand_rank = None
+        self.hand_rank = 16
         # the combination of a player's cards and the community cards (7 cards) - stored in pip format
         self.complete_hand = []
         # a player's best hand, which assigned them their hand_rank (5 or less cards) 
@@ -709,7 +709,7 @@ class Poker(commands.Cog):
         self.deck = Deck("poker")
         self.deck.shuffle()
         self.player_queue = player_queue
-        self.players = []
+        self.players:list[Player] = []
         for player, member in self.player_queue.q:
             self.players.append(player)
         self.dealer = Dealer(self.deck, self.players)
@@ -721,12 +721,14 @@ class Poker(commands.Cog):
         self.small_blind_idx = None
         self.big_blind_idx = 0
         self.channel = None
-        self.threads:dict[str, Thread] = {} # contains player names as keys, and discord.Thread objects as values - used to send private messages to players
+        self.threads:dict[str, int] = {} # contains player names as keys, and discord.Thread IDs as values - used to send private messages to players
         self.pot = 0 # holds all bets
         self.post_flop = False # used to modify the self.takeBets() method to make it appropriate for a pre-flop vs a post flop betting round
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
 
     async def resetPlayers(self) -> None:
+        """
+        Resets all of each player's attributes relating to their game state."""
         economy = Economy(self.bot)
         if self.players:
             for player in self.players:
@@ -743,49 +745,60 @@ class Poker(commands.Cog):
 
 
     def getCommunityCardsString(self) -> str:
+        """
+        Returns the community cards in one long string."""
         pretty_string = ""
         for card in self.community_cards:
             pretty_string += f"{(card.stringify())}\n"
         return pretty_string
 
     def allPlayersDone(self) -> bool:
+        """
+        Checks if all players are done, returns True if so. Otherwise, returns False."""
         for player in self.players:
             if player.done == False:
                 return False
         return True
 
-    def getThreads(self):
+    def getThreads(self) -> None:
         """
         Stores any previously used discord threads in memory for sending poker hands to players during the upcoming game of Poker.
         """
         self.threads = readThreads()
         return
 
-    def writeNewThread(self, player, thread_id:int):
+    def writeNewThread(self, player, thread_id:int) -> None:
         """
         Writes a username and their discord thread identifier to the threads.csv file.
         """
         writePlayerAndThread(player.name, thread_id)
         return
     
-    def setPlayersNotDone(self):
+    def setPlayersNotDone(self) -> None:
+        """
+        Sets all player's done attribute to False. Used when resetting all players' states."""
         for player in self.players:
             player.done = False
 
-    async def showAllHands(self, ctx):
+    async def showAllHands(self, ctx) -> None:
+        """
+        Sends a message containing each player's hand to the discord text channel where the Poker game is being held."""
         all_hands = ""
         for player in self.players:
             all_hands += f"{player.name}: {player.prettyHand()}\n"
         await ctx.send(embed=Embed(title=f"Everyone's Hand", description=all_hands))
 
     async def showHands(self):
+        """
+        Sends a private thread to each player active in the game, containing their current hand\n
+        Stores each player and their thread ID in a file, 'threads.csv', for use during later Poker games.
+        """
         for player in self.players:
             member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
-            # player.name == member.name
             if not player.name in self.threads:
                 # print(f"creating thread for {player.name}")
                 thread = await self.channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
-                self.threads[player.name] = thread
+                self.threads[player.name] = thread.id
                 writePlayerAndThread(player, thread.id)
                 # need to invite player's Member object to thread
                 await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}\n{member.mention}"))
@@ -821,6 +834,8 @@ class Poker(commands.Cog):
         raise Exception("Your guild isn't named Orlando Come, or you don't have a text channel named poker. Please change this code Parker to be more easy to use for other people. Perhaps create a new channel named poker and then access that one after its created.")
     
     async def assignButtonAndPostBlinds(self, ctx):
+        """
+        Assigns the button to a random player, and takes the blinds from the players directly after and 2 players after the button player."""
         num_players = len(self.players)
         if num_players < 2:
             await ctx.send(f"You don't have enough players to play Poker.")
@@ -1151,7 +1166,7 @@ class Poker(commands.Cog):
         return min(possible_scores)
 
 
-    def _getWinners(self, players) -> list[Player]:
+    def _getWinners(self, players:list[Player]) -> list[Player]:
         """
         Returns the winner or list of winners from the input players, in list format.
         """
@@ -1160,15 +1175,15 @@ class Poker(commands.Cog):
         interim_winners = []
         winners = []
         # get the best score
-        for player in self.players:
+        for player in players:
             if player.hand_rank < best_rank:
                 best_rank = player.hand_rank
         # check if any two players share the best score
-        for player in self.players:
+        for player in players:
             if player.hand_rank == best_rank:
                 interim_winners.append(player)
             else:
-                self.players.remove(player)
+                players.remove(player)
 
         # leaves only players who are tied with the best rank
         if len(interim_winners) == 1:
@@ -1201,6 +1216,8 @@ class Poker(commands.Cog):
         return winners
 
     async def getWinners(self, ctx) -> list[Player]:
+        """
+        Wraps the method for evaluating a Poker winner into a pretty, concise form."""
         final_winners = []
         possible_hands = {
             "royal flush": 0,
@@ -1226,7 +1243,9 @@ class Poker(commands.Cog):
 
         return final_winners
 
-    async def rewardWinners(self, ctx, winners):
+    async def rewardWinners(self, ctx, winners) -> None:
+        """
+        Splits the pot between winners of a Poker hand and sends each winner a congratulatory message."""
         economy = Economy(self.bot)
 
         # if more than one winner, split the pot rounding to the nearest whole number, give each winner their split
@@ -1236,18 +1255,22 @@ class Poker(commands.Cog):
             cut = self.pot
         else:
             cut = 0
-            print(f"The amount of winners was less than 1. Please fix this, self")
+            await ctx.send(f"The amount of winners was less than 1. Please fix this, bro")
 
         for winner in winners:
             await economy.giveMoneyPlayer(winner, cut)
             await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!"))
 
-    async def flop(self, ctx):
+    async def flop(self, ctx) -> None:
+        """
+        Dealer of the game deals the flop, then bot sends a message containing the new community cards to the Poker channel."""
         self.dealer.dealFlop(self)
         cards_string = self.getCommunityCardsString()
         await ctx.send(embed=Embed(title=f"Community Cards", description = cards_string))
 
-    async def dealCommunityCard(self, ctx):
+    async def dealCommunityCard(self, ctx) -> None:
+        """
+        Method to deal one community card and send the community cards to the public Poker channel."""
         if self.early_finish is not True:
             self.dealer.dealPokerCommunityCard(self)
             cards_string = self.getCommunityCardsString()
@@ -1255,7 +1278,9 @@ class Poker(commands.Cog):
         else:
             return
     
-    async def play(self, ctx):
+    async def play(self, ctx) -> None:
+        """
+        Wraps up all the steps for playing a Poker game, and executes them in order."""
         # setup
         await self.resetPlayers()
         self.post_flop = False
