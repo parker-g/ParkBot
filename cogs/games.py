@@ -699,7 +699,6 @@ class Poker(commands.Cog):
     :int big_blind: Used to store the big blind, set during a game of Poker.\n
     :int small_blind_idx: The index of the player in self.players who sets the small blind.\n
     :int big_blind_idx: The index of the player in self.players who sets the big blind.\n
-    :discord.TextChannel channel: A text channel accessed in your Discord server where the bot will send poker related messages, necesary to run the game.\n
     :dict[str, discord.Thread] threads: A dictionary used to store private threads for each player in the game. These threads are used to privately send players their poker hand.\n
     :int pot: Represents the pot of bets in a game of Poker.\n
     :bool postFlop: A boolean used as a way to control state of the poker game.\n
@@ -734,7 +733,6 @@ class Poker(commands.Cog):
         self.big_blind = 0
         self.small_blind_idx = None
         self.big_blind_idx = 0
-        self.channel = None
         self.threads:dict[str, int] = {} # contains player names as keys, and discord.Thread IDs as values - used to send private messages to players
         self.pot = 0 # holds all bets
         self.post_flop = False # used to modify the self.takeBets() method to make it appropriate for a pre-flop vs a post flop betting round
@@ -839,6 +837,8 @@ class Poker(commands.Cog):
                 return
 
     async def getPokerChannel(self) -> TextChannel:
+        """
+        Returns text channel named "poker" in your Discord server where the bot will send poker related messages, necesary to run the game.\n"""
         async for guild in self.bot.fetch_guilds():
             if guild.name == "Orlando Come":
                 self.guild = guild
@@ -1298,7 +1298,6 @@ class Poker(commands.Cog):
         await self.resetPlayers()
         self.post_flop = False
         self.getThreads()
-        self.channel = await self.getPokerChannel()
 
         # turning each async function into a task
         first_blind = self.assignButtonAndPostBlinds(ctx)
