@@ -807,11 +807,12 @@ class Poker(commands.Cog):
         Sends a private thread to each player active in the game, containing their current hand\n
         Stores each player and their thread ID in a file, 'threads.csv', for use during later Poker games.
         """
+        channel = await self.getPokerChannel()
         for player in self.players:
             member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
             if not player.name in self.threads:
                 # print(f"creating thread for {player.name}")
-                thread = await self.channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
+                thread = await channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
                 self.threads[player.name] = thread.id
                 writePlayerAndThread(player, thread.id)
                 # need to invite player's Member object to thread
@@ -837,7 +838,7 @@ class Poker(commands.Cog):
                     self.players[i+1].button = True
                 return
 
-    async def getPokerChannel(self, ctx) -> TextChannel:
+    async def getPokerChannel(self) -> TextChannel:
         async for guild in self.bot.fetch_guilds():
             if guild.name == "Orlando Come":
                 self.guild = guild
@@ -1173,11 +1174,10 @@ class Poker(commands.Cog):
                     rank = 9 # high card
                     player_hand = ranker.getHighCard(player_hand)
             possible_scores.append(rank) 
-            possible_hands[rank].append(player_hand) # the twopair hand is appended if there is one
+            possible_hands[rank].append(player_hand)
         
         player.possible_hands = possible_hands
         return min(possible_scores)
-
 
     def _getWinners(self, players:list[Player]) -> list[Player]:
         """
@@ -1228,7 +1228,7 @@ class Poker(commands.Cog):
         
         return winners
 
-    async def getWinners(self, ctx) -> list[Player]:
+    async def getWinners(self) -> list[Player]:
         """
         Wraps the method for evaluating a Poker winner into a pretty, concise form."""
         final_winners = []
@@ -1298,7 +1298,7 @@ class Poker(commands.Cog):
         await self.resetPlayers()
         self.post_flop = False
         self.getThreads()
-        self.channel = await self.getPokerChannel(ctx)
+        self.channel = await self.getPokerChannel()
 
         # turning each async function into a task
         first_blind = self.assignButtonAndPostBlinds(ctx)
@@ -1310,7 +1310,8 @@ class Poker(commands.Cog):
         river_bets = self.takePostFlopBets(ctx, "river")
         river = self.dealCommunityCard(ctx)
         hand_reveal = self.showAllHands(ctx)
-        determine_winner = self.getWinners(ctx)
+        determine_winner = self.getWinners()
+       
         
 
         # scheduling each task in the right order, handling states when necessary
@@ -1328,7 +1329,10 @@ class Poker(commands.Cog):
         await asyncio.wait_for(river, timeout=None)
         await asyncio.wait_for(hand_reveal, timeout=None)
         # next, program logic for calculating winner
-        await asyncio.wait_for(determine_winner, timeout=None)
+        winners = await asyncio.wait_for(determine_winner, timeout=None)
+        reward_da_boys = self.rewardWinners(ctx, winners)
+        await asyncio.wait_for(reward_da_boys, timeout=None)
+
 
 
 class PokerRanker(Cog):
@@ -1344,22 +1348,6 @@ class PokerRanker(Cog):
         for card in player_hand:
             total += card.pip_value
         return total
-
-    # @staticmethod
-    # def getBetterFlush(player_one, player_two) -> list[Player]:
-    #     """
-    #     Given two players with flushes, this method returns whichever player has the better flush.\n
-    #     In cases where both flushes are the same, the players tie and both players are returned."""
-    #     hand1 = player_one.ranking_hand
-    #     hand2 = player_two.ranking_hand
-    #     # iterate through each card in the two hands at the same time, whichever flush has highest value at highest card wins
-    #     for i in range(len(hand1)):
-    #         if hand1[i] > hand2[i]:
-    #             return [player_one]
-    #         elif hand1[i] < hand2[i]:
-    #             return [player_two]
-    #     # if both hands have the same value at each index, 
-    #     return [player_one, player_two]
     
     @staticmethod
     def getFlushes(sorted_cards:list[Card]) -> list[list[Card]] | None:
@@ -1798,7 +1786,7 @@ class PokerRanker(Cog):
         
         else: # if len players with best value is greater than 1
             players_to_leftovers = {
-            # player: [4, 5, 7, 9],
+                # player: [4, 5, 7, 9],
             }
             # populate players to kickers
             for player in players:
@@ -1869,6 +1857,19 @@ class PokerRanker(Cog):
         if len(pairs) >= 2:
             return pairs
         return None
+    
+    @staticmethod 
+    def getPair(sorted_hand:list[Card]) -> list[Card]:
+        """
+        Gets the first pair in a sorted hand, if a pair exists."""
+        pip_hand:list[int] = [card.pip_value for card in sorted_hand]
+        occurences_dict = Counter(pip_hand)
+        pair = []
+
+        for card_value in occurences_dict:
+            if occurences_dict[card_value] == 2:
+                pair = [card for card in sorted_hand if card.pip_value == card_value]
+        return pair
     
     @staticmethod
     def breakPairTie(players:list[Player]) -> list[Player]:
