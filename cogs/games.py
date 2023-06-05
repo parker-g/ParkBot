@@ -302,7 +302,21 @@ class Player(Cog):
         """
         return self.hand + community_cards
 
-
+    def removeCard(self, card_value:int) -> None:
+        """
+        Removes a card from the player's `complete_hand`, by pip value.\n
+        If more than one card exists in the hand with the input card value, only the first instance will be removed."""
+        for card in self.complete_hand:
+            if card.pip_value == card_value:
+                self.complete_hand.remove(card)
+                break
+        
+    def removeCards(self, card_values:list[int]) -> None:
+        """
+        Removes cards from the player's `complete_hand`, pip values."""
+        for value in card_values:
+            self.removeCard(value)
+                
 
 # use playerqueue to queue up players and control the creation of game classes.
 class PlayerQueue(Cog):
@@ -1688,7 +1702,7 @@ class PokerRanker(Cog):
         raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")        
 
     @staticmethod
-    def getBestKicker(players_to_leftovers:dict[Player, list[int]], remaining_cards:int) -> list[Player]:
+    def getBestKicker(players_to_leftovers:dict[Player, list[Card]], remaining_cards:int) -> list[Player]:
         """
         Players to leftovers is a dict containing Player objects as keys, and a list of int values which DONT contribute to the player's ranked hand, as the dict's values.\n
         Checks which input player has the best kicker - recursively if all their first kickers are the same.\n
@@ -1700,11 +1714,20 @@ class PokerRanker(Cog):
         players_to_kickers = {
             # player: 5, 
         }
+
+        def removeCard(hand:list[Card], value:int):
+            """
+            Removes a single Card from the input list of cards, by pip value."""
+            for card in hand:
+                if card.pip_value == value:
+                    hand.remove(card)
+                    break
+
         # get each players best kicker
         for player in players_to_leftovers:
             leftovers = players_to_leftovers[player]
             best_kicker = ranker.getHighCard(leftovers)
-            players_to_leftovers[player].remove(best_kicker)
+            removeCard(players_to_leftovers[player], best_kicker)
         remaining_cards -= 1
 
         # find the best kicker, and store players who have the best kicker
@@ -1737,7 +1760,7 @@ class PokerRanker(Cog):
 
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["three of a kind"]
-        players_to_hand_values = {
+        players_to_hand_values:dict[Player, int] = {
             # player: 9,
         }
         
@@ -1757,7 +1780,7 @@ class PokerRanker(Cog):
 
         # populate dict
         for player in players:
-            hand_value = player.possible_hands[rank][0] # get value of one of the three cards
+            hand_value = player.possible_hands[rank][0].pip_value # get value of one of the three cards
             players_to_hand_values[player] = hand_value
 
         best_triple_value = getBestTrip(players_to_hand_values)
@@ -1829,12 +1852,12 @@ class PokerRanker(Cog):
         return None
     
     @staticmethod
-    def getTwoPair(sorted_hand:list) -> list[list[Card]] | None:
+    def getTwoPair(sorted_hand:list[Card]) -> list[list[Card]] | None:
         """
         Checks whether a player's hand contains two pairs.\n
         Returns the two-pair hand as a list if so, in format [[value1, value1], [value2, value2]], otherwise returns None.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
-        pip_hand = [card.pip_value for card in sorted_hand]
+        pip_hand:list[int] = [card.pip_value for card in sorted_hand]
         occurences_dict = Counter(pip_hand)
         pairs = []
         # find all pairs
@@ -1851,9 +1874,8 @@ class PokerRanker(Cog):
     def breakPairTie(players:list[Player]) -> list[Player]:
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["pair"]
-        players_to_hand_value = {
+        players_to_hand_value:dict[Player, int] = {
             # player: 5,
-            # player2: 7,
         }
 
         def getBestPair(players_dict:dict[Player, int]) -> int:
@@ -1863,15 +1885,11 @@ class PokerRanker(Cog):
                 if pair > best_pair:
                     best_pair = pair
             return best_pair
-        
-        def getLeftovers(player:Player, pair_val:int) -> list:
-            leftovers = player.complete_hand
             
         # populate dict
         for player in players:
-            hand_value = player.possible_hands[rank][0] # int
+            hand_value = player.possible_hands[rank][0].pip_value # int
             players_to_hand_value[player] = hand_value
-
         # get best pair
         best_pair = getBestPair(players_to_hand_value)
         # remove players who don't have best pair
@@ -1886,12 +1904,12 @@ class PokerRanker(Cog):
             return list(players_to_hand_value.keys())
         
         else: # if len players with best value is greater than 1, get best kicker
-            players_to_leftovers = {
+            players_to_leftovers:dict[Player, list[Card]] = {
             # player: [4, 5, 7, 9],
             }
             # populate players to kickers
             for player in players:
-                leftovers = [card.pip_value for card in player.complete_hand if value != players_to_hand_value[player]]
+                leftovers = [card for card in player.complete_hand if card.pip_value != players_to_hand_value[player]]
                 players_to_leftovers[player] = leftovers
             winners = ranker.getBestKicker(players_to_leftovers, 4)
             return winners
@@ -1903,7 +1921,7 @@ class PokerRanker(Cog):
         If two pairs are equal, winner is determined by highest kicker."""
         ranker = PokerRanker
         rank = Poker.HANDS_TO_RANKS["two pair"]
-        players_to_two_pair_values = {
+        players_to_two_pair_values:dict[Player, list[int]] = {
             # player: [value1, value2],
         }
 
@@ -1915,18 +1933,25 @@ class PokerRanker(Cog):
                         best_pair_value = pair_val
             return best_pair_value
         
-        ### needs to be revised
-        def getLeftovers(player:Player, two_pair_vals:list) -> list:
-            leftovers = player.complete_hand # player complete hand is a list of tuples: [(value, suit), (value, suit)]
+        def removeCard(hand:list[Card], value:int):
+            for card in hand:
+                if card.pip_value == value:
+                    hand.remove(card)
+                    break
+
+        def getLeftovers(player:Player, two_pair_vals:list) -> list[Card]:
+            leftovers = [card for card in player.complete_hand] # player complete hand is a list of cards
+            pair1_val = two_pair_vals[0]
+            pair2_val = two_pair_vals[1]
             for i in range(2):
-                leftovers.remove(two_pair_vals[0])
-                leftovers.remove(two_pair_vals[1])
+                removeCard(leftovers, pair1_val)
+                removeCard(leftovers, pair2_val)
             return leftovers
         
         # populate dict with two-pair's values
         for player in players:
-            value1 = player.possible_hands[rank][0][0]
-            value2 = player.possible_hands[rank][1][0] 
+            value1 = player.possible_hands[rank][0].pip_value
+            value2 = player.possible_hands[rank][1].pip_value
             players_to_two_pair_values[player] = [value1, value2]
 
         # need to store the player with the highest pair1 value
@@ -1949,10 +1974,10 @@ class PokerRanker(Cog):
         elif len(players_to_two_pair_values) == 1:
             return list(players_to_two_pair_values.keys())
         else:
-            # get the next best pair (all instances of the last best pair were removed)
+            # if more than one player remains, compare the players' next pair
             best_pair = findBestPair(players_to_two_pair_values)
 
-            # repeat steps used in previous half of method 
+            # repeat steps used to compare first pair
             for player in players_to_two_pair_values:
                 player_pairs = players_to_two_pair_values[player]
                 if best_pair in player_pairs:
@@ -1966,8 +1991,8 @@ class PokerRanker(Cog):
                 return list(players_to_two_pair_values.keys())
             else: 
                 # if there are still tied players, winner is determined by whoever has the best kicker
-                players_to_leftovers = {
-                # player: [4, 5, 7, 9],
+                players_to_leftovers:dict[Player, list[Card]] = {
+                    # player: [4, 5, 7, 9],
                 }
                 # populate players to kickers
                 for player in players:
