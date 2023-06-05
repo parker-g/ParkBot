@@ -154,8 +154,8 @@ async def clearQ(ctx):
     await ctx.send(embed = em)
 
 @help.command()
-async def resetJack(ctx):
-    em = discord.Embed(title="resetJack", description="use this command to hard reset the blackjack and ecnomoy cogs. (use if blackjack is buggy, it won't hurt anything)")
+async def resetGames(ctx):
+    em = discord.Embed(title="resetGames", description="use this command to hard reset the games and economoy cogs. (use to reset blackjack or poker if they're broken/ glitched. it won't hurt anything)")
     await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 
@@ -186,10 +186,10 @@ async def findFurry(ctx):
     await ctx.send(file=discord.File(image))
 
 @bot.command()
-async def resetJack(ctx):
-    await bot.reload_extension("cogs.blackjack")
+async def resetGames(ctx):
+    await bot.reload_extension("cogs.games")
     await bot.reload_extension("cogs.economy")
-    em = discord.Embed(title="Reset blackjack and economy cogs")
+    em = discord.Embed(title="Reset games and economy cogs")
     await ctx.send(embed = em)
 
 # @bot.command()

@@ -41,6 +41,7 @@ class Card:
 
     # PIP EXPLANATION | EXPLAIN PIP | PIP
     # "pip" value is a term used to describe a card's value in a numerical form. in 'pip' form, a jack would be an 11, a queen would be a 12, etc
+
     FACE_TO_PIP_POKER = {
          "2": 2,
          "3": 3,
@@ -205,7 +206,8 @@ class Deck:
             case "poker":
                 # texas hold em poker uses 2 decks at a time
                 for i in range(2):
-                    for i in range(1, 14):
+                    # iterate from 2 since ace's are worth 14 (not 1) in poker 
+                    for i in range(2, 15):
                         self.deck.append(Card(game, i, "spade"))
                         self.deck.append(Card(game, i, "club"))
                         self.deck.append(Card(game, i, "heart"))
@@ -215,6 +217,8 @@ class Deck:
         random.shuffle(self.deck)
 
 class Player(Cog):
+    """
+    The Player represents a participant in any of the games in the games cog."""
     def __init__(self, ctx):
         self.name = ctx.author.name
         self.hand = []
@@ -234,7 +238,7 @@ class Player(Cog):
         self.thread = None
         self.folded = False
         self.hand_rank = 16
-        # the combination of a player's cards and the community cards (7 cards) - stored in pip format
+        # the combination of a player's cards and the community cards/ the board (7 cards) - stored in pip format
         self.complete_hand:list[Card] = []
         # a player's best hand, which assigned them their hand_rank (5 or less cards) 
         self.ranked_hand = []
@@ -334,13 +338,13 @@ class PlayerQueue(Cog):
         This is a command giving Discord server members the ability to join the PlayerQueue, by executing the command in a text channel."""
         new_player = Player(ctx)
         # check if person using command is already in the player pool
-        for player, member in self.q:
-            if ctx.author.name == player.name:
-                # if so, tell user that they're already in the queue
-                message_str = f"{ctx.author.name} is already in queue."
-                message = await ctx.send(embed = Embed(title=message_str))
-                await message.delete(delay=5.0)
-                return
+        # for player, member in self.q:
+        #     if ctx.author.name == player.name:
+        #         # if so, tell user that they're already in the queue
+        #         message_str = f"{ctx.author.name} is already in queue."
+        #         message = await ctx.send(embed = Embed(title=message_str))
+        #         await message.delete(delay=5.0)
+        #         return
 
         # so Q will be a list of tuples of (player object, discord.Member object)
         self.q.append((new_player, ctx.author))
@@ -1007,6 +1011,7 @@ class Poker(commands.Cog):
             max_idx = len(self.players)
             min_bet = 0
             print(f"Max index: {max_idx}")
+
             for i in range(100): # make iteration unreasonably high to ensure we don't reach it's limit
                 player_idx = i + self.big_blind_idx
                 if player_idx >= max_idx:
@@ -1018,9 +1023,6 @@ class Poker(commands.Cog):
                 
                 if player.bet < min_bet:
                     player.done = False
-
-                if self.allPlayersDone():
-                    break
 
                 message_embed = Embed(title=f"Taking bets for the {name_of_betting_round.capitalize()}", description=f"{member.mention}\nWould you like to raise 🆙, check ✔️, fold 🏃‍♂️, or call 📞?")
                 if min_bet == 0:
@@ -1039,12 +1041,18 @@ class Poker(commands.Cog):
                         reaction, user = await self.bot.wait_for("reaction_add", timeout=60.0)
                         emoji = reaction.emoji
                         if (user.name == player.name):
+                            # if min bet is 0 : players can raise, check, or fold, but not call
+                            # if min bet is > 0: players can call, raise, or fold. can't check
+                            # min bet should be renamed min_bet_for_the_current_rotation - bets should continue until a round has passed where everyone has checked.
+                            # this means I will probably need to set each player to not-done every time someone raises.
+                            # i Think this is what I need to do to fix Post flop betting.
+
+                            # also - would help for clarity to break this method up into more manageable chunks if possible.
                             match emoji:
                                 case "📞":
                                     isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
                                     if isSuccess:
                                         await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
-                                        player.pushToPot(self.pot)
                                         player.done = True
                                         
                                 case "🆙":
@@ -1061,7 +1069,6 @@ class Poker(commands.Cog):
                                                 continue
                                             elif success is True:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
-                                                player.pushToPot(self.pot)
                                                 min_bet = raise_amount
                                                 player.done = True
 
@@ -1070,7 +1077,8 @@ class Poker(commands.Cog):
                                         await ctx.send(f"That was an invalid integer. Please react and then try again.")
                                         continue
                                 case "✔️":
-                                    if self.post_flop is True:
+                                    # a player can only check if the min bet is 0, otherwise they must call or fold
+                                    if min_bet == 0:
                                         player.done = True
                                         check_msg = await ctx.send(embed=Embed(title=f"{player.name} checked."))
                                         await check_msg.delete(delay=7.0)
@@ -1093,8 +1101,14 @@ class Poker(commands.Cog):
                     self.players[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing."))
                     self.early_finish = True    
-                
-            pf_msg = await ctx.send(embed=Embed(title=f"Pre flop betting has come to an end."))
+
+                if self.allPlayersDone():
+                    # only push players bets to the pot at the end of all betting for the round
+                    for player in self.players:
+                        player.pushToPot(self.pot)
+                    break
+
+            pf_msg = await ctx.send(embed=Embed(title=f"Post flop betting has come to an end.", description = f"Current pot: {self.pot} GleepCoins."))
             await pf_msg.delete(delay=10.0)
             return
         else:

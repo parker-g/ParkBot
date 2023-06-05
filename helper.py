@@ -1,7 +1,6 @@
 from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY
 from datetime import datetime, timedelta, date
 from canvasapi import Canvas
-from cogs.games import Card
 import pandas as pd
 import replicate
 import requests
@@ -14,7 +13,7 @@ SONG_FILE = "current_audio.mp3"
 
 # copied from geeks for geeks website
 # modified to take Card objects
-def bubbleSortCards(cards_list:list[Card]):
+def bubbleSortCards(cards_list:list):
     """
     Function sorts a list of cards, in place."""
     n = len(cards_list)
