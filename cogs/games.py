@@ -204,14 +204,12 @@ class Deck:
                     self.deck.append(Card(game, i, "heart"))
                     self.deck.append(Card(game, i, "diamond"))
             case "poker":
-                # texas hold em poker uses 2 decks at a time
-                for i in range(2):
-                    # iterate from 2 since ace's are worth 14 (not 1) in poker 
-                    for i in range(2, 15):
-                        self.deck.append(Card(game, i, "spade"))
-                        self.deck.append(Card(game, i, "club"))
-                        self.deck.append(Card(game, i, "heart"))
-                        self.deck.append(Card(game, i, "diamond"))
+                # iterate from 2 to 14, since ace's are worth 14 (not 1) in poker 
+                for i in range(2, 15):
+                    self.deck.append(Card(game, i, "spade"))
+                    self.deck.append(Card(game, i, "club"))
+                    self.deck.append(Card(game, i, "heart"))
+                    self.deck.append(Card(game, i, "diamond"))
 
     def shuffle(self) -> None:
         random.shuffle(self.deck)
@@ -257,10 +255,11 @@ class Player(Cog):
         self.done = False
         self.winner = False
 
-    def pushToPot(self, pot) -> None:
+    # need to test if this works. Seems too simple right now, like it is only changing a surface level attribute that won't actually change the Poker pot (Idk if that makes sense)
+    def pushToPot(self, poker_game) -> None:
         """
-        Pushes a player's current bet to the input pot, and clears the player's current bet."""
-        pot += self.bet
+        Pushes a player's current bet to the input Poker game's pot, and clears the player's current bet."""
+        poker_game.pot += self.bet
         self.bet = 0
 
     def sumCards(self) -> int:
@@ -292,10 +291,10 @@ class Player(Cog):
         pretty_string = "A"
         for card in self.hand[:-1]:
             suit_symbol = Card.SUIT_STRING_TO_SYMBOL[card.suit]
-            pretty_string += f" {card.pip_value} {suit_symbol}, "
+            pretty_string += f" {card.face_value} {suit_symbol}, "
         last_card = self.hand[-1]
         last_symbol = Card.SUIT_STRING_TO_SYMBOL[last_card.suit]
-        pretty_string += f"{last_card.pip_value} {last_symbol}"
+        pretty_string += f"{last_card.face_value} {last_symbol}"
         return pretty_string
 
     # used in Poker
@@ -721,6 +720,19 @@ class Poker(commands.Cog):
         "high card": 9,
     }
 
+    RANKS_TO_HANDS = {
+        0: "royal flush",
+        1: "straight flush",
+        2: "four of a kind",
+        3: "full house",
+        4: "flush",
+        5: "straight",
+        6: "three of a kind",
+        7: "two pair",
+        8: "pair", 
+        9: "high card",
+    }
+
     def __init__(self, bot, player_queue:PlayerQueue):
         self.bot = bot
         self.deck = Deck("poker")
@@ -758,7 +770,16 @@ class Poker(commands.Cog):
                     await economy.giveMoneyPlayer(player, player.bet)
                     player.bet = 0
 
-
+    def getPot(self) -> int:
+        """
+        Returns the Poker game's current pot."""
+        return self.pot
+    
+    def pushToPot(self, player:Player) -> None:
+        """
+        Pushes a player's current bet to the Poker game's pot."""
+        self.pot += player.bet
+        player.bet = 0
 
     def getCommunityCardsString(self) -> str:
         """
@@ -790,10 +811,10 @@ class Poker(commands.Cog):
         writePlayerAndThread(player.name, thread_id)
         return
     
-    def setPlayersNotDone(self) -> None:
+    def setPlayersNotDone(self, players:list[Player]) -> None:
         """
-        Sets all player's done attribute to False. Used when resetting all players' states."""
-        for player in self.players:
+        Sets all Poker players' done attribute to False."""
+        for player in players:
             player.done = False
 
     async def showAllHands(self, ctx) -> None:
@@ -856,6 +877,7 @@ class Poker(commands.Cog):
         """
         Assigns the button to a random player, and takes the blinds from the players directly after and 2 players after the button player."""
         num_players = len(self.players)
+        economy = Economy(self.bot)
         if num_players < 2:
             await ctx.send(f"You don't have enough players to play Poker.")
         i = random.randint(0, num_players-1)
@@ -873,7 +895,7 @@ class Poker(commands.Cog):
             self.big_blind_idx = i + 2
         small_blind_player = self.players[self.small_blind_idx]
         big_blind_player = self.players[self.big_blind_idx]
-        await ctx.send(embed=Embed(title=f"Game Info:", description= f"Button :{self.players[i].name} \nSmall blind: {small_blind_player.name} \nBig blind: {big_blind_player.name}"))
+        await ctx.send(embed=Embed(title=f"Game Info:", description= f"{self.players[i].name} holds the button this game.\n{small_blind_player.name} will set the small blind,\nand {big_blind_player.name} will set the big blind."))
         input_message = await ctx.send(embed = Embed(title=f"Post the small blind, {small_blind_player.name}.", description=f"{small_blind_player.name}, type the amount of GleepCoins to set as small blind."))
         while self.small_blind == 0:
             message = await self.bot.wait_for("message", timeout = None)
@@ -881,7 +903,7 @@ class Poker(commands.Cog):
                 try:
                     small_blind = int(message.content)
                     is_success = await self.player_queue._setBet(ctx, small_blind_player, small_blind)
-                    small_blind_player.pushToPot(self.pot)
+                    self.pushToPot(small_blind_player)
 
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
                     if is_success is True:
@@ -902,23 +924,27 @@ class Poker(commands.Cog):
                         await error_msg.delete(delay = 7.0)
                     elif big_blind > self.small_blind:
                         success = await self.player_queue._setBet(ctx, big_blind_player, big_blind)
-                        big_blind_player.pushToPot(self.pot)
                         if success is True:
                             self.big_blind = big_blind
                             self.min_bet = self.big_blind
                             big_blind_alert = await ctx.send(embed = Embed(title=f"Big blind posted at {big_blind} GleepCoins."))
+                            self.pushToPot(big_blind_player)
                             await big_blind_alert.delete(delay = 7.0)
-                            
+                        else:
+                            await ctx.send(embed = Embed(title=f"Your transaction failed.", description=f"{big_blind_player.name}, your balance is {economy._getBalance(big_blind_player)}"))
+                            continue
                 except ValueError or TypeError:
                     int_error = await ctx.send(embed = Embed(title=f"Please type a valid integer."))
                     await int_error.delete(delay = 7.0)
+                    continue
         self.pot += self.big_blind
         return
 
+    # need to push players bets to pot after each raise, call, or fold.
     async def takePreFlopBets(self, ctx):
         if self.early_finish is not True:
             economy = Economy(self.bot)
-            self.setPlayersNotDone()
+            self.setPlayersNotDone(self.players)
             max_idx = len(self.players)
             initial_bet = self.big_blind
             min_bet = initial_bet
@@ -936,6 +962,7 @@ class Poker(commands.Cog):
                     player.done = False
                 
                 message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?")
+                await ctx.send(embed = Embed(title=f"The current pot: {self.pot} GleepCoins"))
                 # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
                 while player.done != True:
                     input_message = await ctx.send(embed=message_embed)
@@ -952,8 +979,10 @@ class Poker(commands.Cog):
                                     if isSuccess:
                                         await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                         player.done = True
+                                        self.pushToPot(player)
                                         
                                 case "🆙":
+                                    await ctx.send(f"Pot before chips added: {self.pot}")
                                     await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {min_bet}.", description=f"Please type your bet to raise."))
                                     raise_message = await self.bot.wait_for("message")
                                     try:
@@ -967,8 +996,11 @@ class Poker(commands.Cog):
                                                 continue
                                             elif success is True:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
+                                                self.pushToPot(player)
+                                                self.setPlayersNotDone(self.players)
                                                 min_bet = raise_amount
                                                 player.done = True
+                                                await ctx.send(f"Pot after chips added: {self.pot}")
 
                                     except ValueError as e:
                                         print(f"Error casting your message to integer:", e)
@@ -976,15 +1008,15 @@ class Poker(commands.Cog):
                                         continue
                                 case "🏃‍♂️":
                                     # in a fold, mans doesnt place a bet, he just is done betting, and leaves the active players.
-                                    leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded. Nice.", description=f"You forfeited {player.bet} GleepCoins to the pot."))
+                                    leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded.", description=f"You forfeited {player.bet} GleepCoins to the pot."))
                                     await leave_message.delete(delay=5.0)
-                                    player.pushToPot(self.pot)
                                     self.players.remove(player)
                                     max_idx -= 1
+                                    self.pushToPot(player)
                                     player.done = True
-
+                                    
                     except asyncio.TimeoutError:
-                        player.pushToPot(self.pot)
+                        self.pushToPot(player)
                         self.players.remove(player)
                         max_idx -= 1
                         player.done = True
@@ -993,11 +1025,10 @@ class Poker(commands.Cog):
                     self.players[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing.", description=f"{self.players[0].name} will receive the pot of {self.pot} GleepCoins."))
                     self.early_finish = True    
+
                 if self.allPlayersDone():
-                    # only push players bets to the pot at the end of all betting for the round
-                    for player in self.players:
-                        player.pushToPot(self.pot)
                     break
+
             pf_msg = await ctx.send(embed=Embed(title=f"Pre flop betting has come to an end.", description=f"Current Pot: {self.pot} GleepCoins."))
             await pf_msg.delete(delay=10.0)
             return
@@ -1007,12 +1038,14 @@ class Poker(commands.Cog):
     async def takePostFlopBets(self, ctx, name_of_betting_round):
         if self.early_finish is not True:
             economy = Economy(self.bot)
-            self.setPlayersNotDone()
+            self.setPlayersNotDone(self.players)
             max_idx = len(self.players)
             min_bet = 0
             print(f"Max index: {max_idx}")
 
             for i in range(100): # make iteration unreasonably high to ensure we don't reach it's limit
+                # reassign max index after every player goes, in case a player folds
+                max_idx = len(self.players)
                 player_idx = i + self.big_blind_idx
                 if player_idx >= max_idx:
                     player_idx = player_idx % max_idx 
@@ -1031,6 +1064,7 @@ class Poker(commands.Cog):
 
                 # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji, ✔️ check emoji
                 while player.done != True:
+                    
                     input_message = await ctx.send(embed=message_embed)
                     await input_message.add_reaction("🆙")
                     await input_message.add_reaction("✔️")
@@ -1050,11 +1084,15 @@ class Poker(commands.Cog):
                             # also - would help for clarity to break this method up into more manageable chunks if possible.
                             match emoji:
                                 case "📞":
-                                    isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
-                                    if isSuccess:
-                                        await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
-                                        player.done = True
-                                        
+                                    if min_bet > 0:
+                                        isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
+                                        if isSuccess:
+                                            await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
+                                            player.done = True
+                                    else:
+                                        await ctx.send(Embed(title=f"You can't call right now.", description=f"No one has raised yet. Select a different option."))
+                                        continue
+
                                 case "🆙":
                                     await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {min_bet}.", description=f"Please type your bet to raise."))
                                     raise_message = await self.bot.wait_for("message")
@@ -1069,8 +1107,12 @@ class Poker(commands.Cog):
                                                 continue
                                             elif success is True:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
+                                                self.pushToPot(player)
                                                 min_bet = raise_amount
                                                 player.done = True
+                                                # reset all other players' done status, since they now need to call this raise or fold
+                                                other_players = [participant for participant in self.players if participant != player]
+                                                self.setPlayersNotDone(other_players)
 
                                     except ValueError as e:
                                         print(f"Error casting your message to integer:", e)
@@ -1083,10 +1125,11 @@ class Poker(commands.Cog):
                                         check_msg = await ctx.send(embed=Embed(title=f"{player.name} checked."))
                                         await check_msg.delete(delay=7.0)
                                     else:
-                                        await ctx.send(embed=Embed(title=f"You can't check before the flop goofball!"))
+                                        await ctx.send(embed=Embed(title=f"You can't check right now.", description=f"You must call the raised bet, fold, or raise the raise."))
                                         continue
                                 case "🏃‍♂️":
                                     # in a fold, mans doesnt place a bet, he just is done betting, and leaves the active players.
+                                    self.pushToPot(player)
                                     self.players.remove(player)
                                     max_idx -= 1
                                     leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded. Nice."))
@@ -1105,7 +1148,7 @@ class Poker(commands.Cog):
                 if self.allPlayersDone():
                     # only push players bets to the pot at the end of all betting for the round
                     for player in self.players:
-                        player.pushToPot(self.pot)
+                        self.pushToPot(player)
                     break
 
             pf_msg = await ctx.send(embed=Embed(title=f"Post flop betting has come to an end.", description = f"Current pot: {self.pot} GleepCoins."))
@@ -1135,7 +1178,7 @@ class Poker(commands.Cog):
         }
         ranker = PokerRanker
         player.complete_hand = player.addCardsToHand(self.community_cards)
-        player_hand = player.complete_hand # complete hand in pip value
+        player_hand = player.complete_hand # all 7 cards
         bubbleSortCards(player_hand)
 
         # hand's now in pip value and sorted in ascending order
@@ -1201,10 +1244,11 @@ class Poker(commands.Cog):
         best_rank = 15 #start lower than the worst score (higher scores are worse, 0 is the best possible)
         interim_winners = []
         winners = []
-        # get the best score
+        # get the best (lowest) score
         for player in players:
             if player.hand_rank < best_rank:
                 best_rank = player.hand_rank
+
         # check if any two players share the best score
         for player in players:
             if player.hand_rank == best_rank:
@@ -1286,7 +1330,7 @@ class Poker(commands.Cog):
 
         for winner in winners:
             await economy.giveMoneyPlayer(winner, cut)
-            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!"))
+            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!", description=f"You had a {Poker.RANKS_TO_HANDS[winner.rank]}"))
 
     async def flop(self, ctx) -> None:
         """
@@ -1334,10 +1378,10 @@ class Poker(commands.Cog):
         await asyncio.wait_for(preflop_bets, timeout=None)
         await asyncio.wait_for(flop, timeout=None)
         self.post_flop = True
-        self.setPlayersNotDone()
+        self.setPlayersNotDone(self.players)
         await asyncio.wait_for(turn_bets, timeout=None)
         await asyncio.wait_for(turn, timeout=None)
-        self.setPlayersNotDone()
+        self.setPlayersNotDone(self.players)
         await asyncio.wait_for(river_bets, timeout=None)
         await asyncio.wait_for(river, timeout=None)
         await asyncio.wait_for(hand_reveal, timeout=None)
@@ -1479,7 +1523,7 @@ class PokerRanker(Cog):
 
         # populate dict
         for player in players:
-            straight = player.possible_hands[rank]
+            straight = player.possible_hands[rank] # get player's best straight
             player_high_card = ranker.getHighCard(straight)
             players_to_highest_val[player] = player_high_card
             for card in straight:
@@ -1506,7 +1550,7 @@ class PokerRanker(Cog):
             return(ranker.breakStraightTie(remaining_players, length_of_remaining_cards))
 
     @staticmethod
-    def getBestStraight(possible_straights:list) -> list:
+    def getBestStraight(possible_straights:list[list[Card]]) -> list[Card]:
         # (last possible straight will have highest value since the input cards are sorted)
         return possible_straights[-1]
 
@@ -1514,11 +1558,13 @@ class PokerRanker(Cog):
     def getStraightFlushes(possible_straights:list[list[Card]], possible_flushes:list[list[Card]]) -> list[list[Card]] | None:
         # check if any of the straights also exist in flushes
         possible_straight_flushes = []
-        straights = set(possible_straights)
-        flushes = set(possible_flushes)
-        for straight in straights:
-            if straight in flushes:
-                possible_straight_flushes.append(straight)
+        # n^2 time complexity at least, since iteration increases exponentially as the size of input lists grow
+        for straight in possible_straights:
+            for flush in possible_flushes:
+                check = all(card in straight for card in flush)
+                if check is True:
+                    possible_straight_flushes.append(flush)
+
         if len(possible_straight_flushes) > 0:
             return possible_straight_flushes
         return None
@@ -1867,6 +1913,14 @@ class PokerRanker(Cog):
                 pair_to_add = [card for card in sorted_hand if card.pip_value == card_value]
                 pairs.append(pair_to_add)
                 del occurences_dict[card_value]
+                break
+        for card_value in occurences_dict:
+            if occurences_dict[card_value] == 2:
+                pair_to_add = [card for card in sorted_hand if card.pip_value == card_value]
+                pairs.append(pair_to_add)
+                del occurences_dict[card_value]
+                break
+        
         if len(pairs) >= 2:
             return pairs
         return None
@@ -2019,7 +2073,7 @@ class PokerRanker(Cog):
     @staticmethod
     def getHighCard(sorted_hand:list[Card]) -> int:
         """
-        Returns the highest pip value of all cards in a player's hand with (value, suit) format.
+        Returns the highest pip value of all cards in a player's hand.
         :param list sorted_hand: A list of cards sorted in ascending order - acceptable in either in normal or pip format.\n"""
         highest_card_val = 0
         for card in sorted_hand:
