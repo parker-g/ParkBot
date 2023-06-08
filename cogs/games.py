@@ -219,7 +219,7 @@ class Player(Cog):
     The Player represents a participant in any of the games in the games cog."""
     def __init__(self, ctx):
         self.name = ctx.author.name
-        self.hand = []
+        self.hand:list[Card] = []
         self.bet = 0
         self.done = False
         self.winner = False  
@@ -493,9 +493,11 @@ class Dealer(Player):
     def dealCard(self, player:Player) -> None:
         """
         Removes one card from this `Dealer`'s deck and puts that card in the `player`'s hand."""
-        player.hand.append(self.deck[0])
-        self.cards_in_play.append(self.deck[0])
-        self.deck.remove(self.deck[0])
+        card = self.deck[0]
+        player.hand.append(card)
+        player.complete_hand.append(card)
+        self.cards_in_play.append(card)
+        self.deck.remove(card)
 
     def dealHands(self) -> None:
         """
@@ -961,7 +963,7 @@ class Poker(commands.Cog):
                 if player.bet < min_bet:
                     player.done = False
                 
-                message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call 📞, raise 🆙, or fold 🏃‍♂️?")
+                message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call {min_bet} 📞, raise 🆙, or fold 🏃‍♂️?")
                 await ctx.send(embed = Embed(title=f"The current pot: {self.pot} GleepCoins"))
                 # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
                 while player.done != True:
@@ -995,7 +997,7 @@ class Poker(commands.Cog):
                                                 await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
                                                 continue
                                             elif success is True:
-                                                await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
+                                                await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount} GleepCoins."))
                                                 self.pushToPot(player)
                                                 self.setPlayersNotDone(self.players)
                                                 min_bet = raise_amount
@@ -1164,24 +1166,24 @@ class Poker(commands.Cog):
         Lower is better.
         """
         possible_scores = []
-        possible_hands = {
-            0: [], #royal flush [10, 11, 12, 13, 14]
-            1: [],
-            2: [],
-            3: [],
-            4: [],
-            5: [],
-            6: [],
-            7: [],
-            8: [],
-            9: [], # high card
+        possible_hands:dict[int, list[Card]] = {
+            # 0: [], #royal flush [10, 11, 12, 13, 14]
+            # 1: [],
+            # 2: [],
+            # 3: [],
+            # 4: [],
+            # 5: [],
+            # 6: [],
+            # 7: [],
+            # 8: [],
+            # 9: [], # high card
         }
         ranker = PokerRanker
-        player.complete_hand = player.addCardsToHand(self.community_cards)
+        player.complete_hand = player.complete_hand + self.community_cards # add board to complete hand
         player_hand = player.complete_hand # all 7 cards
         bubbleSortCards(player_hand)
+        print(f"{player.name}'s complete, sorted hand: {[card.stringify() for card in player.complete_hand]}")
 
-        # hand's now in pip value and sorted in ascending order
         flushes = ranker.getFlushes(player_hand)
         straights = ranker.getStraights(player_hand)
         if (flushes is not None) and (straights is not None):
@@ -1191,24 +1193,24 @@ class Poker(commands.Cog):
                 if royal_flush is not None:
                     rank = 0 # royal flush
                     possible_scores.append(rank) 
-                    possible_hands[rank].append(royal_flush)
+                    possible_hands[rank] = royal_flush
                 else:
                     rank = 1 # straight flush
                     possible_scores.append(rank) 
-                    possible_hands[rank].append(ranker.getBestStraightFlush(straight_flushes))
+                    possible_hands[rank] = ranker.getBestStraightFlush(straight_flushes)
         elif straights is not None:
             rank = 5 # straight
             possible_scores.append(rank) 
-            possible_hands[rank].append(ranker.getBestStraight(straights))
+            possible_hands[rank] = ranker.getBestStraight(straights)
         elif flushes is not None:
             rank = 4 # flush
             possible_scores.append(rank)
-            possible_hands[rank].append(ranker.getBestFlush(flushes))
+            possible_hands[rank] = ranker.getBestFlush(flushes)
         full_house = ranker.getFullHouse(player_hand)
         if full_house is not None:
             rank = 3 # full house
             possible_scores.append(rank) 
-            possible_hands[rank].append(full_house) 
+            possible_hands[rank] = full_house 
 
         max_occurences = ranker.getMaxOccurences(player_hand)
         if max_occurences <= 4:
@@ -1221,17 +1223,17 @@ class Poker(commands.Cog):
                     player_hand = ranker.getNofAKind(max_occurences, player_hand)
                 case 2: # if there's a max of 2 occurences, the hand could contain a solo pair OR a two pair
                     two_pair = ranker.getTwoPair(player_hand)
-                    if two_pair is True:
+                    if two_pair is not None:
                         rank = 7 # two pair
                         player_hand = two_pair 
                     else:
                         rank = 8 # 2 of a kind
-                        player_hand = ranker.getPair(player_hand)
+                        player_hand = ranker.getBestPair(player_hand)
                 case _: 
                     rank = 9 # high card
                     player_hand = ranker.getHighCard(player_hand)
             possible_scores.append(rank) 
-            possible_hands[rank].append(player_hand)
+            possible_hands[rank] = player_hand
         
         player.possible_hands = possible_hands
         return min(possible_scores)
@@ -1282,7 +1284,7 @@ class Poker(commands.Cog):
                 case 8: # pair
                     winners = ranker.breakPairTie(interim_winners)
                 case 9: # high card
-                    pass
+                    winners = ranker.breakHighCardTie(interim_winners)
         
         return winners
 
@@ -1302,6 +1304,7 @@ class Poker(commands.Cog):
             "pair": 8, 
             "high card": 9,
         }
+        
         if len(self.players) > 1:
             for player in self.players:
                 player.hand_rank = self.getHandRankAndPossibleHands(player)
@@ -1330,7 +1333,7 @@ class Poker(commands.Cog):
 
         for winner in winners:
             await economy.giveMoneyPlayer(winner, cut)
-            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!", description=f"You had a {Poker.RANKS_TO_HANDS[winner.rank]}"))
+            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!", description=f"You had a {Poker.RANKS_TO_HANDS[winner.hand_rank]}"))
 
     async def flop(self, ctx) -> None:
         """
@@ -1426,7 +1429,7 @@ class PokerRanker(Cog):
         # now we have populated the suits dict with cards - we need to check if any of the suit lists contain 5 or items
         for suit in suits:
             while len(suits[suit]) > 5:
-                possible_flushes.append(suits[suit][-5:])
+                possible_flushes.append(suits[suit][-5:]) 
                 suits[suit].pop()
             if len(suits[suit]) == 5:
                 possible_flushes.append(suits[suit])
@@ -1446,7 +1449,7 @@ class PokerRanker(Cog):
         # populate dict
         for player in players:
             flush = player.possible_hands[rank]
-            best_card = ranker.getHighCard(flush)
+            best_card = ranker.getHighCardVal(flush)
             players_to_high_card[player] = best_card
             for card in flush:
                 if card.pip_value == best_card:
@@ -1515,7 +1518,7 @@ class PokerRanker(Cog):
     @staticmethod
     def breakStraightTie(players:list[Player], length_of_remaining_cards:int = 5) -> list[Player]:
         ranker = PokerRanker
-        rank = Poker.HANDS_TO_RANKS["straight"]
+        rank = Poker.HANDS_TO_RANKS["straight"] # accesses from outside
         players_to_highest_val = {
             # player: 8,
             # player2: 9,
@@ -1524,7 +1527,7 @@ class PokerRanker(Cog):
         # populate dict
         for player in players:
             straight = player.possible_hands[rank] # get player's best straight
-            player_high_card = ranker.getHighCard(straight)
+            player_high_card = ranker.getHighCardVal(straight)
             players_to_highest_val[player] = player_high_card
             for card in straight:
                 if card.pip_value == player_high_card:
@@ -1587,7 +1590,7 @@ class PokerRanker(Cog):
         best_straight_flush = PokerRanker.getBestStraightFlush(hands_for_comparison)
         # see how many people have the best hand
         for straight_flush in hands_for_comparison:
-            if ranker.getHighCard(straight_flush) == ranker.getHighCard(best_straight_flush):
+            if ranker.getHighCardVal(straight_flush) == ranker.getHighCardVal(best_straight_flush):
                 best_players.append(hands_to_players[straight_flush])
 
         return best_players
@@ -1600,21 +1603,21 @@ class PokerRanker(Cog):
         best_one = possible_straight_flushes[0]
         if len(possible_straight_flushes) > 1:
             for flush in possible_straight_flushes:
-                if ranker.getHighCard(flush) > ranker.getHighCard(best_one):
+                if ranker.getHighCardVal(flush) > ranker.getHighCardVal(best_one):
                     best_one = flush
         return best_one
 
     @staticmethod
-    def getRoyalFlush(straight_flushes:list) -> list | None:
+    def getRoyalFlush(straight_flushes:list[list[Card]]) -> list | None:
         """
         If hand contains a Royal Flush, returns the royal flush. Otherwise, returns None."""
         royal_flush_key = [10, 11, 12, 13, 14]
         # convert each straight flush to a list of its pip values
         flush_num_values = []
         for flush in straight_flushes:
-            pip_flush = []
+            pip_flush = [] 
             for card in flush:
-                pip_flush += [int(card[0])]
+                pip_flush = pip_flush + [card.pip_value]
             flush_num_values.append(pip_flush)
 
         # check if any of the straight flushes are royal flushes (they are already sorted)
@@ -1629,42 +1632,47 @@ class PokerRanker(Cog):
         """
         Compares the input players hands to find who has the best kicker in their hand. Returns player or players with the highest value kicker, in a list."""
         rank = Poker.HANDS_TO_RANKS["four of a kind"]
-        players_to_kickers = {}
-        best_players = []
-        ####################################
-        # need to compare the player's four of a kind values before resorting to comparing kickers
+        ranker = PokerRanker
+        player_to_foak_value:dict[Player, int] = {
+            # player: 3, 
+            # player2: 6, 
+        }
+        best_foak_value = 0
+        
+        def getLeftovers(player:Player, player_foak_value:int):
+            """
+            Returns the player's complete hand with their four-of-a-kind cards removed."""
+            leftovers = player.complete_hand
+            for card in leftovers:
+                if card.pip_value == player_foak_value:
+                    leftovers.remove(card)
+            return leftovers
 
-        # can use the below algorithm in breaking a three of a kind tie as well - below algorithm compares each players kickers
-        ###################################
-        # populate players to kickers dict
+        # populate dict and get best foak value
         for player in players:
-            complete_hand = player.complete_hand
-            foak = player.possible_hands[rank]
-            # remove the four of a kind from the complete hand, then get high card to find each players highest kicker
-            foak_value = foak[0] # get the value of cards from the four of a kind
-            for card in complete_hand:
-                if card.pip_value == foak_value:
-                    complete_hand.remove(card)
-            # all foak values are removed, now store current player's best kicker in dict
-            kicker = 0
-            for card in complete_hand:
-                if card.pip_value > kicker:
-                    kicker = card.pip_value
-            players_to_kickers[player] = kicker
+            foak_value = player.possible_hands[rank][0].pip_value
+            player_to_foak_value[player] = foak_value
+            if foak_value > best_foak_value:
+                best_foak_value = foak_value
+        
+        # remove players who don't have best foak value
+        for player in players:
+            if player_to_foak_value[player] != best_foak_value:
+                del player_to_foak_value[player]
+        
+        # check length of remaining players, if more than one, get best kicker
+        remaining_players = len(player_to_foak_value)
+        if remaining_players > 1:
+            players_to_leftovers = {}
+            for player in player_to_foak_value:
+                players_to_leftovers[player] = getLeftovers(player, player_to_foak_value[player])
+            best_kickers = ranker.getBestKicker(players_to_leftovers, 1)
+            return best_kickers
+        elif remaining_players == 1:
+            return [player for player in player_to_foak_value] # should just be one player
+        else:
+            raise Exception("Boiiii how did you end up with 0 remaining players? FOAK")
 
-        # find best kicker val of all players
-        best_kicker_val = 0
-        for player in players_to_kickers:
-            player_kicker = players_to_kickers[player]
-            if player_kicker > best_kicker_val:
-                best_kicker_val = player_kicker
-        # check how many players have a kicker of the best value
-        for player in players_to_kickers:
-            player_kicker = players_to_kickers[player]
-            if player_kicker == best_kicker_val:
-                best_players.append(player)
-        # return any players who have the best kicker 
-        return best_players
     
     @staticmethod
     def breakFullHouseTie(players:list[Player]) -> list[Player]:
@@ -1736,7 +1744,7 @@ class PokerRanker(Cog):
                     # else, the tied players have the same triple and double, return all remaining players
 
     @staticmethod
-    def getNofAKind(num_occurences:int, sorted_hand: list) -> list:
+    def getNofAKind(num_occurences:int, sorted_hand: list) -> list[Card]:
         """
         Returns a list of of same-valued cards, if those cards exist in the given `sorted_hand`."""
         pip_hand = [card.pip_value for card in sorted_hand] # remove the unecessary card suit for now
@@ -1773,7 +1781,7 @@ class PokerRanker(Cog):
         # get each players best kicker
         for player in players_to_leftovers:
             leftovers = players_to_leftovers[player]
-            best_kicker = ranker.getHighCard(leftovers)
+            best_kicker = ranker.getHighCardVal(leftovers)
             removeCard(players_to_leftovers[player], best_kicker)
         remaining_cards -= 1
 
@@ -1790,8 +1798,9 @@ class PokerRanker(Cog):
         
         # only recurse if there are cards left to compare, and there is more than one player left
         if (len(remaining_players) > 1) and (remaining_cards > 0):
+            players = list(players_to_kickers.keys())
             # remove players who aren't in remaining players from players_to_leftovers, and then call getBestKicker with tihs modified dict
-            for player in players_to_leftovers:
+            for player in players:
                 if not player in remaining_players:
                     del players_to_leftovers[player]
             return ranker.getBestKicker(players_to_leftovers, remaining_cards)
@@ -1833,7 +1842,7 @@ class PokerRanker(Cog):
         best_triple_value = getBestTrip(players_to_hand_values)
 
         # remove players who dont have the best 3 of a kind
-        for player in players_to_hand_values:
+        for player in players:
             player_trip_value = players_to_hand_values[player]
             if player_trip_value < best_triple_value:
                 del players_to_hand_values[player]
@@ -1855,7 +1864,7 @@ class PokerRanker(Cog):
             return winners
         
     @staticmethod
-    def getMaxOccurences(sorted_hand: list) -> int:
+    def getMaxOccurences(sorted_hand: list[Card]) -> int:
         """
         This method checks all cards in a hand and returns the maximum amount of times any card number value appears in the hand.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n
@@ -1880,64 +1889,91 @@ class PokerRanker(Cog):
         
         pip_hand = [card.pip_value for card in sorted_hand]
         occurences_dict = Counter(pip_hand)
-        full_house = [] 
-        for card_value in occurences_dict:
+        occurences_list = list(occurences_dict.keys())
+        full_house:list[Card] = [] 
+
+        # add three piece to full_house
+        for card_value in occurences_list:
             if (occurences_dict[card_value] == 3):
                 triple_value = occurences_dict[card_value]
                 three_piece = [card for card in sorted_hand if card.pip_value == triple_value]
                 full_house = full_house = three_piece
+                # can't delete a dictionary entry while iterating through the dictionary. used this a lot and need it fix it everywhere
                 del occurences_dict[card_value]
-
-        for card_value in occurences_dict:
+                break
+        # add pair to full_house
+        for card_value in occurences_list:
             if (occurences_dict[card_value] == 2):
                 pair_value = occurences_dict[card_value]
                 pair = [card for card in sorted_hand if card.pip_value == pair_value]
                 full_house = full_house + pair
-            if len(full_house) == 5:
-                return full_house
+                break
+
+        if len(full_house) == 5:
+            return full_house
             
         return None
     
     @staticmethod
-    def getTwoPair(sorted_hand:list[Card]) -> list[list[Card]] | None:
+    def getTwoPair(sorted_hand:list[Card]) -> list[Card] | None:
         """
         Checks whether a player's hand contains two pairs.\n
         Returns the two-pair hand as a list if so, in format [[value1, value1], [value2, value2]], otherwise returns None.\n
         :param list sorted_hand: A list of 7 sorted cards - acceptable in either in normal or pip format.\n"""
+        ranker = PokerRanker
         pip_hand:list[int] = [card.pip_value for card in sorted_hand]
         occurences_dict = Counter(pip_hand)
-        pairs = []
+        pairs:list[Card] = []
         # find all pairs
-        for card_value in occurences_dict:
+        occurences_list = list(occurences_dict.keys())
+        for card_value in occurences_list:
             if occurences_dict[card_value] == 2:
                 pair_to_add = [card for card in sorted_hand if card.pip_value == card_value]
-                pairs.append(pair_to_add)
+                pairs = pairs + pair_to_add
                 del occurences_dict[card_value]
-                break
-        for card_value in occurences_dict:
-            if occurences_dict[card_value] == 2:
-                pair_to_add = [card for card in sorted_hand if card.pip_value == card_value]
-                pairs.append(pair_to_add)
-                del occurences_dict[card_value]
-                break
-        
-        if len(pairs) >= 2:
+        if len(pairs) == 4:
             return pairs
-        return None
+        elif len(pairs) > 4:
+            # get the best two pairs
+            best_pair1 = ranker.getBestPair(pairs)
+            for card in pairs:
+                if card.pip_value == best_pair1[0].pip_value:
+                    pairs.remove(card)
+            best_pair2 = ranker.getBestPair(pairs)
+            return best_pair1 + best_pair2
+        else:
+            return None
     
     @staticmethod 
-    def getPair(sorted_hand:list[Card]) -> list[Card]:
+    def getBestPair(sorted_hand:list[Card]) -> list[Card]: 
         """
         Gets the first pair in a sorted hand, if a pair exists."""
         pip_hand:list[int] = [card.pip_value for card in sorted_hand]
         occurences_dict = Counter(pip_hand)
-        pair = []
+        possible_pairs:list[list[Card]] = []
 
+        # get any possible pairs
         for card_value in occurences_dict:
             if occurences_dict[card_value] == 2:
                 pair = [card for card in sorted_hand if card.pip_value == card_value]
-        return pair
-    
+                possible_pairs.append(pair)
+        
+        # return highest value pair if there's more than one
+        best_pair = possible_pairs[0] # list of list of cards
+        best_pair_val = best_pair[0].pip_value 
+        for pair in possible_pairs:
+            pair_val = pair[0].pip_value
+            if pair_val > best_pair_val:
+                best_pair_val = pair_val
+        
+        # get best pair
+        for pair in possible_pairs:
+            if pair[0].pip_value == best_pair_val:
+                best_pair = pair
+        
+        return best_pair
+
+
     @staticmethod
     def breakPairTie(players:list[Player]) -> list[Player]:
         ranker = PokerRanker
@@ -1946,24 +1982,26 @@ class PokerRanker(Cog):
             # player: 5,
         }
 
-        def getBestPair(players_dict:dict[Player, int]) -> int:
-            best_pair = 0
+        def getBestPairVal(players_dict:dict[Player, int]) -> int:
+            best_pair_val = 0
             for player in players_dict:
-                pair = players_dict[player]
-                if pair > best_pair:
-                    best_pair = pair
-            return best_pair
+                pair_val = players_dict[player]
+                if pair_val > best_pair_val:
+                    best_pair_val = pair_val
+            return best_pair_val
             
         # populate dict
         for player in players:
+            # i think the player.possible_hands is being populated improperly, in the getHandRanksAndPossibleHands()
+            # it seems that perhaps the pair being stored isn't being handled properly here.
             hand_value = player.possible_hands[rank][0].pip_value # int
             players_to_hand_value[player] = hand_value
         # get best pair
-        best_pair = getBestPair(players_to_hand_value)
+        best_pair_val = getBestPairVal(players_to_hand_value)
         # remove players who don't have best pair
         for player in players_to_hand_value:
             player_pair = players_to_hand_value[player]
-            if player_pair < best_pair:
+            if player_pair < best_pair_val:
                 del players_to_hand_value[player]
 
         if len(players_to_hand_value) < 1:
@@ -1979,7 +2017,7 @@ class PokerRanker(Cog):
             for player in players:
                 leftovers = [card for card in player.complete_hand if card.pip_value != players_to_hand_value[player]]
                 players_to_leftovers[player] = leftovers
-            winners = ranker.getBestKicker(players_to_leftovers, 4)
+            winners = ranker.getBestKicker(players_to_leftovers, 5)
             return winners
     
     @staticmethod
@@ -2069,18 +2107,45 @@ class PokerRanker(Cog):
                 # pass in 1 as 'remaining cards' since a hold em hand consists of 5 cards, so the only kicker would be the player's next highest card
                 winners = ranker.getBestKicker(players_to_leftovers, 1)
                 return winners
-        
+    
     @staticmethod
-    def getHighCard(sorted_hand:list[Card]) -> int:
+    def getHighCard(sorted_hand:list[Card]) -> list[Card]:
+        highest_card = sorted_hand[0]
+        for card in sorted_hand:
+            card_val = card.pip_value 
+            if card_val > highest_card.pip_value:
+                highest_card = card
+        return [highest_card]
+
+    @staticmethod
+    def getHighCardVal(hand:list[Card]) -> int:
         """
         Returns the highest pip value of all cards in a player's hand.
-        :param list sorted_hand: A list of cards sorted in ascending order - acceptable in either in normal or pip format.\n"""
+        :param list sorted_hand: A list of cards.\n"""
         highest_card_val = 0
-        for card in sorted_hand:
+        for card in hand:
             card_val = card.pip_value 
             if card_val > highest_card_val:
                 highest_card_val = card_val
         return highest_card_val
+
+    @staticmethod
+    def breakHighCardTie(players:list[Player]) -> list[Player]:
+        ranker = PokerRanker
+        players_to_best_val:dict[Player, int] = {
+            # player: 5,
+        }
+        # populate dict
+        for player in players:
+            player_hand = player.complete_hand
+            bubbleSortCards(player_hand)
+            best_val = ranker.getHighCardVal(player_hand)
+            players_to_best_val[player] = best_val
+        
+        # need to compare the two cards players are dealt.
+        # if players tie with these two cards, then return them both, because that means the rest of their cards
+        # (the community cards) will be the same, resulting in a tie.
+    
 
 
 async def setup(bot):
