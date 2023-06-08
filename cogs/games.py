@@ -1181,6 +1181,7 @@ class Poker(commands.Cog):
         ranker = PokerRanker
         player.complete_hand = player.complete_hand + self.community_cards # add board to complete hand
         player_hand = player.complete_hand # all 7 cards
+
         bubbleSortCards(player_hand)
         print(f"{player.name}'s complete, sorted hand: {[card.stringify() for card in player.complete_hand]}")
 
@@ -1219,7 +1220,7 @@ class Poker(commands.Cog):
                     rank = 2 # 4 of a kind
                     player_hand = ranker.getNofAKind(max_occurences, player_hand)
                 case 3:
-                    rank = 6 # three of a kind
+                    rank = 6 # three of a kind.hand
                     player_hand = ranker.getNofAKind(max_occurences, player_hand)
                 case 2: # if there's a max of 2 occurences, the hand could contain a solo pair OR a two pair
                     two_pair = ranker.getTwoPair(player_hand)
@@ -1231,7 +1232,7 @@ class Poker(commands.Cog):
                         player_hand = ranker.getBestPair(player_hand)
                 case _: 
                     rank = 9 # high card
-                    player_hand = ranker.getHighCard(player_hand)
+                    player_hand = ranker.getHighCard(player.hand)
             possible_scores.append(rank) 
             possible_hands[rank] = player_hand
         
@@ -1333,7 +1334,7 @@ class Poker(commands.Cog):
 
         for winner in winners:
             await economy.giveMoneyPlayer(winner, cut)
-            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!", description=f"You had a {Poker.RANKS_TO_HANDS[winner.hand_rank]}"))
+            await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!", description=f"You had a {Poker.RANKS_TO_HANDS[winner.hand_rank]}."))
 
     async def flop(self, ctx) -> None:
         """
@@ -1744,16 +1745,16 @@ class PokerRanker(Cog):
                     # else, the tied players have the same triple and double, return all remaining players
 
     @staticmethod
-    def getNofAKind(num_occurences:int, sorted_hand: list) -> list[Card]:
+    def getNofAKind(num_occurences:int, sorted_hand: list[Card]) -> list[Card]:
         """
         Returns a list of of same-valued cards, if those cards exist in the given `sorted_hand`."""
-        pip_hand = [card.pip_value for card in sorted_hand] # remove the unecessary card suit for now
+        pip_hand = [card.pip_value for card in sorted_hand] 
         values_to_occurences = Counter(pip_hand)
 
         for value in values_to_occurences:
             if values_to_occurences[value] == num_occurences:
                 # return the value which occurs the same amount as num_occurences
-                return [value for i in range(num_occurences)]
+                return [card for card in sorted_hand if card.pip_value == value]
         raise ValueError(f"No value in the input hand, {sorted_hand}, contained {num_occurences} occurences.")        
 
     @staticmethod
@@ -2110,6 +2111,8 @@ class PokerRanker(Cog):
     
     @staticmethod
     def getHighCard(sorted_hand:list[Card]) -> list[Card]:
+        """
+        Returns the highest value card from a list of Cards."""
         highest_card = sorted_hand[0]
         for card in sorted_hand:
             card_val = card.pip_value 
@@ -2132,15 +2135,36 @@ class PokerRanker(Cog):
     @staticmethod
     def breakHighCardTie(players:list[Player]) -> list[Player]:
         ranker = PokerRanker
-        players_to_best_val:dict[Player, int] = {
-            # player: 5,
-        }
-        # populate dict
-        for player in players:
-            player_hand = player.complete_hand
-            bubbleSortCards(player_hand)
-            best_val = ranker.getHighCardVal(player_hand)
-            players_to_best_val[player] = best_val
+        # wrap up logic in a function since we will have to execute the exact same thing again twice if players are tied after the first go
+        def getBestPlayers(players:list[Player]):
+            players_to_best_val:dict[Player, int] = {}
+            best_val = 0
+            for player in players:
+                best_card = ranker.getHighCard(player.hand)[0] # highest card will be last since cards are sorted in ascending order
+                players_to_best_val[player] = best_card.pip_value
+                if best_card.pip_value > best_val:
+                    best_val = best_card.pip_value
+                player.hand.remove(best_card)
+            #compare best vals, keep only the players who have the highest value
+            for player in players:
+                if players_to_best_val[player] != best_val:
+                    del players_to_best_val[player]
+            return players_to_best_val
+        
+
+        players_to_best_val = getBestPlayers(players)
+        if len(players_to_best_val) > 1:
+            final_players = list(players_to_best_val.keys())
+            final_winners = getBestPlayers(final_players)
+            return list(final_winners.keys()) # return the players who remain in the dict, as a list
+            
+        elif len(players_to_best_val) == 1:
+            return list(players_to_best_val.keys())
+
+        else:
+            raise Exception("Boi how tf did you return no winners during a high card comparison. You are wild")
+            
+
         
         # need to compare the two cards players are dealt.
         # if players tie with these two cards, then return them both, because that means the rest of their cards
