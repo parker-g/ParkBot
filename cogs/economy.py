@@ -30,7 +30,7 @@ class Economy(Cog):
         return True
 
 
-    async def withdrawMoney(self, ctx:Context, money:int) -> None:
+    async def withdrawMoney(self, ctx:Context, money:int) -> bool:
         """
         Takes context and amount as arguments; withdraws said amount from ctx.author's bank balance.
 
@@ -52,11 +52,10 @@ class Economy(Cog):
         current_balance = helper.getUserAmount(bank_df, ctx.author.name)
         # if user has insufficient funds, then don't let them withdraw
         if money > current_balance:
-            broke_message = await ctx.send(embed = Embed(title=f"{ctx.author.name}, you're broke. Your current balance is {current_balance}."))
-            await broke_message.delete(delay=10.0)
             return False
         helper.setUserAmount(bank_df, ctx.author.name, current_balance - money)
         bank_df.to_csv(BANK_PATH, index=False)
+        return True
 
     async def giveMoney(self, ctx, money) -> None:
         money = int(money)
@@ -98,7 +97,7 @@ class Economy(Cog):
 
     @commands.command()
     async def pocketWatch(self, ctx):
-        bank_df = pd.read_csv(BANK_PATH, header="infer", index=False)
+        bank_df = pd.read_csv(BANK_PATH, header="infer")
         bank_df_string = helper.getAllAmounts(bank_df)
         await ctx.send(bank_df_string)
 

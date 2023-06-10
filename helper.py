@@ -94,12 +94,12 @@ def write_iterable(file_path:str, iterable:list | dict) -> None:
 
 def get_image(args:str):
     model = replicate.models.get('borisdayma/dalle-mini')
-    output = model.predict(prompt=args, n_predictions=1)
+    output:list[dict] = model.predict(prompt=args, n_predictions=1)
     # print(type(output)) # output type is list
     # print(type(output[0])) #each index of list is a dictionary
     # print(output[0]) # each dictionary contains {'image': url} pairs.
-    output = output[0]
-    image_url = output['image']
+    dic = output[0]
+    image_url = dic['image']
     response = requests.get(image_url)
     img_destination = 'images/image.png'
     with open(img_destination, 'wb') as file:
@@ -118,7 +118,7 @@ def get_furry_image():
         furry_names.append(f'{image.name}')
     index = random.randint(0, len(furry_names) - 1)
     os.chdir("C:/Users/rober/Documents/GitHub/dall-e-discord-bot")
-    return f'{base_path}\{furry_names[index]}'
+    return f"{base_path}\\{furry_names[index]}"
 
 
 def setUserAmount(df:pd.DataFrame, username, new_money_value):

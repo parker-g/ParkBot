@@ -424,6 +424,8 @@ class PlayerQueue(Cog):
                 economy = Economy(self.bot)
                 withdraw_success = await economy.withdrawMoney(ctx, bet)
                 if withdraw_success is False:
+                    broke_message = await ctx.send(embed = Embed(title=f"{ctx.author.name}, you're broke. Your current balance is {economy._getBalance(player)} GleepCoins."))
+                    await broke_message.delete(delay=10.0)
                     return
                 player.bet = bet
                 message_str = f"{ctx.author.name} has placed a {bet} GleepCoin bet on the next BlackJack game, to win {int(bet) * 2} GC."
@@ -689,7 +691,7 @@ class BlackJackGame(Cog):
 
 class Poker(commands.Cog):
     """
-    The Poker class contains all logic necessary for carrying out a game of texas hold'em poker and evaluating winners for a game.
+    The Poker class contains most of the logic necessary for carrying out a game of texas hold'em poker. The logic used to evaluate which hand is the winner in a game of Poker, is all stored in the PokerRanker class.
     
     attributes required for construction:
     :discord.ext.commands.Bot bot: A discord Bot object, used to communicate with Discord servers.\n
@@ -705,9 +707,8 @@ class Poker(commands.Cog):
     :int small_blind_idx: The index of the player in self.players who sets the small blind.\n
     :int big_blind_idx: The index of the player in self.players who sets the big blind.\n
     :dict[str, discord.Thread] threads: A dictionary used to store private threads for each player in the game. These threads are used to privately send players their poker hand.\n
-    :int pot: Represents the pot of bets in a game of Poker.\n
-    :bool postFlop: A boolean used as a way to control state of the poker game.\n
-    :bool earlyFinish: A boolean used to control state of poker game, if True, game ends early as all players but 1 have folded.\n
+    :int pot: Represents the pot of chips to be won in a game of Poker.\n
+    :bool earlyFinish: A boolean used to control state of poker game - becomes True if only one player remains in the game before betting rounds have finished.\n
     """
     HANDS_TO_RANKS = {
         "royal flush": 0,
@@ -753,7 +754,6 @@ class Poker(commands.Cog):
         self.big_blind_idx = 0
         self.threads:dict[str, int] = {} # contains player names as keys, and discord.Thread IDs as values - used to send private messages to players
         self.pot = 0 # holds all bets
-        self.post_flop = False # used to modify the self.takeBets() method to make it appropriate for a pre-flop vs a post flop betting round
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
 
     async def resetPlayers(self) -> None:
@@ -913,11 +913,10 @@ class Poker(commands.Cog):
                 try:
                     small_blind = int(message.content)
                     is_success = await self.player_queue._setBet(ctx, small_blind_player, small_blind)
-                    self.pushToPot(small_blind_player)
-
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
                     if is_success is True:
                         self.small_blind = small_blind
+                        self.pushToPot(small_blind_player)
                         await ctx.send(embed = Embed(title=f"Small blind posted at {small_blind} GleepCoins."))
                 except ValueError or TypeError:
                     error_message = await ctx.send(embed=Embed(title="Please type a valid number."))
@@ -1368,7 +1367,6 @@ class Poker(commands.Cog):
         Wraps up all the steps for playing a Poker game, and executes them in order."""
         # setup
         await self.resetPlayers()
-        self.post_flop = False
         self.getThreads()
 
         # turning each async function into a task
@@ -1391,7 +1389,6 @@ class Poker(commands.Cog):
         await asyncio.wait_for(show_cards, timeout=None)
         await asyncio.wait_for(preflop_bets, timeout=None)
         await asyncio.wait_for(flop, timeout=None)
-        self.post_flop = True
         self.setPlayersNotDone(self.players)
         await asyncio.wait_for(turn_bets, timeout=None)
         await asyncio.wait_for(turn, timeout=None)
@@ -1794,10 +1791,11 @@ class PokerRanker(Cog):
             leftovers = players_to_leftovers[player]
             best_kicker = ranker.getHighCardVal(leftovers)
             removeCard(players_to_leftovers[player], best_kicker)
+            players_to_kickers[player] = best_kicker
         remaining_cards -= 1
 
         # find the best kicker, and store players who have the best kicker
-        remaining_players = []
+        remaining_players:list[Player] = []
         winning_kicker = 0
         for player in players_to_kickers:
             if players_to_kickers[player] > winning_kicker:
@@ -1812,7 +1810,7 @@ class PokerRanker(Cog):
             players = list(players_to_kickers.keys())
             # remove players who aren't in remaining players from players_to_leftovers, and then call getBestKicker with tihs modified dict
             for player in players:
-                if not player in remaining_players:
+                if player not in remaining_players:
                     del players_to_leftovers[player]
             return ranker.getBestKicker(players_to_leftovers, remaining_cards)
         
@@ -2010,7 +2008,7 @@ class PokerRanker(Cog):
         # get best pair
         best_pair_val = getBestPairVal(players_to_hand_value)
         # remove players who don't have best pair
-        for player in players_to_hand_value:
+        for player in players:
             player_pair = players_to_hand_value[player]
             if player_pair < best_pair_val:
                 del players_to_hand_value[player]
