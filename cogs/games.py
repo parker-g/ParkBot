@@ -395,24 +395,24 @@ class PlayerQueue(Cog):
         em = Embed(title="Players in Queue", description=f"{players_string}")
         await ctx.send(embed = em)
 
-    async def _setBet(self, ctx, inputPlayer, bet:int):
+    async def _setBet(self, ctx, inputPlayer, bet:int) -> bool:
         """
+        Withdraws GleepCoins from a user's 'bank account', into a player's `player.bet` attribute.\n
         This method accomplishes the same thing as the setBet() method, without sending messages to the Discord chat."""
         bet = int(bet)
+        success = False
         for player, member in self.q:
             if inputPlayer.name == player.name:
                 # store players bet amount in corresponding player object
                 economy = Economy(self.bot)
                 try:
                     withdraw_success = await economy.withdrawMoneyPlayer(ctx, inputPlayer, bet)
-                    if withdraw_success is False:
-                        return False
-                    elif withdraw_success is True:
-                        player.bet = bet
-                        return True
+                    player.bet = bet
+                    success = withdraw_success
                 except Exception as e:
-                    print(f"Error while _setBet executing for player, {player.name} : {e}")
-
+                    print(f"Error setting bet for player, {player.name} : {e}")
+        return success
+    
     @commands.command()
     async def setBet(self, ctx, bet:int):
         """
@@ -815,7 +815,7 @@ class Poker(commands.Cog):
     
     def setPlayersNotDone(self, players:list[Player]) -> None:
         """
-        Sets all Poker players' done attribute to False."""
+        Resets input Poker players' .done attribute to False."""
         for player in players:
             player.done = False
 
@@ -875,6 +875,14 @@ class Poker(commands.Cog):
                         return channel
         raise Exception("Your guild isn't named Orlando Come, or you don't have a text channel named poker. Please change this code Parker to be more easy to use for other people. Perhaps create a new channel named poker and then access that one after its created.")
     
+    async def sendPotMessage(self, ctx) -> None:
+        await ctx.send(embed=Embed(title=f"Current Pot: {self.pot} GleepCoins"))
+
+    async def sendBrokeMessage(self, ctx, player:Player, economy:Economy) -> None:
+        await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed, {player.name}. Maybe it's because you only got {economy._getBalance(player)}.\nTry again, with a lower amount, or you might have to fold."))
+
+    # when blinds are being posted, when a player raises or calls the blind, their bet seems to not be added to the pot.
+    # likewise - in some scenarios in preflop betting, players' raises or calls also seem to not be adding to the pot.
     async def assignButtonAndPostBlinds(self, ctx):
         """
         Assigns the button to a random player, and takes the blinds from the players directly after and 2 players after the button player."""
@@ -955,7 +963,6 @@ class Poker(commands.Cog):
                 player_idx = i + self.big_blind_idx
                 if player_idx >= max_idx:
                     player_idx = player_idx % max_idx 
-                print(f"player_index: {player_idx}")
 
                 player = self.players[player_idx]
                 member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
@@ -964,7 +971,6 @@ class Poker(commands.Cog):
                     player.done = False
                 
                 message_embed = Embed(title=f"Pre-Flop Betting", description=f"{member.mention}\nWould you like to call {min_bet} 📞, raise 🆙, or fold 🏃‍♂️?")
-                await ctx.send(embed = Embed(title=f"The current pot: {self.pot} GleepCoins"))
                 # 📞 call emoji, 🏃‍♂️ fold emoji, 🆙 raise emoji
                 while player.done != True:
                     input_message = await ctx.send(embed=message_embed)
@@ -979,12 +985,15 @@ class Poker(commands.Cog):
                                 case "📞":
                                     isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
                                     if isSuccess:
-                                        await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
+                                        call_msg = await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
+                                        await call_msg.delete(delay=5.0)
                                         player.done = True
                                         self.pushToPot(player)
-                                        
+                                    else:
+                                        await self.sendBrokeMessage(ctx, player, economy)
+                                        continue
+
                                 case "🆙":
-                                    await ctx.send(f"Pot before chips added: {self.pot}")
                                     await ctx.send(embed=Embed(title=f"Okay, set a bet higher than {min_bet}.", description=f"Please type your bet to raise."))
                                     raise_message = await self.bot.wait_for("message")
                                     try:
@@ -992,17 +1001,16 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            success = await self.player_queue._setBet(ctx, player, raise_amount)
-                                            if success is False:
-                                                await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
-                                                continue
-                                            elif success is True:
+                                            isSuccess = await self.player_queue._setBet(ctx, player, raise_amount)
+                                            if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount} GleepCoins."))
                                                 self.pushToPot(player)
                                                 self.setPlayersNotDone(self.players)
                                                 min_bet = raise_amount
                                                 player.done = True
-                                                await ctx.send(f"Pot after chips added: {self.pot}")
+                                            else:
+                                                await self.sendBrokeMessage(ctx, player, economy)
+                                                continue
 
                                     except ValueError as e:
                                         print(f"Error casting your message to integer:", e)
@@ -1012,17 +1020,19 @@ class Poker(commands.Cog):
                                     # in a fold, mans doesnt place a bet, he just is done betting, and leaves the active players.
                                     leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded.", description=f"You forfeited {player.bet} GleepCoins to the pot."))
                                     await leave_message.delete(delay=5.0)
+                                    self.pushToPot(player)
                                     self.players.remove(player)
                                     max_idx -= 1
-                                    self.pushToPot(player)
                                     player.done = True
-                                    
+     
                     except asyncio.TimeoutError:
                         self.pushToPot(player)
                         self.players.remove(player)
                         max_idx -= 1
                         player.done = True
                         await ctx.send(embed=Embed(title=f"You took too long, dummy (baltimore accent).", description=f"You automatically folded."))  
+                
+                await self.sendPotMessage(ctx) # show the pot at the end of each player's turn  
                 if (len(self.players) == 1):
                     self.players[0].winner = True
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing.", description=f"{self.players[0].name} will receive the pot of {self.pot} GleepCoins."))
@@ -1051,7 +1061,6 @@ class Poker(commands.Cog):
                 player_idx = i + self.big_blind_idx
                 if player_idx >= max_idx:
                     player_idx = player_idx % max_idx 
-                print(f"player_index: {player_idx}")
 
                 player = self.players[player_idx]
                 member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
@@ -1090,9 +1099,12 @@ class Poker(commands.Cog):
                                         isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
                                         if isSuccess:
                                             await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
+                                            self.pushToPot(player)
                                             player.done = True
+                                        else:
+                                            await self.sendBrokeMessage(ctx, player, economy)
                                     else:
-                                        await ctx.send(Embed(title=f"You can't call right now.", description=f"No one has raised yet. Select a different option."))
+                                        await ctx.send(Embed(title=f"You can't call right now.", description=f"No one in this round has bet yet. Select a different option."))
                                         continue
 
                                 case "🆙":
@@ -1103,19 +1115,18 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            success = await self.player_queue._setBet(ctx, player, raise_amount)
-                                            if success is False:
-                                                await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed. Maybe it's because you only got {economy._getBalance(self.players[i])}.\nTry again, with a lower amount, or you might have to fold."))
-                                                continue
-                                            elif success is True:
-                                                await ctx.send(embed=Embed(title=f"{player.name} raised to {raise_amount}."))
+                                            isSuccess = await self.player_queue._setBet(ctx, player, raise_amount) 
+                                            if isSuccess:
+                                                await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount}."))
                                                 self.pushToPot(player)
                                                 min_bet = raise_amount
                                                 player.done = True
-                                                # reset all other players' done status, since they now need to call this raise or fold
+                                                # reset all other players' done status, since they now need to call, raise the raise, or fold
                                                 other_players = [participant for participant in self.players if participant != player]
                                                 self.setPlayersNotDone(other_players)
-
+                                            else:
+                                                await self.sendBrokeMessage(ctx, player, economy)
+                                                continue
                                     except ValueError as e:
                                         print(f"Error casting your message to integer:", e)
                                         await ctx.send(f"That was an invalid integer. Please react and then try again.")
@@ -1137,6 +1148,8 @@ class Poker(commands.Cog):
                                     leave_message = await ctx.send(embed=Embed(title=f"{player.name} folded. Nice."))
                                     await leave_message.delete(delay=5.0)
                                     player.done = True
+
+                            await self.sendPotMessage(ctx)
                     except asyncio.TimeoutError:
                         self.players.remove(player)
                         max_idx -= 1
@@ -1148,9 +1161,6 @@ class Poker(commands.Cog):
                     self.early_finish = True    
 
                 if self.allPlayersDone():
-                    # only push players bets to the pot at the end of all betting for the round
-                    for player in self.players:
-                        self.pushToPot(player)
                     break
 
             pf_msg = await ctx.send(embed=Embed(title=f"Post flop betting has come to an end.", description = f"Current pot: {self.pot} GleepCoins."))

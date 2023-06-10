@@ -13,9 +13,9 @@ SONG_FILE = "current_audio.mp3"
 
 # copied from geeks for geeks website
 # modified to take Card objects
-def bubbleSortCards(cards_list:list):
+def bubbleSortCards(cards_list:list) -> None:
     """
-    Function sorts a list of cards, in place."""
+    Function sorts a list of Card objects, in place."""
     n = len(cards_list)
     # optimize code, so if the array is already sorted, it doesn't need
     # to go through the entire process
@@ -32,7 +32,7 @@ def bubbleSortCards(cards_list:list):
             # than the next element
             if cards_list[j].pip_value > cards_list[j + 1].pip_value:
                 swapped = True
-                cards_list[j].pip_value, cards_list[j + 1].pip_value = cards_list[j + 1].pip_value, cards_list[j].pip_value
+                cards_list[j], cards_list[j + 1] = cards_list[j + 1], cards_list[j]
          
         if not swapped:
             # if we haven't needed to make a single swap, we
