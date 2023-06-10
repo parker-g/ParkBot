@@ -6,7 +6,7 @@ from cogs.economy import Economy
 from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
-from discord import Member, Embed, TextChannel, Thread
+from discord import Member, Embed, TextChannel
 from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
 
 # things to do 
@@ -1493,7 +1493,7 @@ class PokerRanker(Cog):
         return best_flush
 
     @staticmethod
-    def getStraights(sorted_cards:list[Card]) -> list[list[Card]]| None: # returns list of hands which are in format [list[tuple]]
+    def getStraights(sorted_cards:list[Card]) -> list[list[Card]]| None:
         """
         Returns a list of all possible straights in the given hand.\n
         If no straights exist in the hand, returns None.
@@ -1526,7 +1526,7 @@ class PokerRanker(Cog):
     @staticmethod
     def breakStraightTie(players:list[Player], length_of_remaining_cards:int = 5) -> list[Player]:
         ranker = PokerRanker
-        rank = Poker.HANDS_TO_RANKS["straight"] # accesses from outside
+        rank = Poker.HANDS_TO_RANKS["straight"]
         players_to_highest_val = {
             # player: 8,
             # player2: 9,
@@ -1693,14 +1693,21 @@ class PokerRanker(Cog):
 
         # populate players_to_houses dict
         for player in players:
+
             full_house = player.possible_hands[rank]
-            # since triple is assigned to full_house before the double, 
-            # we can get the vallue of the triple cards by taking one of the first three cards value,
-            # and the pair's value from one of the last two cards.
-            # probably not safe, but I think it will work 
-            triple_value = full_house[0].pip_value 
-            dub_value = full_house[-1].pip_value
-            players_to_houses[player] = [triple_value, dub_value]
+            if len(full_house) > 0:
+                # since triple is assigned to full_house before the double, 
+                # we can get the vallue of the triple cards by taking one of the first three cards value,
+                # and the pair's value from one of the last two cards.
+                # probably not safe, but I think it will work 
+                triple_value = full_house[0].pip_value 
+                dub_value = full_house[-1].pip_value
+                players_to_houses[player] = [triple_value, dub_value]
+            else:
+                continue
+        if len(players_to_houses) == 1:
+            return list(players_to_houses.keys())
+        
         
         # compare player's triples
         players_with_best_triple = []
@@ -2001,8 +2008,6 @@ class PokerRanker(Cog):
             
         # populate dict
         for player in players:
-            # i think the player.possible_hands is being populated improperly, in the getHandRanksAndPossibleHands()
-            # it seems that perhaps the pair being stored isn't being handled properly here.
             hand_value = player.possible_hands[rank][0].pip_value # int
             players_to_hand_value[player] = hand_value
         # get best pair
