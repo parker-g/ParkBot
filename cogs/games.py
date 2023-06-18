@@ -128,13 +128,13 @@ class Card:
         int | str - value : The value of the card you're creating. Accepted as a lowercase string such as <"jack", "ace", "2"> or an integer value such as <2, 7, 14>.
         str - suit : String representing the suit of the card being constructed. Accepts strings in word format or simple unicode symbol format.
         """
-
+        # store suit as string word, not symbol
         if suit in Card.SUIT_STRING_TO_SYMBOL:
             self.suit = suit
         elif suit in Card.SUIT_SYMBOL_TO_STRING:
             self.suit = Card.SUIT_SYMBOL_TO_STRING[suit]
         else:
-            raise ValueError("Inappropriate argument value of `suit`. Refer to Card class for valid argument options.")
+            raise ValueError("Inappropriate value for `suit` argument. Refer to Card class for valid argument options.")
         
         match game:
             case "blackjack":
@@ -153,8 +153,6 @@ class Card:
                     self.face_value = Card.PIP_TO_FACE_POKER[value]
             case _:
                 raise ValueError("Game parameter must be a valid game string: 'blackjack' or 'poker' are the only acceptable inputs.")
-                
-        self.suit = suit
     
     def setValue(self, new_value:int) -> None:
         self.pip_value = new_value
@@ -214,11 +212,12 @@ class Deck:
     def shuffle(self) -> None:
         random.shuffle(self.deck)
 
-class Player(Cog):
+class Player:
     """
     The Player represents a participant in any of the games in the games cog."""
-    def __init__(self, ctx):
+    def __init__(self, ctx, member:Member):
         self.name = ctx.author.name
+        self.member = member
         self.hand:list[Card] = []
         self.bet = 0
         self.done = False
@@ -328,16 +327,16 @@ class PlayerQueue(Cog):
     self.q is a list[Card]. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
     Right now, I'm actually realizing that it would be much more simple if I instead just incorporated the discord.Member object into the Player class as an attribute. Removing the possibility of confusing others with tuples in the player queue."""
     def __init__(self, bot):
-        self.bot = bot
-        self.q = []
+        self.bot:commands.Bot = bot
+        self.q:list[Player] = []
 
     @commands.command("joinQ")
     async def joinQueue(self, ctx):
         """
         This is a command giving Discord server members the ability to join the PlayerQueue, by executing the command in a text channel."""
-        new_player = Player(ctx)
+        new_player = Player(ctx, ctx.author)
         # check if person using command is already in the player pool
-        # for player, member in self.q:
+        # for player in self.q:
         #     if ctx.author.name == player.name:
         #         # if so, tell user that they're already in the queue
         #         message_str = f"{ctx.author.name} is already in queue."
@@ -346,7 +345,7 @@ class PlayerQueue(Cog):
         #         return
 
         # so Q will be a list of tuples of (player object, discord.Member object)
-        self.q.append((new_player, ctx.author))
+        self.q.append(new_player)
         message_str = f"{ctx.author.name} has been added to players queue."
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
@@ -355,13 +354,13 @@ class PlayerQueue(Cog):
     async def leaveQueue(self, ctx):
         """
         This command gives users the ability to leave the PlayerQueue. If a player leaves the queue, any bet they had previously set will be returned to their bank."""
-        # check if person using command is in player pool
-        for player, member in self.q:
-            if ctx.author.name == member.name:
-                # if so, return the persons bet money to them, and remove them from player pool
+        # get player who used the command
+        for player in self.q:
+            if ctx.author.name == player.name:
+                # return the person's bet money to them, and remove them from player pool
                 economy = Economy(self.bot)
                 await economy.giveMoney(ctx, player.bet)
-                self.q.remove((player, ctx.author))
+                self.q.remove(player)
                 message_str = f"{ctx.author.name} has been removed from the queue."
                 message = await ctx.send(embed = Embed(title=message_str))
                 await message.delete(delay=5.0)
@@ -376,11 +375,11 @@ class PlayerQueue(Cog):
         """
         Discord server members can clear the PlayerQueue with this command."""
         economy = Economy(self.bot)
-        for player, member in self.q:
+        for player in self.q:
             if player.bet > 0:
                 await economy.giveMoneyPlayer(player, player.bet)
                 player.bet = 0
-            self.q.remove((player, member))
+            self.q.remove(player)
             
         message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
         await message.delete(delay=5.0)
@@ -390,7 +389,7 @@ class PlayerQueue(Cog):
         """
         This command provides users the ability to see who is currently in the PlayerQueue."""
         players_string = ""
-        for player, member in self.q:
+        for player in self.q:
             players_string += f"{player.name}\n"
         em = Embed(title="Players in Queue", description=f"{players_string}")
         await ctx.send(embed = em)
@@ -401,7 +400,7 @@ class PlayerQueue(Cog):
         This method accomplishes the same thing as the setBet() method, without sending messages to the Discord chat."""
         bet = int(bet)
         success = False
-        for player, member in self.q:
+        for player in self.q:
             if inputPlayer.name == player.name:
                 # store players bet amount in corresponding player object
                 economy = Economy(self.bot)
@@ -418,7 +417,7 @@ class PlayerQueue(Cog):
         """
         Discord users who have joined the PlayerQueue can use this command to set a bet, valid for the next game of BlackJack.\n"""
         bet = int(bet)
-        for player, member in self.q:
+        for player in self.q:
             if ctx.author.name == player.name:
                 # store players bet amount in corresponding player object
                 economy = Economy(self.bot)
@@ -544,7 +543,7 @@ class BlackJackGame(Cog):
         self.bot = bot
         self.player_queue = player_queue.q
         self.players = []
-        for player, member in self.player_queue:
+        for player in self.player_queue:
             self.players.append(player)
         
 
@@ -742,7 +741,7 @@ class Poker(commands.Cog):
         self.deck.shuffle()
         self.player_queue = player_queue
         self.players:list[Player] = []
-        for player, member in self.player_queue.q:
+        for player in self.player_queue.q:
             self.players.append(player)
         self.dealer = Dealer(self.deck, self.players)
         
@@ -765,6 +764,9 @@ class Poker(commands.Cog):
                 player.winner = False
                 player.done = False
                 player.hand = []
+                player.ranked_hand.clear()
+                player.complete_hand.clear()
+                player.possible_hands.clear()
                 player.button = False
                 player.thread = None
                 player.folded = False
@@ -834,7 +836,7 @@ class Poker(commands.Cog):
         """
         channel = await self.getPokerChannel()
         for player in self.players:
-            member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
+            member = [user for user in self.player_queue.q if user.name == player.name][0].member
             if not player.name in self.threads:
                 # print(f"creating thread for {player.name}")
                 thread = await channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
@@ -887,6 +889,7 @@ class Poker(commands.Cog):
         """
         Assigns the button to a random player, and takes the blinds from the players directly after and 2 players after the button player."""
         num_players = len(self.players)
+        print(f"number of players: {num_players}")
         economy = Economy(self.bot)
         if num_players < 2:
             await ctx.send(f"You don't have enough players to play Poker.")
@@ -905,7 +908,7 @@ class Poker(commands.Cog):
             self.big_blind_idx = i + 2
         small_blind_player = self.players[self.small_blind_idx]
         big_blind_player = self.players[self.big_blind_idx]
-        await ctx.send(embed=Embed(title=f"Game Info:", description= f"{self.players[i].name} holds the button this game.\n{small_blind_player.name} will set the small blind,\nand {big_blind_player.name} will set the big blind."))
+        await ctx.send(embed=Embed(title=f"Game Info: ", description= f"{self.players[i].name} holds the button this game.\n{small_blind_player.name} will set the small blind,\nand {big_blind_player.name} will set the big blind."))
         input_message = await ctx.send(embed = Embed(title=f"Post the small blind, {small_blind_player.name}.", description=f"{small_blind_player.name}, type the amount of GleepCoins to set as small blind."))
         while self.small_blind == 0:
             message = await self.bot.wait_for("message", timeout = None)
@@ -964,7 +967,7 @@ class Poker(commands.Cog):
                     player_idx = player_idx % max_idx 
 
                 player = self.players[player_idx]
-                member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
+                member = [user for user in self.player_queue.q if user.name == player.name][0].member
                 
                 if player.bet < min_bet:
                     player.done = False
@@ -1062,7 +1065,7 @@ class Poker(commands.Cog):
                     player_idx = player_idx % max_idx 
 
                 player = self.players[player_idx]
-                member = [user for user in self.player_queue.q if user[0].name == player.name][0][1]
+                member = [user for user in self.player_queue.q if user.name == player.name][0].member
                 
                 if player.bet < min_bet:
                     player.done = False
@@ -2079,36 +2082,41 @@ class PokerRanker(Cog):
                 # if still tied, compare kickers and return player with best kicker
 
         # get the best pair
-        best_pair = findBestPair(players_to_two_pair_values)
+        best_pair_val = findBestPair(players_to_two_pair_values)
 
         # store all players who have a pair the value of best pair, and remove this value from players who have it
-        for player in players_to_two_pair_values:
+        for player in players:
             player_pairs = players_to_two_pair_values[player]
-            if best_pair in player_pairs:
-                players_to_two_pair_values[player].remove(best_pair) # remove instances of best value from players who have it
-            elif best_pair not in player_pairs:
-                del players_to_two_pair_values[player] # completely remove players who don't have the best value
+            if best_pair_val in player_pairs:
+                players_to_two_pair_values[player].remove(best_pair_val) # remove instances of best value from players who have it
+            elif best_pair_val not in player_pairs:
+                del players_to_two_pair_values[player]
+                 # completely remove players who don't have the best value
 
-        if len(players_to_two_pair_values) < 1:
+        remaining_players = [player for player in players_to_two_pair_values]
+
+        if len(remaining_players) < 1:
             raise Exception("bruh moment")
-        elif len(players_to_two_pair_values) == 1:
-            return list(players_to_two_pair_values.keys())
+        elif len(remaining_players) == 1:
+            return remaining_players
         else:
             # if more than one player remains, compare the players' next pair
-            best_pair = findBestPair(players_to_two_pair_values)
+            best_pair_val = findBestPair(players_to_two_pair_values)
 
             # repeat steps used to compare first pair
-            for player in players_to_two_pair_values:
+            for player in remaining_players:
                 player_pairs = players_to_two_pair_values[player]
-                if best_pair in player_pairs:
-                    players_to_two_pair_values[player].remove(best_pair)
-                elif best_pair not in player_pairs:
+                if best_pair_val in player_pairs:
+                    players_to_two_pair_values[player].remove(best_pair_val)
+                elif best_pair_val not in player_pairs:
                     del players_to_two_pair_values[player]
 
-            if len(players_to_two_pair_values) < 1:
+            remaining_players = [player for player in players_to_two_pair_values]
+
+            if len(remaining_players) < 1:
                 raise Exception("The developer (Parker) has made a grave mistake while coding this tie case. Please revise")
-            elif len(players_to_two_pair_values) == 1:
-                return list(players_to_two_pair_values.keys())
+            elif len(remaining_players) == 1:
+                return remaining_players
             else: 
                 # if there are still tied players, winner is determined by whoever has the best kicker
                 players_to_leftovers:dict[Player, list[Card]] = {

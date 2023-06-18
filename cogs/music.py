@@ -12,6 +12,11 @@ import yt_dlp
 from youtube_dl import YoutubeDL
 import asyncio
 
+# requested feature: autoplay suggested videos/songs -
+    # could extract tags from the video I'm on and perform a search of those tags, return first video
+    # users can turn on / turn off autoplay (off by default)
+        # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
+
 class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
