@@ -1,3 +1,6 @@
+# save a filled out version of this file as config.py, in this directory.
+
+
 # pound sign legend: 
 
 # == this variable is necessary for the discord Bot to run
