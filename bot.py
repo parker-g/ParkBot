@@ -1,7 +1,7 @@
-import discord
-from config.config import TOKEN, CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
-import logging
 from discord.ext import commands
+from config.config import TOKEN
+import logging
+import discord
 import helper
 
 #note for me:
@@ -26,8 +26,6 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 # remove the default empty help command, so i can replace it with my own
 bot.remove_command('help')
 
-
-# on the event called `on_ready`, python terminal shows that the bot is logged in by printing 
 @bot.event
 async def on_ready():
     await bot.load_extension("cogs.economy")
@@ -48,7 +46,7 @@ async def help(ctx):
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     em.add_field(name='voice commands', value="`say`")
     em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
-    em.add_field(name='music commands', value="`play`, `skip`, `showQ`")
+    em.add_field(name='music commands', value="`play`, `skip`, `showQ`, `currentSong`, `kickBot`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -136,17 +134,28 @@ async def skip(ctx):
     await ctx.send(embed = em)
 
 @help.command()
+async def currentSong(ctx):
+    em = discord.Embed(title="currentSong", description="shows the song currently playing")
+    await ctx.send(embed = em)
+
+@help.command()
+async def kickBot(ctx):
+    em = discord.Embed(title="kickBot", description="kicks your bot from the voice channel.")
+    await ctx.send(embed = em)
+
+@help.command()
 async def showPlayers(ctx):
     em = discord.Embed(title="showPlayers", description="shows all the players who are in the gaming player pool")
     await ctx.send(embed = em)
+
 @help.command()
 async def clearQ(ctx):
     em = discord.Embed(title="clearQ", description= "removes all players from player pool, and returns their queued bets to each respective bank balance.") 
     await ctx.send(embed = em)
 
 @help.command()
-async def resetJack(ctx):
-    em = discord.Embed(title="resetJack", description="use this command to hard reset the blackjack and ecnomoy cogs. (use if blackjack is buggy, it won't hurt anything)")
+async def resetGames(ctx):
+    em = discord.Embed(title="resetGames", description="use this command to hard reset the games and economoy cogs. (use to reset blackjack or poker if they're broken/ glitched. it won't hurt anything)")
     await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 
@@ -177,10 +186,10 @@ async def findFurry(ctx):
     await ctx.send(file=discord.File(image))
 
 @bot.command()
-async def resetJack(ctx):
-    await bot.reload_extension("cogs.blackjack")
+async def resetGames(ctx):
+    await bot.reload_extension("cogs.games")
     await bot.reload_extension("cogs.economy")
-    em = discord.Embed(title="Reset blackjack and economy cogs")
+    em = discord.Embed(title="Reset games and economy cogs")
     await ctx.send(embed = em)
 
 # @bot.command()
@@ -189,7 +198,6 @@ async def resetJack(ctx):
 #     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
 #     image = test.img_test0()
 #     await ctx.send(embed = em, file=discord.File(image))
-
 
 
 bot.run(TOKEN, log_handler=handler)

@@ -1,23 +1,27 @@
 from googleapiclient.discovery import build
-from config.config import GOOGLE_API_KEY
+from googleapiclient.errors import HttpError
+from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
 from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
 from collections import deque
 import helper
-import os
 import html
-import time
 import discord
 import yt_dlp
+from youtube_dl import YoutubeDL
 import asyncio
 
-SONG_PATH = "data/current_audio.mp3"
+# requested feature: autoplay suggested videos/songs -
+    # could extract tags from the video I'm on and perform a search of those tags, return first video
+    # users can turn on / turn off autoplay (off by default)
+        # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
 
 class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.playque = deque()
+        self.playhistory = deque(maxlen=5)
 
     def isEmpty(self):
         return len(self.playque) == 0
@@ -25,7 +29,6 @@ class PlayList(commands.Cog):
     def add(self, video_tuple):
         self.playque.append(video_tuple)
 
-    @commands.command()
     async def addToQ(self, ctx, video_tuple):
         self.add(video_tuple)
         added_to_q = await ctx.send(embed = Embed(title=f"{video_tuple[0]} added to queue."))
@@ -34,18 +37,14 @@ class PlayList(commands.Cog):
     def remove(self): 
         self.playque.popleft()
 
-
-    @commands.command("showQ")
-    async def showQueue(self, ctx):
-        pretty_string = ""
-        count = 1
-        for title, id in self.playlist.playque:
-            pretty_string += f"{count}: {title}\n"
-            count += 1
-        await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
+    
 
 # grabs various resources from the internet
 class Grabber:
+    """
+    Grabber is used to grab resources from the internet.\n
+    It's two methods are used to poll the YouTube API for search results given a query string,\n
+    and to download a song given the youtube video ID returned by the previous method."""
     def __init__(self, bot):
         self.bot = bot
         self.downloading = False
@@ -53,31 +52,36 @@ class Grabber:
     
     async def getSearchResults(self, ctx=None, *args, maxResults=1):
         query = ""
+        args = args[0]
         for arg in args:
-            query += f"{str(arg)} "
+            query += f"{arg} "
+
         request = self.service.search().list(
         part='snippet',
         maxResults=int(maxResults),
-        q=str(args))
+        q=str(query))
+        try:
+            response = request.execute() # response is a json object in dict format
+            titles_and_ids = []
+            for item in response["items"]:
+                id = item["id"]["videoId"]
+                title = html.unescape(item["snippet"]["title"])
+                titles_and_ids.append((title, id))
 
-        response = request.execute() # response is a json object in dict format
-        titles_and_ids = []
-        for item in response["items"]:
-            id = item["id"]["videoId"]
-            title = html.unescape(item["snippet"]["title"])
-            titles_and_ids.append((title, id))
+            if ctx is None:
+                return titles_and_ids
+        except HttpError:
+            print(f"\nYou have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests.\n")
 
-        if ctx is None:
-            return titles_and_ids
     
-    async def getSong(self, youtube_id):
+    def getSong(self, youtube_id, song_name):
         base_address = "https://www.youtube.com/watch?v="
         ytdl_format_options = {
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
-            "outtmpl": "data/current_audio.%(ext)s",
-            "ffmpeg_location": "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
+            "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
+            "ffmpeg_location": FFMPEG_PATH,
                 # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
                 'postprocessors': [{  # Extract audio using ffmpeg
                     'key': 'FFmpegExtractAudio',
@@ -87,26 +91,22 @@ class Grabber:
 
         youtube_url = [base_address + youtube_id]
         
-        if (self.downloading is False): 
-            self.downloading = True
-            with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-                ydl.download(youtube_url)
-            # check for existence of temp files to check if song's done downloading
-            self.downloading = False
-            return
-        else:
-            print("You're already downloading a song right now.")
-            return
+        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+            ydl.download(youtube_url)
+        return
 
 
 class MusicController(commands.Cog):
     def __init__(self, bot, playlist:PlayList):
         self.bot = bot
         self.playlist = playlist
+        self.prev_song = None
+        self.current_song = None
         self.grabber = Grabber(bot)
         self.voice = None
         self.playing = False
-    
+        self.from_skip = False
+
     async def waitTime(self, time_in_seconds):
         print(f"Waiting for {time_in_seconds} seconds.")
         await asyncio.sleep(float(time_in_seconds))
@@ -116,86 +116,144 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def showQ(self, ctx):
-        await self.playlist.showQueue(self, ctx)
+        # if self.playing is False:
+        #     await ctx.send(f"Playing nothing right now.")
+        if self.current_song is not None:
+            pretty_string = ""
+            pretty_string += f"Playing: {self.current_song[0]}\n\n"
+            count = 1 # skip the first song in playque
+            for title, id in self.playlist.playque:
+                pretty_string += f"{count}: {title}\n"
+                count += 1
+            await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
+        else:
+            await ctx.send(embed = Embed(title=f"No songs in queue yet."))
 
     @commands.command()
-    async def play(self, ctx, *args):
-        # search requested song and add it to the queue
-        title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
-        await self.playlist.addToQ(self.playlist, ctx, title_and_id[0])
+    async def currentSong(self, ctx):
+        await ctx.send(embed=Embed(title=f"Current Song", description=f"{self.current_song[0]}"))
 
+    # I want to continue experimenting with this later down the line -
+    #seems there's some way to play songs without downloading ? not sure
+    async def playURL(self, ctx, url):
+        author_vc = ctx.author.voice.channel
+        if not self.voice:
+            self.voice = await author_vc.connect()
+        
+        with YoutubeDL() as ydl:
+            info = ydl.extract_info(url, download=False)
+            audio_url = info['formats'][0]['url']
+            self.voice.play(discord.FFmpegPCMAudio(audio_url))
+
+    #must take error as a parameter since "error" will be automatically passed into an "after" function
+    def play_next(self, err = None):
+        self.playing = False
+        self.prev_song = self.current_song
+
+        helper.clearAllAudio()
+        if not self.playlist.isEmpty():
+            if not self.from_skip:
+                self.current_song = self.playlist.playque[0]
+            self.playlist.remove()
+            self.from_skip = False
+
+            print(f"downloading song from play_next method")
+            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            print(f"moved past download line")
+            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
+            audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
+            helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
+            if self.playing is False:
+                self.playing = True
+                self.voice.play(source = audio, after = self.play_next)      
+        elif err:
+            print(f"Error in play_next method: ", err)
+            return
+
+
+    def _play_song(self):
+        if not self.playlist.isEmpty():
+            # save first song into current song, then pop it from queue
+            self.current_song = self.playlist.playque[0]
+            self.playlist.remove()
+            try:
+                helper.clearAllAudio()
+            except:
+                pass
+            print(f"downloading song from _play_song method")
+            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            print(f"moved past download line")
+            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0])) + ".mp3"
+            audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
+            if self.playing is False:
+                self.playing = True
+                self.voice.play(source = audio, after = self.play_next)
+
+
+    @commands.command()
+    async def play(self, ctx, *args) -> None:
+        # check if user is in a voice channel
+        if ctx.author.voice.channel is None:
+            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
+            return
+        song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
+        await self.playlist.addToQ(ctx, song_title_and_id[0])
+        # check if there's already a voice connection
         if self.voice is None:
             current_channel = ctx.author.voice.channel
+            # create voice connection
             self.voice = await current_channel.connect(timeout = None)
+            self._play_song()
+            await self.leaveWhenDone(ctx)
+        elif self.playing is False:
+            self._play_song()
+        else:
+            return
 
-        # if (self.playing is True): # if bot is already in the current channel, and if a song's already playing 
-        #         queue_time = time.time()
-        #         print(f"New song queued at: {queue_time} seconds from epoch")
-        #         audio_elapsed_time = queue_time - self.play_time
-        #         audio_length = self.getAudioLength(SONG_PATH)
-        #         time_to_wait = audio_length - audio_elapsed_time
-        #         await self.waitTime(time_to_wait + 3.0)
+        # song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
+        # await self.playlist.addToQ(ctx, song_title_and_id[0])
 
+        # if self.voice is None:
+        #     if ctx.author.voice.channel is not None:
+        #         current_channel = ctx.author.voice.channel
+        #         self.voice = await current_channel.connect(timeout = None)
+        #         if self.playing is False:
+        #             self._play_song()
+        #             # only start this once, when voice client is first constructed - it continues to wait/recursively call until music stops, then it makes bot leave
+        #             await self.leaveWhenDone(ctx)
+        #     elif ctx.author.voice.channel is None:
+        #         await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
 
-        # while songs are in the queue, 
-        while (self.playlist.isEmpty() is False):
-            next_song = self.playlist.playque[0]
-            if self.playing is False:
-                processing = await ctx.send(embed = Embed(title = f"Processing {next_song[0]}."))
-                self.download_coro = await self.grabber.getSong(str(next_song[1]))
-                await processing.delete(delay=5.0)
+        # elif self.playing is False:
+        #     self._play_song()
 
-                if self.grabber.downloading is False:
-                    self.play_task = asyncio.create_task(self.broadcastSong(ctx, next_song))
-                    await self.play_task
-            else:
-                await self.timer
-
-        if self.playlist.isEmpty():
-            await self.voice.disconnect()
-            self.voice = None
+        # else:
+        #     return
 
     @commands.command()
     async def skip(self, ctx):
-        if (self.playlist.isEmpty()) and (self.playing is False):
-            await ctx.send(embed = Embed(title="The queue must not be empty to skip a song."))
-        elif self.playing is True:
-            try:
-                await ctx.send(embed=Embed(title="Skipping current song."))
-                self.playlist.remove()
-                await self.play_task.cancel()
-                self.playing = False
-            except:
-                print("Cleaning up canceled task.")
-        elif self.grabber.downloading is True:
-            try:
-                await self.download_coro.cancel()
-                self.grabber.downloading = False
-            except:
-                await helper.cleanAudioLeftovers()
-                print("Cleaning up canceled download")
+        if self.current_song:
+            await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
+            self.voice.stop()
+            self.playing = False
+            self.from_skip = True
+            self.current_song = None
+            self._play_song()
+        # need to be able to skip even if no songs are in quqeue after the current song.
+        else:
+            await ctx.send(embed=Embed(title=f"Queue is already empty."))
+            
 
-    async def broadcastSong(self, ctx, name_and_id):
-        if self.grabber.downloading is False:
-            try:
-                audio = discord.FFmpegPCMAudio(SONG_PATH, executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
-                self.playing = True
-                length = self.getAudioLength(SONG_PATH)
-                hours, minutes, seconds = self.formatAudioLength(length)
-                try:
-                    self.voice.play(source=audio)
-                    self.play_time = time.time()
-                    print(f"This song started at: {self.play_time} secs from epoch.")
-                    playing_message = await ctx.send(embed = Embed(title=f"Playing {name_and_id[0]}", description = f"{hours:01d}:{minutes:02d}:{seconds:02d}"))
-                    await playing_message.delete(delay = length)
-                    self.timer = await self.waitTime(length)
-                    self.playlist.remove()
-                except: 
-                    self.playing = False
-                    # this is where control flows when task is canceled
-            except:
-                self.playing = False
-                print("Error accessing song from path provided.")
+    @commands.command()
+    async def kickBot(self, ctx):
+        # check whether a voice connection exists in this guild
+        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice is not None:
+            if voice.is_connected():
+                if self.playing is True:
+                    voice.stop()
+                await voice.disconnect()
+        self.voice = None
 
     def getAudioLength(self, path_to_audio):
         audio = mp3.MP3(path_to_audio)
@@ -210,7 +268,34 @@ class MusicController(commands.Cog):
         minutes = seconds // 60
         seconds %= 60
         return hour, minutes, seconds
-
+    
+    async def leaveWhenDone(self, ctx):
+        print(f"sleeping for 600 seconds before checking if voice is playing")    
+        await asyncio.sleep(600.0)
+        # this didn't work last time, INVESTIGATE!
+        print(f"done sleeping, checking if voice client playing")
+        if self.voice is not None:
+            if self.voice.is_connected():
+                if not self.voice.is_playing():
+                    try:
+                        await self.voice.disconnect()
+                        await ctx.send(embed=Embed(title=f'Left voice chat due to inactivity.'))
+                        self.voice = None
+                        self.current_song = None
+                        return
+                    except Exception as e:
+                        return
+                elif self.voice.is_playing():
+                    await self.leaveWhenDone(ctx)
+            elif not self.voice.is_connected():
+                print(f"self.voice is already disconnected. setting self.voice to none.")
+                self.current_song = None
+                self.voice = None
+                return
+        else:
+            print(f"self.voice is already None.")
+            return
+        
 async def setup(bot):
     await bot.add_cog(MusicController(bot, PlayList(bot)))
         

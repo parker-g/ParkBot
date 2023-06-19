@@ -38,7 +38,8 @@ class CanvasClient(commands.Cog):
                 working_dict[str(assignment)] = datetime.strptime(datetm, "%Y-%m-%dT%H:%M:%SZ").date()
         return working_dict
 
-    def get_new_assignments(self, datetime_file, num_days:int) -> list:
+
+    def _get_new_assignments(self, datetime_file, num_days:int) -> list:
         assignments = self.getAllAssignments()
         # be sure to write a datetime to last_time.txt before running this function
         last_call = self.read_to_datetime(datetime_file)
@@ -60,7 +61,7 @@ class CanvasClient(commands.Cog):
     @commands.command()
     async def getNewAssignments(self, ctx, num:str):
         num = int(num)
-        assignments, time_diff = self.get_new_assignments(DATETIME_FILE, num)
+        assignments, time_diff = self._get_new_assignments(DATETIME_FILE, num)
         pretty_string = ""
         for item in assignments:
             pretty_string += f"{item}\n"
