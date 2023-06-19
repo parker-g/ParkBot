@@ -24,8 +24,9 @@ class Reward(Cog):
     async def say(self, ctx, *args):
         speech = ""
         for arg in args:
+            arg = str(arg)
             speech += f"{arg} "
-            if arg in NAUGHTY_WORDS:
+            if arg.lower() in NAUGHTY_WORDS:
                 speech = "You said a naughty word. Bad."
                 break
         await self.processAudio(ctx, speech)
@@ -34,11 +35,12 @@ class Reward(Cog):
         voice = await current_channel.connect()
         try:
             audio = discord.FFmpegPCMAudio("data/say.mp3", executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            voice.play(source=audio)
+            await asyncio.sleep(15.0)
+            await voice.disconnect()
         except:
             print("The audio was not properly stored in memory")
-        voice.play(source=audio)
-        await asyncio.sleep(10.0)
-        await voice.disconnect()
+        
 
         
 
