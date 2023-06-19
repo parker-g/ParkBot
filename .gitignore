@@ -1,6 +1,6 @@
 /.venv
 /__pycache__
-/config
+/config/config.py
 discord.log
 /cogs/__pycache__/*
 *.log
