@@ -39,7 +39,6 @@ class PlayList(commands.Cog):
 
     
 
-# grabs various resources from the internet
 class Grabber:
     """
     Grabber is used to grab resources from the internet.\n
@@ -209,26 +208,6 @@ class MusicController(commands.Cog):
             self._play_song()
         else:
             return
-
-        # song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
-        # await self.playlist.addToQ(ctx, song_title_and_id[0])
-
-        # if self.voice is None:
-        #     if ctx.author.voice.channel is not None:
-        #         current_channel = ctx.author.voice.channel
-        #         self.voice = await current_channel.connect(timeout = None)
-        #         if self.playing is False:
-        #             self._play_song()
-        #             # only start this once, when voice client is first constructed - it continues to wait/recursively call until music stops, then it makes bot leave
-        #             await self.leaveWhenDone(ctx)
-        #     elif ctx.author.voice.channel is None:
-        #         await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
-
-        # elif self.playing is False:
-        #     self._play_song()
-
-        # else:
-        #     return
 
     @commands.command()
     async def skip(self, ctx):
