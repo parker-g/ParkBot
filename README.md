@@ -1,38 +1,39 @@
 <p align="center">
-  <img width="500" height="500" src="images/ParkBot-logo (1).png">
+  <img width="250" height="250" src="images/ParkBot-logo (1).png">
 </p>
 
-# parker's perplexing, powerful discord bot !
+# features overview
 
-**this discord bot has everything a college student needs for their discord server. play music in a voice channel to enhance the vibe. canvas functionality, to keep up with school. gambling feature, to safely engage in impulsive behavior. find your friends' "fursonas", for the meme. dall-e-mini image generation, because it's awesome. and be on the lookout for even more features!**
+this discord bot has everything you need for your discord server. play music, gamble on blackjack or texas hold 'em Poker, generate images with a dall-e-mini API, check Canvas assignments due soon, use text-to-speech, and more!
 
-# music feature
-**let's be honest guys. why does anyone really want a discord bot? this music feature is now moderately reliable! use `play` to add a song to queue, or `skip` to skip the current song. wondering what's up next? use `showQ` to see the song request queue. where does it source music from? YOU will never know unless you peer into the deep TUBE of source code provided in the music cog. disclaimer: you will have to download FFMPEG in order to use this music feature. once you download FFMPEG, you will need to save the path to ffmpeg.exe in config.py, as FFMPEG_PATH.**
+## music feature
+let's be honest guys. why does anyone really want a discord bot? this music feature is now moderately reliable! use `play` to add a song to queue, or `skip` to skip the current song. wondering what's up next? use `showQ` to see the song request queue. where does it source music from? YOU will never know unless you peer into the deep TUBE of source code provided in the music cog. 
+* disclaimer: you will have to download FFMPEG, an audio processing software, in order to use the music feature. once you download FFMPEG, you will need to save the path to ffmpeg.exe in config.py, as FFMPEG_PATH.
 
-# gambling breakdown
-**gamble, without truly gambling! introducing gambling games, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. first time players begin with 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!**
+## gambling
+gamble, without truly gambling! introducing gambling games, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. first time players begin with 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!
 
 **blackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.**
 
-**in development - texas hold em poker!!! keep your eyes peeled**
+**poker - simply use the 'playPoker' command to start up a game of Poker while the Player queue is populated with more than 2 players.**
 
-# canvas functionality breakdown
-**have u ever created a discord server to keep in touch with classmates? well, ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! to setup - configure a canvas api token, set up your canvas url and class ID in the config.py file. I'm open to adding more canvas-api functionality to this bot upon request!**
+## canvas functionality
+ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! to setup - configure a canvas api token, set up your canvas url and class ID in the config.py file. I'm open to adding more canvas-api functionality to this bot upon request!
 
-# text to speech functionality
-**everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. ParkBot will join your voice channel, and repeat the words you typed. if your guild members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.**
+## text to speech
+everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. ParkBot will join your voice channel, and speak the words you typed. if your server members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.
 
-# coming soon
-* texas hold'em poker - almost finished!
+## coming soon
+* creating a windows service for easy self-hosting / management of the bot
 * thinking I could use a config json/yaml/toml file instead of using the config.py. seems more accessible to non-coders
-* working on creating a bash script/ small bash function for easy bot setup and operations (to work on windows git-bash terminal, or any unix based terminal)
+* working on creating a bash script/ small bash function for easy bot setup and operations. perhaps a bat script too
 * open to suggestions! I need to challenge myself, dream big!!
 
 # BIG NOTE - the instructions to set up dall-e-mini below need revision! some of the commands may not be appropriate for your operating system. also, I haven't checked the validity of the replicate links in months so those instructions mahy be deprecated as well. I will revise them sooner or later
 
-# dall-e-mini set up below
+## dall-e-mini set up below
 
-**Ever wanted to access Dall-E mini from your own discord server? Look no further! Using the power of replicate API hosting, anyone with a github account can use AI to generate images in discord. Side note: every request to replicate's API uses a token, of which new users have only 15 - 20. Because of that, this bot is limited to sending only 15-20 dall-E-mini generations from each github account it is associated with. NOW, there are benefits of using an API as well. You don't have to use your own local processing power to generate these images, plus replicate is free until you run out of tokens ( as long as you don't enter your card info! ) You will not be able to complete any requests after you are out of tokens. It's not like AWS where you might accidentally get $2 million charged for overdrawing on API tokens. So why not give it a try :D This walkthrough assumes you are using a windows machine, and GitHub desktop installed, in the default location.**
+Ever wanted to access Dall-E mini from your own discord server? Look no further! Using the power of replicate API hosting, anyone with a github account can use AI to generate images in discord. Side note: every request to replicate's API uses a token, of which new users have only 15 - 20. Because of that, this bot is limited to sending only 15-20 dall-E-mini generations from each github account it is associated with. NOW, there are benefits of using an API as well. You don't have to use your own local processing power to generate these images, plus replicate is free until you run out of tokens ( as long as you don't enter your card info! ) You will not be able to complete any requests after you are out of tokens. It's not like AWS where you might accidentally get $2 million charged for overdrawing on API tokens. So why not give it a try :D This walkthrough assumes you are using a windows machine, and GitHub desktop installed, in the default location.
 
 **Let's begin with creating a virtual environment**
 * Open a cmd terminal in VSCode
