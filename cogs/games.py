@@ -1,23 +1,11 @@
 import random
-import logging
 import asyncio
 from collections import Counter
 from cogs.economy import Economy
-from config.config import BANK_PATH
 from discord.ext.commands.cog import Cog
 from discord.ext import commands
 from discord import Member, Embed, TextChannel
 from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
-
-# things to do 
-    # finish poker logic
-        # make sure player's best hands are stored in possible_hands
-        # handle tie cases in _getWinners()
-    # test/ debug poker logic
-    # implement Card class
-    # change Player class to include a players discord.Member object representation as an attribute - ultimately allowing the playerqueue.q to just be a simple list of Player objects
-
-logger = logging.Logger('BJLog')
 
 # blackjack note - 
 # need to modify game play function so that 
@@ -212,6 +200,8 @@ class Deck:
     def shuffle(self) -> None:
         random.shuffle(self.deck)
 
+
+
 class Player:
     """
     The Player represents a participant in any of the games in the games cog."""
@@ -318,9 +308,9 @@ class Player:
         Removes cards from the player's `complete_hand`, pip values."""
         for value in card_values:
             self.removeCard(value)
-                
 
-# use playerqueue to queue up players and control the creation of game classes.
+
+
 class PlayerQueue(Cog):
     """
     The PlayerQueue class is used as a controller of the games available in the games.py 'cog'.\n
@@ -450,15 +440,23 @@ class PlayerQueue(Cog):
     async def playJack(self, ctx):
         """
         This command is the PlayerQueue's interface with a blackjack game. It begins a game of blackjack, using all the players in the queue."""
-        blackjack = BlackJackGame(self.bot, self)
-        await blackjack.play(ctx)
+        await ctx.send(f"Attempting to start blackjack game.")
+        try:
+            blackjack = BlackJackGame(self.bot, self)
+            await blackjack.play(ctx)
+        except Exception as error:
+            await ctx.send(f"An exception occured, {error}")
 
     @commands.command()
     async def playPoker(self, ctx):
         """
         This command puts all players in the PlayerQueue in a game of Texas Hold'em Poker."""
-        poker = Poker(self.bot, self)
-        await poker.play(ctx)
+        await ctx.send(f"Attempting to start Poker game.")
+        try:
+            poker = Poker(self.bot, self)
+            await poker.play(ctx)
+        except Exception as e:
+            await ctx.send(f"An exception occured, {e}")
 
 
 
@@ -469,6 +467,7 @@ class Dealer(Player):
         self.players = players
         self.cards_in_play = []
         self.hand = []
+        self.complete_hand:list[Card] = []
         self.winner = False
         self.tie = False
         self.bust = False
@@ -538,6 +537,8 @@ class Dealer(Player):
             self.bust = True
     ################################################### not sure if isBust is used either
 
+
+
 class BlackJackGame(Cog):
     def __init__(self, bot:commands.Bot, player_queue:PlayerQueue):
         self.bot = bot
@@ -569,8 +570,9 @@ class BlackJackGame(Cog):
             if player.winner:
                 winnings = player.bet * 2
                 await economy.giveMoneyPlayer(player, winnings)
-                message = await ctx.send(embed = Embed(title=f"{player.name} won {winnings} GleepCoins."))
-                await message.delete(delay=5.0)
+                if winnings != 0:
+                    message = await ctx.send(embed = Embed(title=f"{player.name} won {winnings} GleepCoins."))
+                    await message.delete(delay=5.0)
             elif player.tie:
                 winnings = player.bet
                 await economy.giveMoneyPlayer(player, winnings)
@@ -659,7 +661,7 @@ class BlackJackGame(Cog):
         #when all players are done with their turns
         self.players.append(dealer)
 
-        await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.hand}"))
+        await dealer_hand_message.edit(embed = Embed(title = f"Dealer's total is: {dealer.sumCards()}", description=f"The dealer's hand is: {dealer.prettyHand()}"))
 
         winners, ties = self.getWinners(self.players)
         await self.cashOut(ctx, self.players)
@@ -669,11 +671,17 @@ class BlackJackGame(Cog):
         if (len(winners) == 0) and (len(ties) == 0):
             await ctx.send(embed = Embed(title="You're All Losers!"))
         elif len(winners) > 0:  
-            winners = [winner.name for winner in winners]  
-            await ctx.send(embed = Embed(title=f"Our Winners are: {winners}"))
+            winner_string = f"" 
+            for winner in winners[:-1]:
+                winner_string += f"{winner.name}, "
+            winner_string += f"{winners[-1].name}"
+            await ctx.send(embed = Embed(title=f"Our Winners are: {winner_string}"))
         elif len(ties) > 0:
-            ties = [tie.name for tie in ties]
-            await ctx.send(embed = Embed(title=f"Our TieBabies are:{ties}"))
+            tie_string = f"" 
+            for tie in ties[:-1]:
+                tie_string += f"{tie.name}, "
+            tie_string += f"{ties[-1].name}"
+            await ctx.send(embed = Embed(title=f"Our TieBabies are: {tie_string}"))
             
         await ctx.send("\nHere's everyone's hands.\n")
         long_ass_string = ""
@@ -683,10 +691,9 @@ class BlackJackGame(Cog):
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
 
+
 # could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
 # bot, deck, player queue, players, and dealer.
-
-
 
 class Poker(commands.Cog):
     """
@@ -757,7 +764,10 @@ class Poker(commands.Cog):
 
     async def resetPlayers(self) -> None:
         """
-        Resets all of each player's attributes relating to their game state."""
+        Resets all of the Poker player's attributes relating to their game state."""
+        for player in self.players:
+            if player.name == "Dealer":
+                self.players.remove(player)
         economy = Economy(self.bot)
         if self.players:
             for player in self.players:
@@ -1371,7 +1381,9 @@ class Poker(commands.Cog):
         # setup
         await self.resetPlayers()
         self.getThreads()
-
+        if len(self.players) < 3:
+            await ctx.send(embed = Embed(title=f"You need at least 3 players to run a game of Poker. Please populate the PlayerQueue and try again."))
+            return
         # turning each async function into a task
         first_blind = self.assignButtonAndPostBlinds(ctx)
         show_cards = self.showHands()
@@ -2190,7 +2202,7 @@ class PokerRanker(Cog):
         # need to compare the two cards players are dealt.
         # if players tie with these two cards, then return them both, because that means the rest of their cards
         # (the community cards) will be the same, resulting in a tie.
-    
+
 
 
 async def setup(bot):

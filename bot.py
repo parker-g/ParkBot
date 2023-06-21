@@ -159,6 +159,15 @@ async def resetGames(ctx):
     await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 
+@bot.command()
+async def checkCogs(ctx):
+    cogs = ["PlayerQueue", "CanvasClient", "Economy", "MusicController", "Reward"]
+    cog_string = ""
+    for cog in cogs:
+        if bot.get_cog(cog) is not None:
+            cog_string += f"{cog}, "
+    em = discord.Embed(title=f"Cogs in use", description=cog_string)
+    await ctx.send(embed = em)
 
 @bot.command()
 async def heymongrel(ctx):
@@ -198,7 +207,6 @@ async def resetGames(ctx):
 #     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
 #     image = test.img_test0()
 #     await ctx.send(embed = em, file=discord.File(image))
-
 
 bot.run(TOKEN, log_handler=handler)
 

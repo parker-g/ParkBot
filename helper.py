@@ -1,4 +1,4 @@
-from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY
+from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
 from datetime import datetime, timedelta, date
 from canvasapi import Canvas
 import pandas as pd
@@ -8,8 +8,6 @@ import random
 import time
 import os
 import csv
-
-SONG_FILE = "current_audio.mp3"
 
 # copied from geeks for geeks website
 # modified to take Card objects
@@ -57,7 +55,7 @@ def slugify(string):
     return new_string
 
 def cleanAudioFile(song_name):
-    os.chdir("data")
+    os.chdir(DATA_DIRECTORY)
     # in data directory 
 
     files = os.listdir(os.getcwd())
@@ -72,7 +70,7 @@ def cleanAudioFile(song_name):
     os.chdir(WORKING_DIRECTORY)
 
 def clearAllAudio():
-    os.chdir("data")
+    os.chdir(DATA_DIRECTORY)
     files = os.listdir(os.getcwd())
     for file in files:
         # delete any songs that are webm or ytdl extensions
@@ -101,7 +99,7 @@ def get_image(args:str):
     dic = output[0]
     image_url = dic['image']
     response = requests.get(image_url)
-    img_destination = 'images/image.png'
+    img_destination = f'{WORKING_DIRECTORY}/images/image.png'
     with open(img_destination, 'wb') as file:
         file.write(response.content)
     return img_destination
@@ -109,15 +107,14 @@ def get_image(args:str):
 
 def get_furry_image():
     time.sleep(3)
-    current_path = os.getcwd()
-    os.chdir(f"{current_path}/images/furries") # set cwd to images/furries folder
+    os.chdir(f"{WORKING_DIRECTORY}/images/furries") # set cwd to images/furries folder
     images_directory_iteratable = os.scandir()
     furry_names = []
     base_path = os.getcwd()
     for image in images_directory_iteratable:
         furry_names.append(f'{image.name}')
     index = random.randint(0, len(furry_names) - 1)
-    os.chdir("C:/Users/rober/Documents/GitHub/dall-e-discord-bot")
+    os.chdir(WORKING_DIRECTORY)
     return f"{base_path}\\{furry_names[index]}"
 
 
@@ -139,7 +136,7 @@ def getAllAmounts(df) -> str:
 def readThreads() -> dict[str, int]:
     """
     Reads threads.csv file into a dictionary format."""
-    with open("data/threads.csv", "r") as file:
+    with open(THREADS_PATH, "r") as file:
         threads_dict = {}
         reader = csv.reader(file) 
         #skip first row of csv
@@ -149,6 +146,6 @@ def readThreads() -> dict[str, int]:
     return threads_dict
 
 def writePlayerAndThread(player, thread_id) -> None:
-    with open("data/threads.csv", "a") as file:
+    with open(THREADS_PATH, "a") as file:
         file.write(f"\n{player.name},{thread_id}")
     return

@@ -61,28 +61,3 @@ class PythonService(win32serviceutil.ServiceFramework, ABC):
         # Starts a worker loop waiting either for work to do or a notification to stop, pause, etc.
         self.main() 
 
-
-class DiscordBotService(PythonService):
-
-    _svc_name_ = "DiscordBotService"
-    _svc_display_name_ = "Discord Bot Service"
-    _svc_description_ = "Mointor images on the landing page of the MSSQLTips.com."
-    _exe_name_ = "C:\pyvirtuals\monitor_landing_page\Scripts\pythonservice.exe"
-
-    def start(self):
-        self.isrunning = True
-    # Override the method to invalidate the running condition
-    # When the service is requested to be stopped.
-    def stop(self):
-        self.isrunning = False
-    # Override the method to perform the service function
-    def main(self):
-        while self.isrunning:
-            app.check_web_page_images()
-            time.sleep(5)
-
-
-# Use this condition to determine the execution context.
-if __name__ == '__main__':
-    # Handle the command line when run as a script
-    MointorImageService.parse_command_line()
