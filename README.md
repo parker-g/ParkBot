@@ -6,30 +6,75 @@
 
 this discord bot has everything you need for your discord server. play music, gamble on blackjack or texas hold 'em Poker, generate images with a dall-e-mini API, check Canvas assignments due soon, use text-to-speech, and more!
 
-## music feature
+### music feature
 let's be honest guys. why does anyone really want a discord bot? this music feature is now moderately reliable! use `play` to add a song to queue, or `skip` to skip the current song. wondering what's up next? use `showQ` to see the song request queue. where does it source music from? YOU will never know unless you peer into the deep TUBE of source code provided in the music cog. 
 * disclaimer: you will have to download FFMPEG, an audio processing software, in order to use the music feature. once you download FFMPEG, you will need to save the path to ffmpeg.exe in config.py, as FFMPEG_PATH.
 
-## gambling
+### gambling
 gamble, without truly gambling! introducing gambling games, playable from the discord chat. you and all your buddies can join the player pool by using the `joinQ` command. check who's joined by using `showPlayers`. once you're in the queue, set a bet by using  `setBet <amount>`. first time players begin with 1000 GleepCoins. players remain in the player pool until they `leaveQ`, or someone clears the entire queue, `clearQ`. if you find yourself scrambling for some extra GleepCoins, don't fret. you're in luck. you can always beg for some extra gleepCoins using the `beg` command! yippee!
 
 **blackjack - to finally begin a game of blackjack, use the `playJack` command after players have joined and those who want to bet, have set their bets.**
 
 **poker - simply use the 'playPoker' command to start up a game of Poker while the Player queue is populated with more than 2 players.**
 
-## canvas functionality
+### canvas functionality
 ParkBot's canvas api functionality is here to bring value to you and all your classmates. Using the simple ```$getNewAssignments <days>``` command, you'll be able to see all your upcoming assignments for a class right inside your discord chat! to setup - configure a canvas api token, set up your canvas url and class ID in the config.py file. I'm open to adding more canvas-api functionality to this bot upon request!
 
-## text to speech
+### text to speech
 everyone gets in arguments. but not everyone can settle them like this text to speech functionality. ensure you always get the last word over your frenemies, using the `$say` command. ParkBot will join your voice channel, and speak the words you typed. if your server members get too rowdy with this feature, you can set a list of banned 'naughty words' in the `config/config.py` file.
 
-## coming soon
-* creating a windows service for easy self-hosting / management of the bot
+### coming soon
 * thinking I could use a config json/yaml/toml file instead of using the config.py. seems more accessible to non-coders
 * working on creating a bash script/ small bash function for easy bot setup and operations. perhaps a bat script too
 * open to suggestions! I need to challenge myself, dream big!!
 
-# BIG NOTE - the instructions to set up dall-e-mini below need revision! some of the commands may not be appropriate for your operating system. also, I haven't checked the validity of the replicate links in months so those instructions mahy be deprecated as well. I will revise them sooner or later
+## setting up and running your discord bot instance -
+### pre-requisites
+* python 3.10 or newer installed
+* only tested on windows 11
+
+#### You will want to begin by creating a virtual environment for this project, if you don't already have one.
+* Open a terminal in the `ParkBot` directory
+#### using command prompt
+* create your virtual environment, ```C:\...\ParkBot> python -m venv .venv```
+* activate your virtual environment, ```C:\...\ParkBot> .venv\Scripts\activate.bat``` (this may require an elevated command prompt)
+#### using a linux style terminal, such as git bash for windows
+* create your virtual environment, ```$  python -m venv .venv```
+* activate your virtual environment, ```$  .venv/Scripts/activate ```
+#### now, we will install the project dependencies
+* in your activated terminal, from the ParkBot directory, use this command, ```.venv/Scripts/python.exe -m pip install -r requirements.txt```. specifying the exact python executable we want to use ensures that we don't accidentally install the dependenies to your system's global python installation.
+
+#### now, to configure your project. 
+
+I have provided an example config file in config/example_config.py. you can rename this file to simply `config.py`, then populate it's contents. the project's .gitignore is set to not track any files names config.py, which should prevent you from pushing any sensitive data. however, you should still take precautions not to expose any of your API keys whenever possible.
+
+* NECESSARY for all instances - obtain a discord api token [here](https://discord.com/developers/applications), create a discord 'application', and also create a 'bot' from the discord developer portal. before adding the bot to your server, be sure to give it permissions to view all guild memebers, view messages, send messages, send private threads, and view/ join voice channels.
+
+* for the MUSIC FEATURE -  you wil need to download FFMPEG, [here](https://www.gyan.dev/ffmpeg/builds/). FFMPEG downloads are zipped in .7z format, so you will need a third party archiving software such as 7-zip or winrar in order to extract the FFMPEG contents. the only piece you need from this download, is the `ffmpeg.exe`. you will need to copy this executable then store in somewhere on your computer. after you have saved this executable somewhere, you will need to copy the path to `ffmpeg.exe`. you will then open up `config.py`, and paste the path in the quoatations next to the variable, `FFMPEG_PATH`. now your discord bot knows where to find FFMPEG for use in audio processing.
+
+* for the MUSIC FEATURE - you'll also need a YouTube API key. you can find details on obtaining a youtube-data API key [here](https://developers.google.com/youtube/v3/getting-started). once you have registered an application there and obtained your google/youtube API key, you can paste your key in the config/config.py file, in the quotations next to `GOOGLE_API_KEY`.
+
+* for the CANVAS FEATURE - you will need to obtain a canvas API key. this can easily be done by going to your account settings in canvas, where you are given the option to generate a new access token. once you have this token, paste it into the quotations next to `CANVAS_API_TOKEN`.
+
+### to run / test your bot
+
+* to test your bot, open a terminal in the ParkBot directory, and activate your virtual environment. then use this command to run the bot, `.venv/Scripts/python.exe bot.py`.
+
+## self-hosting your bot instance as a windows service
+
+there are a couple ways to do this. I have done it using a tool called the NSSM, or "non-sucking-service-manager". its a simple command line tool that lets us turn a python script into a windows service. you can download that project [here](https://nssm.cc/download). once you have downloaded it, copy the `nssm.exe` file to the ParkBot directory.
+
+* open a terminal in the ParkBot directory, and activate your virtual environment. ensure all your requirements are installed already and the bot is functional.
+
+* the syntax for creating a python service with nssm is like this - ```nssm.exe install "NameYouWantToGiveYourService" "path\to\the\python\executable\you\want\to\use.exe" "path\to\the\python\file\you\want\the\executable\to\execute\on.py"```.
+  
+* so, in our use case the command would look like this - ```nssm.exe install "ParkBotService" ".venv\Scripts\python.exe" "bot.py"```. i don't remember whether this worked with relative paths, so if it fails then run the same command, but use absolute paths instead of relative.
+
+* if your service creation was a success, find the `Services` program on windows search, then find your service there. Go ahead and boot it up, and feel free to tinker with the settings of the service, such as what you want the service to do upon crashing or a failure.
+
+## Congrats! You are now hosting your own discord bot.
+
+# BIG NOTE - the instructions to set up dall-e-mini below need revision! some of the commands may not be appropriate for your operating system. also, I haven't checked the validity of the replicate links in months so those instructions may be deprecated as well. I will revise them sooner or later
 
 ## dall-e-mini set up below
 
