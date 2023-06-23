@@ -326,13 +326,13 @@ class PlayerQueue(Cog):
         This is a command giving Discord server members the ability to join the PlayerQueue, by executing the command in a text channel."""
         new_player = Player(ctx, ctx.author)
         # check if person using command is already in the player pool
-        # for player in self.q:
-        #     if ctx.author.name == player.name:
-        #         # if so, tell user that they're already in the queue
-        #         message_str = f"{ctx.author.name} is already in queue."
-        #         message = await ctx.send(embed = Embed(title=message_str))
-        #         await message.delete(delay=5.0)
-        #         return
+        for player in self.q:
+            if ctx.author.name == player.name:
+                # if so, tell user that they're already in the queue
+                message_str = f"{ctx.author.name} is already in queue."
+                message = await ctx.send(embed = Embed(title=message_str))
+                await message.delete(delay=5.0)
+                return
 
         # so Q will be a list of tuples of (player object, discord.Member object)
         self.q.append(new_player)
@@ -803,7 +803,7 @@ class Poker(commands.Cog):
             pretty_string += f"{(card.stringify())}\n"
         return pretty_string
 
-    def allPlayersDone(self) -> bool:
+    def areAllPlayersDone(self) -> bool:
         """
         Checks if all players are done, returns True if so. Otherwise, returns False."""
         for player in self.players:
@@ -902,7 +902,7 @@ class Poker(commands.Cog):
         print(f"number of players: {num_players}")
         economy = Economy(self.bot)
         if num_players < 2:
-            await ctx.send(f"You don't have enough players to play Poker.")
+            await ctx.send(f"You don't have enough players to play Poker. You need 2 or more players.")
         i = random.randint(0, num_players-1)
         self.players[i].button = True
         button_msg = await ctx.send(embed=Embed(title=f"{self.players[i].name} holds the button this round."))
@@ -1050,7 +1050,7 @@ class Poker(commands.Cog):
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing.", description=f"{self.players[0].name} will receive the pot of {self.pot} GleepCoins."))
                     self.early_finish = True    
 
-                if self.allPlayersDone():
+                if self.areAllPlayersDone():
                     break
 
             pf_msg = await ctx.send(embed=Embed(title=f"Pre flop betting has come to an end.", description=f"Current Pot: {self.pot} GleepCoins."))
@@ -1172,7 +1172,7 @@ class Poker(commands.Cog):
                     await ctx.send(embed=Embed(title=f"{self.players[0].name} is the last player standing."))
                     self.early_finish = True    
 
-                if self.allPlayersDone():
+                if self.areAllPlayersDone():
                     break
 
             pf_msg = await ctx.send(embed=Embed(title=f"Post flop betting has come to an end.", description = f"Current pot: {self.pot} GleepCoins."))

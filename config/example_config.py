@@ -1,5 +1,6 @@
 # save a filled out version of this file as config.py, in this directory.
 
+# this config file uses windows style back slashes in directory naming - you may need to change all '\\' to '/' to run on a linux machine
 
 # pound sign legend: 
 
@@ -14,13 +15,13 @@ WORKING_DIRECTORY = "" # this should be the path to your local instance of the P
 
 GOOGLE_API_KEY = '' ## a google API key is necessary to host the Music feature, since searching for songs on youtube (within google's TOS) requires a key.
 
-FFMPEG_PATH = "C:/Program Files/FFmpeg/bin/ffmpeg.exe" ## the path to your FFMPEG executable. (the value it is currently set to is just an example - FFMPEG will likely download directly into your Downloads folder.) this exe will be used to process audio (music) before it can be played.
+FFMPEG_PATH = "C:/Program Files/FFmpeg/bin/ffmpeg.exe" ## (the current value of FFMPEG_PATH is an example) this is the path to your FFMPEG executable. this exe will be used to process audio (music) before it can be played.
 
 CANVAS_API_KEY = "" ### if you want to set up the canvas feature, you will store your canvas API key here
 
-CANVAS_BASE_URL = "https://learn.vccs.edu" ### the base URL of the canvas instance you would like to access using the canvas API. URLs can vary widely due to the way canvas is distributed (it's current value is an example)
+CANVAS_BASE_URL = "https://learn.vccs.edu" ###  current value is an example. the base URL of the canvas instance you would like to access using the canvas API. URLs can vary widely due to the way canvas is distributed
 
-CANVAS_COURSE_NUM = 517689 ### an integer that indicates which of your courses you would like to poll for new assignments (it's current value is an example)
+CANVAS_COURSE_NUM = 517689 ### current value is an example. an integer that indicates which of your courses you would like to poll for new assignments
 
 ###################################### the variable below is optional to change. leave it blank if you want ###############################################
 
@@ -28,8 +29,10 @@ NAUGHTY_WORDS = [] #### a list of strings (make the words you put in here lowerc
 
 ########################################### the below variables do not need to change, don't change them ######################################################
 
-DATETIME_FILE = "data/last_time.txt" # this file stores the date and time every time you request data from canvas, to display it to users whenever they use the canvas command
+DATETIME_FILE = WORKING_DIRECTORY + "data\\last_time.txt" # this file stores the date and time every time you request data from canvas, to display it to users whenever they use the canvas command
 
-BANK_PATH = "data/bank.csv" # csv file where users' GleepCoin balances are stored + modified
+BANK_PATH = WORKING_DIRECTORY + "data\\bank.csv" # csv file where users' GleepCoin balances are stored + modified
 
-DATA_DIRECTORY = WORKING_DIRECTORY + "data/" # no need to change this, this represents the path where any data created by the bot will be stored, ie: songs (temporarily), the 'bank' (a text file where member's money amounts are stored), etc.
+THREADS_PATH:str = WORKING_DIRECTORY + "data\\threads.csv" # csv file where users and their private threads are stored (for use in poker game, to privately send a user their hand)
+
+DATA_DIRECTORY = WORKING_DIRECTORY + "data\\" # no need to change this, this represents the path where any data created by the bot will be stored, ie: songs (temporarily), the 'bank' (a text file where member's money amounts are stored), etc.
