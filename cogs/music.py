@@ -12,6 +12,9 @@ import yt_dlp
 from youtube_dl import YoutubeDL
 import asyncio
 
+# need to :
+    # handle errors within music cog - music feature stopped working and no error messages were thrown to the chat. also perhaps I need to statr throwing error messages into chat instead of console since the bot isnow being run as a service
+
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
     # users can turn on / turn off autoplay (off by default)
