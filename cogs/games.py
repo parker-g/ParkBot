@@ -1378,8 +1378,8 @@ class Poker(commands.Cog):
         # setup
         await self.resetPlayers()
         self.getThreads()
-        if len(self.players) < 3:
-            await ctx.send(embed = Embed(title=f"You need at least 3 players to run a game of Poker. Please populate the PlayerQueue and try again."))
+        if len(self.players) < 2:
+            await ctx.send(embed = Embed(title=f"You need at least 2 players to run a game of Poker. Please populate the PlayerQueue and try again."))
             return
         # turning each async function into a task
         first_blind = self.assignButtonAndPostBlinds(ctx)
