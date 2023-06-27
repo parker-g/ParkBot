@@ -334,7 +334,6 @@ class PlayerQueue(Cog):
                 await message.delete(delay=5.0)
                 return
 
-        # so Q will be a list of tuples of (player object, discord.Member object)
         self.q.append(new_player)
         message_str = f"{ctx.author.name} has been added to players queue."
         message = await ctx.send(embed = Embed(title=message_str))
@@ -697,14 +696,14 @@ class BlackJackGame(Cog):
 
 class Poker(commands.Cog):
     """
-    The Poker class contains most of the logic necessary for carrying out a game of texas hold'em poker. The logic used to evaluate which hand is the winner in a game of Poker, is all stored in the PokerRanker class.
+    The Poker class stores the sequential steps necessary for carrying out a game of texas hold'em poker. The logic used to evaluate which hand is the winner in a game of Poker, is all stored in the PokerRanker class.
     
     attributes required for construction:
-    :discord.ext.commands.Bot bot: A discord Bot object, used to communicate with Discord servers.\n
-    :Deck deck: A Deck object representing two decks to be used in a poker game.\n
-    :PlayerQueue player_queue: A PlayerQueue object which is used to access the players who are in the game.\n
-    :list players: The list that becomes populated with any players in the game whenever a Poker game is constructed.\n
-    :Dealer dealer: A Dealer is used to deal cards to the community and to the rest of the players in the Poker game.\n
+    :discord.ext.commands.Bot bot: A discord Bot object, used to communicate with Discord servers.
+    :Deck deck: A Deck object representing two decks to be used in a poker game.
+    :PlayerQueue player_queue: A PlayerQueue object which is used to access the players who are in the game.
+    :list players: The list that becomes populated with any players in the game whenever a Poker game is constructed.
+    :Dealer dealer: A Dealer is used to deal cards to the community and to the rest of the players in the Poker game.
     
     attributes instantiated upon construction:
     :list[Card] community_cards: The cards available to any player in the game to help them form the best hand possible.\n
@@ -893,8 +892,7 @@ class Poker(commands.Cog):
     async def sendBrokeMessage(self, ctx, player:Player, economy:Economy) -> None:
         await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed, {player.name}. Maybe it's because you only got {economy._getBalance(player)}.\nTry again, with a lower amount, or you might have to fold."))
 
-    # when blinds are being posted, when a player raises or calls the blind, their bet seems to not be added to the pot.
-    # likewise - in some scenarios in preflop betting, players' raises or calls also seem to not be adding to the pot.
+    # currently having an issue that the pot is raised much higher than it should after assigning big blind.
     async def assignButtonAndPostBlinds(self, ctx):
         """
         Assigns the button to a random player, and takes the blinds from the players directly after and 2 players after the button player."""
@@ -907,7 +905,7 @@ class Poker(commands.Cog):
         self.players[i].button = True
         button_msg = await ctx.send(embed=Embed(title=f"{self.players[i].name} holds the button this round."))
         await button_msg.delete(delay=10.0)
-        if i == num_players - 1 :
+        if i == num_players - 1:
             self.small_blind_idx = 0
             self.big_blind_idx = 1
         elif i == num_players - 2:
@@ -959,7 +957,6 @@ class Poker(commands.Cog):
                     int_error = await ctx.send(embed = Embed(title=f"Please type a valid integer."))
                     await int_error.delete(delay = 7.0)
                     continue
-        self.pot += self.big_blind
         return
 
     # need to push players bets to pot after each raise, call, or fold.

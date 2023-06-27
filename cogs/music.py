@@ -13,12 +13,28 @@ from youtube_dl import YoutubeDL
 import asyncio
 
 # need to :
-    # handle errors within music cog - music feature stopped working and no error messages were thrown to the chat. also perhaps I need to statr throwing error messages into chat instead of console since the bot isnow being run as a service
+    # handle errors within music cog - make them throw messages to the discord chat when possible.
 
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
     # users can turn on / turn off autoplay (off by default)
         # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
+
+# planned feature : auto download next queued song - will have to fix the deletion to not delete every .mp3; instead to only delete the selected song
+
+# planned feature : implement a Song class that contains a song's request name, slugified path, slugified title. 
+    # would make it easier to pre-load songs and delete them when necessary
+
+# planned feature : implement multithreading module so that music class can download / play simaltaneously 
+
+# planned feature : ability to play songs from URls (youtube, spotify, soundcloud) could pretty easily play spotify stuff. their API seems not bad
+class Song:
+    def __init__(self, song_title_and_id:tuple):
+        self.title = song_title_and_id[0]
+        self.id = song_title_and_id[1]
+        self.slug_title = helper.slugify(self.title)
+        self.path:str = DATA_DIRECTORY + self.slug_title
+
 
 class PlayList(commands.Cog):
     def __init__(self, bot):
@@ -42,9 +58,9 @@ class PlayList(commands.Cog):
 
     
 
-class Grabber:
+class YoutubeClient:
     """
-    Grabber is used to grab resources from the internet.\n
+    The YoutubeClient is used to grab resources from youtube, using both the youtube API and ytdl.\n
     It's two methods are used to poll the YouTube API for search results given a query string,\n
     and to download a song given the youtube video ID returned by the previous method."""
     def __init__(self, bot):
@@ -104,7 +120,7 @@ class MusicController(commands.Cog):
         self.playlist = playlist
         self.prev_song = None
         self.current_song = None
-        self.grabber = Grabber(bot)
+        self.grabber = YoutubeClient(bot)
         self.voice = None
         self.playing = False
         self.from_skip = False
