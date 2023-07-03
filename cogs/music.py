@@ -12,6 +12,9 @@ import yt_dlp
 from youtube_dl import YoutubeDL
 import asyncio
 
+# suggestion for easier debugging -
+    # obtain the bot's voice attribute during the voice methods to keep it in stack. makes debugging easier and would prevent a null voice client value. 
+
 # need to :
     # handle errors within music cog - make them throw messages to the discord chat when possible.
 
@@ -89,7 +92,11 @@ class YoutubeClient:
             if ctx is None:
                 return titles_and_ids
         except HttpError:
-            print(f"\nYou have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests.\n")
+            err_message = "You have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests."
+            if ctx:
+                await ctx.send(err_message)
+            else:
+                print(err_message + "\n")
 
     
     def getSong(self, youtube_id, song_name):
@@ -120,17 +127,10 @@ class MusicController(commands.Cog):
         self.playlist = playlist
         self.prev_song = None
         self.current_song = None
-        self.grabber = YoutubeClient(bot)
+        self.client = YoutubeClient(bot)
         self.voice = None
         self.playing = False
         self.from_skip = False
-
-    async def waitTime(self, time_in_seconds):
-        print(f"Waiting for {time_in_seconds} seconds.")
-        await asyncio.sleep(float(time_in_seconds))
-        self.playing = False
-        print("Done waiting")
-        return
 
     @commands.command()
     async def showQ(self, ctx):
@@ -176,7 +176,7 @@ class MusicController(commands.Cog):
             self.from_skip = False
 
             print(f"downloading song from play_next method")
-            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            self.client.getSong(self.current_song[1], self.current_song[0])
             print(f"moved past download line")
             song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
             audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
@@ -199,7 +199,7 @@ class MusicController(commands.Cog):
             except:
                 pass
             print(f"downloading song from _play_song method")
-            self.grabber.getSong(self.current_song[1], self.current_song[0])
+            self.client.getSong(self.current_song[1], self.current_song[0])
             print(f"moved past download line")
             song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0])) + ".mp3"
             audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
@@ -214,7 +214,7 @@ class MusicController(commands.Cog):
         if ctx.author.voice.channel is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
             return
-        song_title_and_id = await self.grabber.getSearchResults(None, args, maxResults=1)
+        song_title_and_id = await self.client.getSearchResults(None, args, maxResults=1)
         await self.playlist.addToQ(ctx, song_title_and_id[0])
         # check if there's already a voice connection
         if self.voice is None:
@@ -272,6 +272,8 @@ class MusicController(commands.Cog):
         await asyncio.sleep(600.0)
         # this didn't work last time, INVESTIGATE!
         print(f"done sleeping, checking if voice client playing")
+        # message = await ctx.send(f"checking if voice client playing")
+        # await message.delete(delay=7.0)
         if self.voice is not None:
             if self.voice.is_connected():
                 if not self.voice.is_playing():
@@ -282,6 +284,8 @@ class MusicController(commands.Cog):
                         self.current_song = None
                         return
                     except Exception as e:
+                        error_message = await ctx.send(f"Bot was cleared to leave the voice channel, however It was unable to execute this action. Exception: {e}")
+                        await error_message.delete(delay=7.0)
                         return
                 elif self.voice.is_playing():
                     await self.leaveWhenDone(ctx)
