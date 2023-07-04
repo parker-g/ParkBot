@@ -36,7 +36,7 @@ class Song:
         self.title = song_title_and_id[0]
         self.id = song_title_and_id[1]
         self.slug_title = helper.slugify(self.title)
-        self.path:str = DATA_DIRECTORY + self.slug_title
+        self.path:str = DATA_DIRECTORY + self.slug_title + ".mp3"
 
 
 class PlayList(commands.Cog):
@@ -48,12 +48,12 @@ class PlayList(commands.Cog):
     def isEmpty(self):
         return len(self.playque) == 0
     
-    def add(self, video_tuple):
-        self.playque.append(video_tuple)
+    def add(self, song:Song):
+        self.playque.append(song)
 
-    async def addToQ(self, ctx, video_tuple):
-        self.add(video_tuple)
-        added_to_q = await ctx.send(embed = Embed(title=f"{video_tuple[0]} added to queue."))
+    async def addToQ(self, ctx, song:Song):
+        self.add(song)
+        added_to_q = await ctx.send(embed = Embed(title=f"{song.title} added to queue."))
         await added_to_q.delete(delay=5.0)
 
     def remove(self): 
@@ -71,7 +71,7 @@ class YoutubeClient:
         self.downloading = False
         self.service = build('youtube', 'v3', developerKey=GOOGLE_API_KEY)
     
-    async def getSearchResults(self, ctx=None, *args, maxResults=1):
+    async def getSearchResults(self, ctx=None, *args, maxResults=1) -> list[tuple[str, str]] | None:
         query = ""
         args = args[0]
         for arg in args:
@@ -81,6 +81,7 @@ class YoutubeClient:
         part='snippet',
         maxResults=int(maxResults),
         q=str(query))
+
         try:
             response = request.execute() # response is a json object in dict format
             titles_and_ids = []
@@ -91,8 +92,8 @@ class YoutubeClient:
 
             if ctx is None:
                 return titles_and_ids
-        except HttpError:
-            err_message = "You have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests."
+        except HttpError as e:
+            err_message = f"You have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests. Error: {e}"
             if ctx:
                 await ctx.send(err_message)
             else:
@@ -126,7 +127,7 @@ class MusicController(commands.Cog):
         self.bot = bot
         self.playlist = playlist
         self.prev_song = None
-        self.current_song = None
+        self.current_song:Song = None
         self.client = YoutubeClient(bot)
         self.voice = None
         self.playing = False
@@ -138,10 +139,10 @@ class MusicController(commands.Cog):
         #     await ctx.send(f"Playing nothing right now.")
         if self.current_song is not None:
             pretty_string = ""
-            pretty_string += f"Playing: {self.current_song[0]}\n\n"
+            pretty_string += f"Playing: {self.current_song.title}\n\n"
             count = 1 # skip the first song in playque
-            for title, id in self.playlist.playque:
-                pretty_string += f"{count}: {title}\n"
+            for song in self.playlist.playque:
+                pretty_string += f"{count}: {song.title}\n"
                 count += 1
             await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
         else:
@@ -149,7 +150,7 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def currentSong(self, ctx):
-        await ctx.send(embed=Embed(title=f"Current Song", description=f"{self.current_song[0]}"))
+        await ctx.send(embed=Embed(title=f"Current Song", description=f"{self.current_song.title}"))
 
     # I want to continue experimenting with this later down the line -
     #seems there's some way to play songs without downloading ? not sure
@@ -176,11 +177,10 @@ class MusicController(commands.Cog):
             self.from_skip = False
 
             print(f"downloading song from play_next method")
-            self.client.getSong(self.current_song[1], self.current_song[0])
+            self.client.getSong(self.current_song.id, self.current_song.title)
             print(f"moved past download line")
-            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0]))  + ".mp3"
-            audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
-            helper.cleanAudioFile(helper.slugify(str(self.prev_song[0])))
+            audio = discord.FFmpegPCMAudio(self.current_song.path, executable=FFMPEG_PATH)
+            helper.cleanAudioFile(helper.slugify(str(self.prev_song.title)))
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)      
@@ -199,10 +199,9 @@ class MusicController(commands.Cog):
             except:
                 pass
             print(f"downloading song from _play_song method")
-            self.client.getSong(self.current_song[1], self.current_song[0])
+            self.client.getSong(self.current_song.id, self.current_song.title)
             print(f"moved past download line")
-            song_path = DATA_DIRECTORY + helper.slugify(str(self.current_song[0])) + ".mp3"
-            audio = discord.FFmpegPCMAudio(song_path, executable=FFMPEG_PATH)
+            audio = discord.FFmpegPCMAudio(self.current_song.path, executable=FFMPEG_PATH)
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
@@ -215,7 +214,7 @@ class MusicController(commands.Cog):
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
             return
         song_title_and_id = await self.client.getSearchResults(None, args, maxResults=1)
-        await self.playlist.addToQ(ctx, song_title_and_id[0])
+        await self.playlist.addToQ(ctx, Song(song_title_and_id[0]))
         # check if there's already a voice connection
         if self.voice is None:
             current_channel = ctx.author.voice.channel
@@ -231,7 +230,7 @@ class MusicController(commands.Cog):
     @commands.command()
     async def skip(self, ctx):
         if self.current_song:
-            await ctx.send(embed=Embed(title=f"Skipping {self.current_song[0]}."))
+            await ctx.send(embed=Embed(title=f"Skipping {self.current_song.title}."))
             self.voice.stop()
             self.playing = False
             self.from_skip = True
