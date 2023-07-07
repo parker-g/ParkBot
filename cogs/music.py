@@ -12,23 +12,25 @@ import yt_dlp
 from youtube_dl import YoutubeDL
 import asyncio
 
-# suggestion for easier debugging -
-    # obtain the bot's voice attribute during the voice methods to keep it in stack. makes debugging easier and would prevent a null voice client value. 
+# current goal:
+    # planned feature : auto download next queued song - look into multithreading or multiprocessing for this.
 
-# need to :
-    # handle errors within music cog - make them throw messages to the discord chat when possible.
+    # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
+
+
+# planned feature : implement multithreading module so that music class can download / play simaltaneously 
+# this will more likely require me to use the multiprocessing module. due to the python global interpreter lock, python threads can't run in parallel. however, multiprocessing can spawn multiple python interpreters to work around this feature of python.
+
+
+
+
+
 
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
     # users can turn on / turn off autoplay (off by default)
         # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
 
-# planned feature : auto download next queued song - will have to fix the deletion to not delete every .mp3; instead to only delete the selected song
-
-# planned feature : implement a Song class that contains a song's request name, slugified path, slugified title. 
-    # would make it easier to pre-load songs and delete them when necessary
-
-# planned feature : implement multithreading module so that music class can download / play simaltaneously 
 
 # planned feature : ability to play songs from URls (youtube, spotify, soundcloud) could pretty easily play spotify stuff. their API seems not bad
 class Song:
@@ -37,6 +39,7 @@ class Song:
         self.id = song_title_and_id[1]
         self.slug_title = helper.slugify(self.title)
         self.path:str = DATA_DIRECTORY + self.slug_title + ".mp3"
+        self.played = False # state to tell whether a song has been played yet. will help ensure that songs are not deleted before they have been played.
 
 
 class PlayList(commands.Cog):
@@ -214,18 +217,21 @@ class MusicController(commands.Cog):
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
             return
         song_title_and_id = await self.client.getSearchResults(None, args, maxResults=1)
-        await self.playlist.addToQ(ctx, Song(song_title_and_id[0]))
-        # check if there's already a voice connection
-        if self.voice is None:
-            current_channel = ctx.author.voice.channel
-            # create voice connection
-            self.voice = await current_channel.connect(timeout = None)
-            self._play_song()
-            await self.leaveWhenDone(ctx)
-        elif self.playing is False:
-            self._play_song()
-        else:
+        if song_title_and_id is None:
             return
+        else:
+            await self.playlist.addToQ(ctx, Song(song_title_and_id[0]))
+            # check if there's already a voice connection
+            if self.voice is None:
+                current_channel = ctx.author.voice.channel
+                # create voice connection
+                self.voice = await current_channel.connect(timeout = None)
+                self._play_song()
+                await self.leaveWhenDone(ctx)
+            elif self.playing is False:
+                self._play_song()
+            else:
+                return
 
     @commands.command()
     async def skip(self, ctx):
