@@ -1,6 +1,7 @@
-from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
+from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY, FFMPEG_PATH
 from datetime import datetime, timedelta, date
 from canvasapi import Canvas
+import yt_dlp
 import pandas as pd
 import replicate
 import requests
@@ -148,4 +149,26 @@ def readThreads() -> dict[str, int]:
 def writePlayerAndThread(player, thread_id) -> None:
     with open(THREADS_PATH, "a") as file:
         file.write(f"\n{player.name},{thread_id}")
+    return
+
+
+def download_song(youtube_id, song_name):
+    base_address = "https://www.youtube.com/watch?v="
+    ytdl_format_options = {
+        "no_playlist": True,
+        # "max_downloads": 1,
+        'format': 'mp3/bestaudio/best',
+        "outtmpl": DATA_DIRECTORY + slugify(song_name) + ".%(ext)s",  
+        "ffmpeg_location": FFMPEG_PATH,
+            # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
+            'postprocessors': [{  # Extract audio using ffmpeg
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+            }]
+    }
+
+    youtube_url = [base_address + youtube_id]
+    
+    with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+        ydl.download(youtube_url)
     return
