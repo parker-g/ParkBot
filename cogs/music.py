@@ -34,13 +34,20 @@ import asyncio
 
 # planned feature : ability to play songs from URls (youtube, spotify, soundcloud) could pretty easily play spotify stuff. their API seems not bad
 class Song:
-    def __init__(self, song_title_and_id:tuple):
+    def __init__(self):
+        self.played = False
+        self.title = None
+        self.id = None
+        self.slug_title = None
+        self.path = None
+
+
+    def setMetaData(self, song_title_and_id:tuple) -> None:
+        """Takes the result of the `YoutubeClient.getSearchResults()` method, as an argument."""
         self.title = song_title_and_id[0]
         self.id = song_title_and_id[1]
         self.slug_title = helper.slugify(self.title)
-        self.path:str = DATA_DIRECTORY + self.slug_title + ".mp3"
-        self.played = False # state to tell whether a song has been played yet. will help ensure that songs are not deleted before they have been played.
-
+        self.path = DATA_DIRECTORY + self.slug_title + ".mp3"
 
 class PlayList(commands.Cog):
     def __init__(self, bot):
@@ -60,7 +67,8 @@ class PlayList(commands.Cog):
         await added_to_q.delete(delay=5.0)
 
     def remove(self): 
-        self.playque.popleft()
+        removed = self.playque.popleft()
+        self.playhistory.append(removed)
 
     
 
@@ -150,6 +158,19 @@ class MusicController(commands.Cog):
             await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
         else:
             await ctx.send(embed = Embed(title=f"No songs in queue yet."))
+
+    @commands.command()
+    async def showHistory(self, ctx):
+        if len(self.playlist.playhistory) > 1:
+            pretty_string = ""
+            pretty_string += f"Playing: {self.current_song.title}\n\n"
+            count = 1 # skip the first song in playque
+            for song in self.playlist.playhistory:
+                pretty_string += f"{count}: {song.title}\n"
+                count += 1
+            await ctx.send(embed = Embed(title=f"Recently Played", description=f"{pretty_string}"))
+        else:
+            await ctx.send(embed = Embed(title=f"No songs have been played yet."))
 
     @commands.command()
     async def currentSong(self, ctx):
