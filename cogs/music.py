@@ -2,9 +2,11 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
 from discord.ext import commands
+from downloader import getSong
 from discord import Embed
 from mutagen import mp3
 from collections import deque
+import multiprocessing as mp
 import helper
 import html
 import discord
@@ -111,26 +113,26 @@ class YoutubeClient:
                 print(err_message + "\n")
 
     
-    def getSong(self, youtube_id, song_name):
-        base_address = "https://www.youtube.com/watch?v="
-        ytdl_format_options = {
-            "no_playlist": True,
-            # "max_downloads": 1,
-            'format': 'mp3/bestaudio/best',
-            "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
-            "ffmpeg_location": FFMPEG_PATH,
-                # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
-                'postprocessors': [{  # Extract audio using ffmpeg
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                }]
-        }
+    # def getSong(self, youtube_id, song_name):
+    #     base_address = "https://www.youtube.com/watch?v="
+    #     ytdl_format_options = {
+    #         "no_playlist": True,
+    #         # "max_downloads": 1,
+    #         'format': 'mp3/bestaudio/best',
+    #         "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
+    #         "ffmpeg_location": FFMPEG_PATH,
+    #             # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
+    #             'postprocessors': [{  # Extract audio using ffmpeg
+    #                 'key': 'FFmpegExtractAudio',
+    #                 'preferredcodec': 'mp3',
+    #             }]
+    #     }
 
-        youtube_url = [base_address + youtube_id]
+    #     youtube_url = [base_address + youtube_id]
         
-        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-            ydl.download(youtube_url)
-        return
+    #     with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+    #         ydl.download(youtube_url)
+    #     return
 
 
 class MusicController(commands.Cog):
@@ -201,13 +203,14 @@ class MusicController(commands.Cog):
             self.from_skip = False
 
             print(f"downloading song from play_next method")
+            # check if any zombie processes are still on, if so then terminate them
             self.client.getSong(self.current_song.id, self.current_song.title)
             print(f"moved past download line")
             audio = discord.FFmpegPCMAudio(self.current_song.path, executable=FFMPEG_PATH)
             helper.cleanAudioFile(helper.slugify(str(self.prev_song.title)))
             if self.playing is False:
                 self.playing = True
-                self.voice.play(source = audio, after = self.play_next)      
+                self.voice.play(source = audio, after = self.play_next) 
         elif err:
             print(f"Error in play_next method: ", err)
             return
