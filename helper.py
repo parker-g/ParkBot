@@ -1,6 +1,4 @@
-from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
-from datetime import datetime, timedelta, date
-from canvasapi import Canvas
+from config.config import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
 import pandas as pd
 import replicate
 import requests
@@ -75,6 +73,31 @@ def clearAllAudio():
     for file in files:
         # delete any songs that are webm or ytdl extensions
         if (file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3"):
+            way = os.getcwd()
+            way += f"\\{file}"
+            try:
+                os.remove(way)
+            except Exception as e:
+                print(e)
+
+    os.chdir(WORKING_DIRECTORY)
+
+def fileExists(file_path:str) -> bool:
+    """Checks whether the file path exists in the data directory."""
+    os.chdir(DATA_DIRECTORY)
+    files = os.listdir(os.getcwd())
+    for file in files:
+        if file_path == str(file):
+            return True
+    return False
+
+def deleteSongsBesidesThese(slugified_song_titles:list) -> None:
+    """Deletes all .webm, .ytdl, and .mp3 files which are not included in the song_paths parameter.\nIn other words, song paths provided in song_paths are safe from being deleted."""
+    os.chdir(DATA_DIRECTORY)
+    files = os.listdir(os.getcwd())
+    for file in files:
+        # delete any songs that are webm or ytdl extensions
+        if ((file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3") or (file[-5:] == ".part")) and (str(file) not in slugified_song_titles):
             way = os.getcwd()
             way += f"\\{file}"
             try:
