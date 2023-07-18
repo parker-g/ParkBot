@@ -5,7 +5,6 @@ from discord.ext import commands
 from discord import Embed
 from mutagen import mp3
 from collections import deque
-import multiprocessing as mp
 import helper
 import html
 import discord
