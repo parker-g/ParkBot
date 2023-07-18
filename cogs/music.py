@@ -2,7 +2,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
 from discord.ext import commands
-from downloader import getSong
 from discord import Embed
 from mutagen import mp3
 from collections import deque
@@ -15,18 +14,9 @@ from youtube_dl import YoutubeDL
 import asyncio
 
 # current goal:
-    # planned feature : auto download next queued song - look into multithreading or multiprocessing for this.
-
+    # in the MusicController, change references to current_song = None, to current_song = Song(). then, instead of checking whether current_song is None, check if current_song.isEmpty().
+        # this will ensure current_song is a more consistent type across the board, instead of letting it vary from None to Song. im assuming this is better practice since the type checker is trying to enforce it.
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
-
-
-# planned feature : implement multithreading module so that music class can download / play simaltaneously 
-# this will more likely require me to use the multiprocessing module. due to the python global interpreter lock, python threads can't run in parallel. however, multiprocessing can spawn multiple python interpreters to work around this feature of python.
-
-
-
-
-
 
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
@@ -34,7 +24,7 @@ import asyncio
         # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
 
 
-# planned feature : ability to play songs from URls (youtube, spotify, soundcloud) could pretty easily play spotify stuff. their API seems not bad
+# planned feature : ability to play songs from URls (youtube, spotify, soundcloud) could pretty easily play spotify stuff. their API seems not bad. I think doing this would require me to provide my spotify login tho. and spotify limits to listening on one device so i dont like this idea.
 class Song:
     def __init__(self):
         self.played = False
@@ -55,6 +45,12 @@ class Song:
 
     def setDownloaded(self) -> None:
         self.downloaded = True
+
+    def isEmpty(self) -> bool:
+        """Checks whether the Song contains any data or if its a ghost."""
+        if self.id or self.title is None:
+            return True
+        return False
 
 class PlayList(commands.Cog):
     def __init__(self, bot):
