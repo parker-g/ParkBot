@@ -86,13 +86,22 @@ def clearAllAudio():
 
     os.chdir(WORKING_DIRECTORY)
 
-def deleteSongsBesidesThese(song_paths:list) -> None:
+def fileExists(file_path:str) -> bool:
+    """Checks whether the file path exists in the data directory."""
+    os.chdir(DATA_DIRECTORY)
+    files = os.listdir(os.getcwd())
+    for file in files:
+        if file_path == str(file):
+            return True
+    return False
+
+def deleteSongsBesidesThese(slugified_song_titles:list) -> None:
     """Deletes all .webm, .ytdl, and .mp3 files which are not included in the song_paths parameter.\nIn other words, song paths provided in song_paths are safe from being deleted."""
     os.chdir(DATA_DIRECTORY)
     files = os.listdir(os.getcwd())
     for file in files:
         # delete any songs that are webm or ytdl extensions
-        if ((file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3") and (str(file) not in song_paths)):
+        if ((file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3") or (file[-5:] == ".part")) and (str(file) not in slugified_song_titles):
             way = os.getcwd()
             way += f"\\{file}"
             try:
