@@ -1,6 +1,7 @@
 from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY, FFMPEG_PATH
 from datetime import datetime, timedelta, date
 from canvasapi import Canvas
+import multiprocessing as mp
 import yt_dlp
 import pandas as pd
 import replicate
@@ -76,6 +77,22 @@ def clearAllAudio():
     for file in files:
         # delete any songs that are webm or ytdl extensions
         if (file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3"):
+            way = os.getcwd()
+            way += f"\\{file}"
+            try:
+                os.remove(way)
+            except Exception as e:
+                print(e)
+
+    os.chdir(WORKING_DIRECTORY)
+
+def deleteSongsBesidesThese(song_paths:list) -> None:
+    """Deletes all .webm, .ytdl, and .mp3 files which are not included in the song_paths parameter.\nIn other words, song paths provided in song_paths are safe from being deleted."""
+    os.chdir(DATA_DIRECTORY)
+    files = os.listdir(os.getcwd())
+    for file in files:
+        # delete any songs that are webm or ytdl extensions
+        if ((file[-5:] == ".webm") or (file[-5:] == ".ytdl") or (file[-4:] == ".mp3") and (str(file) not in song_paths)):
             way = os.getcwd()
             way += f"\\{file}"
             try:
@@ -171,4 +188,11 @@ def download_song(youtube_id, song_name):
     
     with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
         ydl.download(youtube_url)
+    return
+
+def killZombies() -> None:
+    children = mp.active_children()
+    for child in children:
+        if child.is_alive() is False:
+            child.join()
     return

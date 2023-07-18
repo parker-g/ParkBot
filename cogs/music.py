@@ -69,6 +69,7 @@ class PlayList(commands.Cog):
         await added_to_q.delete(delay=5.0)
 
     def remove(self): 
+        """Pops the most recently played song off the queue, and adds that song to the playhistory queue."""
         removed = self.playque.popleft()
         self.playhistory.append(removed)
 
@@ -113,26 +114,26 @@ class YoutubeClient:
                 print(err_message + "\n")
 
     
-    # def getSong(self, youtube_id, song_name):
-    #     base_address = "https://www.youtube.com/watch?v="
-    #     ytdl_format_options = {
-    #         "no_playlist": True,
-    #         # "max_downloads": 1,
-    #         'format': 'mp3/bestaudio/best',
-    #         "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
-    #         "ffmpeg_location": FFMPEG_PATH,
-    #             # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
-    #             'postprocessors': [{  # Extract audio using ffmpeg
-    #                 'key': 'FFmpegExtractAudio',
-    #                 'preferredcodec': 'mp3',
-    #             }]
-    #     }
+    def getSong(self, youtube_id, song_name):
+        base_address = "https://www.youtube.com/watch?v="
+        ytdl_format_options = {
+            "no_playlist": True,
+            # "max_downloads": 1,
+            'format': 'mp3/bestaudio/best',
+            "outtmpl": DATA_DIRECTORY + helper.slugify(song_name) + ".%(ext)s",  
+            "ffmpeg_location": FFMPEG_PATH,
+                # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
+                'postprocessors': [{  # Extract audio using ffmpeg
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                }]
+        }
 
-    #     youtube_url = [base_address + youtube_id]
+        youtube_url = [base_address + youtube_id]
         
-    #     with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
-    #         ydl.download(youtube_url)
-    #     return
+        with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
+            ydl.download(youtube_url)
+        return
 
 
 class MusicController(commands.Cog):
@@ -195,17 +196,15 @@ class MusicController(commands.Cog):
         self.playing = False
         self.prev_song = self.current_song
 
-        helper.clearAllAudio()
+        songs_to_save = [song.path for song in self.playlist.playque]
+        helper.deleteSongsBesidesThese(songs_to_save)
         if not self.playlist.isEmpty():
             if not self.from_skip:
                 self.current_song = self.playlist.playque[0]
             self.playlist.remove()
             self.from_skip = False
-
             print(f"downloading song from play_next method")
-            # check if any zombie processes are still on, if so then terminate them
             self.client.getSong(self.current_song.id, self.current_song.title)
-            print(f"moved past download line")
             audio = discord.FFmpegPCMAudio(self.current_song.path, executable=FFMPEG_PATH)
             helper.cleanAudioFile(helper.slugify(str(self.prev_song.title)))
             if self.playing is False:
@@ -221,8 +220,9 @@ class MusicController(commands.Cog):
             # save first song into current song, then pop it from queue
             self.current_song = self.playlist.playque[0]
             self.playlist.remove()
+            songs_to_save = [song.path for song in self.playlist.playque]
             try:
-                helper.clearAllAudio()
+                helper.deleteSongsBesidesThese(songs_to_save)
             except:
                 pass
             print(f"downloading song from _play_song method")
@@ -236,15 +236,23 @@ class MusicController(commands.Cog):
 
     @commands.command()
     async def play(self, ctx, *args) -> None:
+        new_song = Song()
         # check if user is in a voice channel
-        if ctx.author.voice.channel is None:
+        if ctx.author.voice is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
             return
-        song_title_and_id = await self.client.getSearchResults(None, args, maxResults=1)
-        if song_title_and_id is None:
+        song_titles_and_ids = await self.client.getSearchResults(None, args, maxResults=1)
+        if song_titles_and_ids is None:
             return
         else:
-            await self.playlist.addToQ(ctx, Song(song_title_and_id[0]))
+            new_song.setMetaData(song_titles_and_ids[0])
+            # check size of the playQ after adding a song :
+                # if size is 0, then download song immediately then begin playing song
+                # if size is between 0 and 3, download song but don't play it. wait for current song to end before iterating to the next song in playque
+                # if size is > 3: don't download song yet.
+
+            # make this check in each of the play functions.
+            await self.playlist.addToQ(ctx, new_song)
             # check if there's already a voice connection
             if self.voice is None:
                 current_channel = ctx.author.voice.channel
