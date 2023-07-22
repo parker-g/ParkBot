@@ -15,6 +15,7 @@ import asyncio
 # current goal:
     # in the MusicController, change references to current_song = None, to current_song = Song(). then, instead of checking whether current_song is None, check if current_song.isEmpty().
         # this will ensure current_song is a more consistent type across the board, instead of letting it vary from None to Song. im assuming this is better practice since the type checker is trying to enforce it.
+
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
 
 # requested feature: autoplay suggested videos/songs -
@@ -51,9 +52,12 @@ class Song:
             return True
         return False
 
+# music controller needs to create a new playlist for each server it exists in.
 class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.current_song:Song = None
+        self.prev_song:Song = None
         self.playque:deque[Song] = deque()
         self.playhistory = deque(maxlen=5)
 
@@ -63,16 +67,46 @@ class PlayList(commands.Cog):
     def add(self, song:Song) -> None:
         self.playque.append(song)
 
+    async def _showQ(self, ctx) -> None:
+        # if self.playing is False:
+        #     await ctx.send(f"Playing nothing right now.")
+        if self.current_song is not None:
+            pretty_string = ""
+            pretty_string += f"Playing: {self.current_song.title}\n\n"
+            count = 1 # skip the first song in playque
+            for song in self.playque:
+                pretty_string += f"{count}: {song.title}\n"
+                count += 1
+            await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
+        else:
+            await ctx.send(embed = Embed(title=f"No songs in queue yet."))
+
+    async def _showHistory(self, ctx) -> None:
+        if len(self.playhistory) > 1:
+            pretty_string = ""
+            pretty_string += f"Playing: {self.current_song.title}\n\n"
+            count = 1 # skip the first song in playque
+            for song in self.playhistory:
+                pretty_string += f"{count}: {song.title}\n"
+                count += 1
+            await ctx.send(embed = Embed(title=f"Recently Played", description=f"{pretty_string}"))
+        else:
+            await ctx.send(embed = Embed(title=f"No songs have been played yet."))
+
     async def addToQ(self, ctx, song:Song) -> None:
         """Adds a song to the playque + sends a confirmation message to text chat."""
         self.add(song)
         await ctx.send(embed = Embed(title=f"{song.title} added to queue."))
         return
 
-    def pop(self) -> None: 
+    def pop(self) -> Song: 
         """Pops the most recently played song off the queue, and adds that song to the playhistory queue."""
         removed = self.playque.popleft()
         self.playhistory.append(removed)
+        return removed
+
+    def remove(self, song:Song) -> None:
+        self.playque.remove(song)
 
     def getNextSong(self) -> Song | None:
         """Returns the next song in the queue, None if next song doesn't exist."""
@@ -98,6 +132,8 @@ class PlayList(commands.Cog):
                 count += 1
         return count
 
+#ideally each guild would have its own youtube client but this shouldn't be necessary
+# for the small number of requests i am anticipating.
 class YoutubeClient:
     """
     The YoutubeClient is used to grab resources from youtube, using both the youtube API and ytdl.\n
@@ -164,89 +200,44 @@ class YoutubeClient:
         song.setDownloaded()
         return
 
-
-class MusicController(commands.Cog):
-    def __init__(self, bot, playlist:PlayList):
-        self.bot = bot
-        self.playlist = playlist
-        self.prev_song = None
-        self.current_song:Song = None
-        self.client = YoutubeClient(bot)
-        self.voice = None
+class Player(commands.Cog):
+    """Class that performs logic pertaining to playing or skipping songs. Constructed with a PlayList and YoutubeClient."""
+    def __init__(self, bot, playlist:PlayList, client: YoutubeClient):
         self.playing = False
         self.from_skip = False
+        self.bot = bot
+        self.playlist = playlist
+        self.client = client
+        self.voice = None
 
-    @commands.command()
-    async def showQ(self, ctx):
-        # if self.playing is False:
-        #     await ctx.send(f"Playing nothing right now.")
-        if self.current_song is not None:
-            pretty_string = ""
-            pretty_string += f"Playing: {self.current_song.title}\n\n"
-            count = 1 # skip the first song in playque
-            for song in self.playlist.playque:
-                pretty_string += f"{count}: {song.title}\n"
-                count += 1
-            await ctx.send(embed = Embed(title=f"Current Queue", description=f"{pretty_string}"))
-        else:
-            await ctx.send(embed = Embed(title=f"No songs in queue yet."))
-
-    @commands.command()
-    async def showHistory(self, ctx):
-        if len(self.playlist.playhistory) > 1:
-            pretty_string = ""
-            pretty_string += f"Playing: {self.current_song.title}\n\n"
-            count = 1 # skip the first song in playque
-            for song in self.playlist.playhistory:
-                pretty_string += f"{count}: {song.title}\n"
-                count += 1
-            await ctx.send(embed = Embed(title=f"Recently Played", description=f"{pretty_string}"))
-        else:
-            await ctx.send(embed = Embed(title=f"No songs have been played yet."))
-
-    @commands.command()
-    async def currentSong(self, ctx):
-        await ctx.send(embed=Embed(title=f"Current Song", description=f"{self.current_song.title}"))
-
-    # I want to continue experimenting with this later down the line -
-    #seems there's some way to play songs without downloading ? not sure
-    async def playURL(self, ctx, url):
-        author_vc = ctx.author.voice.channel
-        if not self.voice:
-            self.voice = await author_vc.connect()
-        
-        with YoutubeDL() as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info['formats'][0]['url']
-            self.voice.play(discord.FFmpegPCMAudio(audio_url))
-
-    #must take error as a parameter since "error" will be automatically passed into an "after" function
     def play_next(self, err = None):
+        # need to find how to get the guild from here. perhaps pass ctx as an argument here
+        playlist = self.playlist
         self.playing = False
-        self.prev_song = self.current_song
-        songs_to_save = [song.slug_title for song in self.playlist.playque]
+        playlist.prev_song = playlist.current_song
+        songs_to_save = [song.slug_title for song in playlist.playque]
 
         helper.deleteSongsBesidesThese(songs_to_save)
-        if not self.playlist.isEmpty():
+        if not playlist.isEmpty():
             if not self.from_skip:
-                self.current_song = self.playlist.playque[0]
-            self.playlist.pop()
+                playlist.current_song = playlist.playque[0]
+            playlist.pop()
             self.from_skip = False
-            next_song = self.playlist.getNextSong()
+            next_song = playlist.getNextSong()
             # download next song if its not downloaded
             if (next_song is not None) and (next_song.downloaded is False):
                 try: 
                     self.client.downloadSong(next_song)
                 except yt_dlp.utils.DownloadError:
                     print(f"The video you wanted to download was too large. Deleting this song from the queue.")
-                    self.playlist.playque.remove(next_song)
+                    playlist.remove(next_song)
             # otherwise, pre download a song ahead in the queue after a song is playing
-            audio = discord.FFmpegPCMAudio(self.current_song.path, executable=FFMPEG_PATH)
+            audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
                 # check if num of downloaded songs is < 4, if so then download the next undownloaded song.
-                preload_song = self.playlist.getNextUndownloadedSong()
+                preload_song = playlist.getNextUndownloadedSong()
                 if preload_song is not None:
                     self.client.downloadSong(preload_song)
 
@@ -254,12 +245,12 @@ class MusicController(commands.Cog):
             print(f"Error in play_next method: ", err)
             return
 
-
     def _play_song(self):
-        if not self.playlist.isEmpty():
-            self.current_song = self.playlist.playque[0]
-            self.playlist.pop()
-            songs_to_save = [song.slug_title for song in self.playlist.playque] + [self.current_song.slug_title]
+        playlist = self.playlist
+        if not playlist.isEmpty():
+            playlist.current_song = playlist.playque[0]
+            playlist.pop()
+            songs_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
             try:
                 helper.deleteSongsBesidesThese(songs_to_save)
             except:
@@ -267,14 +258,14 @@ class MusicController(commands.Cog):
             # print(f"downloading song from _play_song method")
             # self.client.getSong(self.current_song.id, self.current_song.title)
             # print(f"moved past download line")
-            audio = discord.FFmpegPCMAudio(self.current_song.path, executable=FFMPEG_PATH)
+            audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
             if self.playing is False:
                 self.playing = True
                 self.voice.play(source = audio, after = self.play_next)
 
 
-    @commands.command()
-    async def play(self, ctx, *args) -> None:
+    async def _play(self, ctx, *args) -> None:
+        playlist = self.playlist
         new_song = Song()
         # check if user is in a voice channel
         if ctx.author.voice is None:
@@ -287,14 +278,15 @@ class MusicController(commands.Cog):
         else:
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
-            await self.playlist.addToQ(ctx, new_song)
-            if len(self.playlist.playque) < 4: # download up to 3 songs ahead of time
+            await playlist.addToQ(ctx, new_song)
+            if len(playlist.playque) < 4: # download up to 3 songs ahead of time
                 try: 
                     self.client.downloadSong(new_song)
                 except yt_dlp.utils.DownloadError as e:
                     await ctx.send(embed=Embed(title="Download Error", description=f"The video you requested was too large. Please try a different one.\nRemoving this video from the queue - {new_song.title}."))
-                    self.playlist.playque.remove(new_song) # removes the song without adding it to eh playhistory, since it wasn't played
+                    playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
             # check if there's already a voice connection
+
             if self.voice is None:
                 current_channel = ctx.author.voice.channel
                 # create voice connection
@@ -305,11 +297,11 @@ class MusicController(commands.Cog):
                 self._play_song()
             else:
                 return
-
-    @commands.command()
-    async def skip(self, ctx):
-        if self.current_song:
-            await ctx.send(embed=Embed(title=f"Skipping {self.current_song.title}."))
+    
+    async def _skip(self, ctx):
+        playlist = self.playlist
+        if playlist.current_song:
+            await ctx.send(embed=Embed(title=f"Skipping {playlist.current_song.title}."))
             self.voice.stop()
             self.playing = False
             self.from_skip = True
@@ -318,33 +310,7 @@ class MusicController(commands.Cog):
         # need to be able to skip even if no songs are in quqeue after the current song.
         else:
             await ctx.send(embed=Embed(title=f"Queue is already empty."))
-            
 
-    @commands.command()
-    async def kickBot(self, ctx):
-        # check whether a voice connection exists in this guild
-        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice is not None:
-            if voice.is_connected():
-                if self.playing is True:
-                    voice.stop()
-                await voice.disconnect()
-        self.voice = None
-
-    def getAudioLength(self, path_to_audio):
-        audio = mp3.MP3(path_to_audio)
-        audio = audio.info
-        audiolen = int(audio.length)
-        return audiolen
-
-    def formatAudioLength(self, audio_length):
-        seconds = audio_length % (24 * 3600)
-        hour = seconds // 3600
-        seconds %= 3600
-        minutes = seconds // 60
-        seconds %= 60
-        return hour, minutes, seconds
-    
     async def leaveWhenDone(self, ctx):
         print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
@@ -375,7 +341,103 @@ class MusicController(commands.Cog):
         else:
             print(f"self.voice is already None.")
             return
+
+class MusicController(commands.Cog):
+    """Class that has top-level control of playing music. The MusicController constructs a PlayList, YoutubeClient,\n
+    and Player for each guild the ParkBot is a part of. The `play` and `skip` commands access the appropriate Player instance,\n
+    then execute the lower level `_play` or `_skip` commands on the instance. In other words, the MusicController directs users' commands
+    to their guild's instance of the ParkBot."""
+    def __init__(self, bot):
+        self.bot = bot
+        self.playlists:dict[discord.Guild, PlayList] = {guild: PlayList(self.bot) for guild in self.bot.guilds}
+        self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot)) for playlist in self.playlists.values()}
+        self.client = YoutubeClient(bot)
+        self.voice = None
+        self.playing = False
+        self.from_skip = False
+
+    @commands.command()
+    async def readGuilds(self, ctx):
+        guilds = self.bot.guilds
+        string = ""
+        for guild in guilds:
+            string += f"{guild.name}, "
+        await ctx.send(embed=Embed(title="Guilds", description=string))
+
+    @commands.command()
+    async def showQ(self, ctx):
+        """Gets the playlist associated with the caller's guild, and shows it in a text channel."""
+        playlist = self.playlists[ctx.guild]
+        await playlist._showQ(ctx)
+
+    @commands.command()
+    async def showHistory(self, ctx):
+        playlist = self.playlists[ctx.guild]
+        await playlist._showHistory(ctx)
+
+    @commands.command()
+    async def currentSong(self, ctx):
+        playlist = self.playlists[ctx.guild]
+        await ctx.send(embed=Embed(title=f"Current Song", description=f"{playlist.current_song.title}"))
+
+
+    # I want to continue experimenting with this later down the line -
+    #seems there's some way to play songs without downloading ? not sure
+    async def playURL(self, ctx, url):
+        author_vc = ctx.author.voice.channel
+        if not self.voice:
+            self.voice = await author_vc.connect()
         
+        with YoutubeDL() as ydl:
+            info = ydl.extract_info(url, download=False)
+            audio_url = info['formats'][0]['url']
+            self.voice.play(discord.FFmpegPCMAudio(audio_url))
+
+    # i think I need to wrap the play commands into a new class - each Player instance should have a guild associated with it
+    # when the bot checks if its in a voice channel - need to also check if theres's anyone else in the voice channel. if not, then join the caller's voice channel. (for cases when the bot is by itself in a voice channel while its caller is in another channel.)
+    
+    
+    @commands.command()
+    async def play(self, ctx, *args) -> None:
+        """Accesses a guild's Player and attempts to play a song through it."""
+        guild = ctx.guild
+        playlist = self.playlists[guild]
+        player = self.players[playlist]
+        await player._play(ctx, args)
+
+    @commands.command()
+    async def skip(self, ctx):
+        guild = ctx.guild
+        playlist = self.playlists[guild]
+        player = self.players[playlist]
+        await player._skip(ctx)
+            
+    @commands.command()
+    async def kickBot(self, ctx):
+        # check whether a voice connection exists in this guild
+        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice is not None:
+            if voice.is_connected():
+                if self.playing is True:
+                    voice.stop()
+                await voice.disconnect()
+        self.voice = None
+
+    def getAudioLength(self, path_to_audio):
+        audio = mp3.MP3(path_to_audio)
+        audio = audio.info
+        audiolen = int(audio.length)
+        return audiolen
+
+    def formatAudioLength(self, audio_length):
+        seconds = audio_length % (24 * 3600)
+        hour = seconds // 3600
+        seconds %= 3600
+        minutes = seconds // 60
+        seconds %= 60
+        return hour, minutes, seconds
+    
+
 async def setup(bot):
-    await bot.add_cog(MusicController(bot, PlayList(bot)))
+    await bot.add_cog(MusicController(bot))
         

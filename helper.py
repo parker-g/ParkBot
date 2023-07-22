@@ -168,6 +168,20 @@ def readThreads() -> dict[str, int]:
             threads_dict[row[0]] = int(row[1])
     return threads_dict
 
+def writeToCsv(CSV_PATH, col1, col2) -> None:
+    with open(CSV_PATH, "a") as file:
+        file.write(f"\n{col1}, {col2}")
+    return
+
+def readCsv(CSV_PATH) -> dict:
+    with open(CSV_PATH, "r") as file:
+        csv_dict = {}
+        reader = csv.reader(file)
+        next(reader) # skip the title line of th ecsv
+        for row in reader:
+            csv_dict[row[0]] = row[1]
+    return csv_dict
+
 def writePlayerAndThread(player, thread_id) -> None:
     with open(THREADS_PATH, "a") as file:
         file.write(f"\n{player.name},{thread_id}")
