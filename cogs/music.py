@@ -13,11 +13,8 @@ from youtube_dl import YoutubeDL
 import asyncio
 
 # current goal:
-    # in the MusicController, change references to current_song = None, to current_song = Song(). then, instead of checking whether current_song is None, check if current_song.isEmpty().
-        # this will ensure current_song is a more consistent type across the board, instead of letting it vary from None to Song. im assuming this is better practice since the type checker is trying to enforce it.
-
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
-
+    # introduct database to handle all the files in 'data' folder. this will probably make bot harder to set up for noobies, but will be easier to handle data from multiple guilds at once. and look cleaner with a clean data folder.
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
     # users can turn on / turn off autoplay (off by default)
@@ -100,7 +97,7 @@ class PlayList(commands.Cog):
         return
 
     def pop(self) -> Song: 
-        """Pops the most recently played song off the queue, and adds that song to the playhistory queue."""
+        """Pops the oldest song off the queue, and adds that song to the playhistory queue."""
         removed = self.playque.popleft()
         self.playhistory.append(removed)
         return removed
@@ -196,7 +193,6 @@ class YoutubeClient:
         
         with yt_dlp.YoutubeDL(ytdl_format_options) as ydl:
             ydl.download(youtube_url)
-
         song.setDownloaded()
         return
 
@@ -211,15 +207,16 @@ class Player(commands.Cog):
         self.voice = None
 
     def play_next(self, err = None):
+        print(f"***starting play_next method")
         # need to find how to get the guild from here. perhaps pass ctx as an argument here
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
-        songs_to_save = [song.slug_title for song in playlist.playque]
+        songs_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
 
         helper.deleteSongsBesidesThese(songs_to_save)
         if not playlist.isEmpty():
-            if not self.from_skip:
+            if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
                 playlist.current_song = playlist.playque[0]
             playlist.pop()
             self.from_skip = False
@@ -240,14 +237,18 @@ class Player(commands.Cog):
                 preload_song = playlist.getNextUndownloadedSong()
                 if preload_song is not None:
                     self.client.downloadSong(preload_song)
-
         elif err:
             print(f"Error in play_next method: ", err)
             return
 
     def _play_song(self):
+        print(f"***starting _play_song method")
         playlist = self.playlist
         if not playlist.isEmpty():
+            print(f"Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
+            if self.voice.is_playing():
+                print(f"A song is already playing! Will return early from _play_song call.")
+                return
             playlist.current_song = playlist.playque[0]
             playlist.pop()
             songs_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
@@ -255,12 +256,12 @@ class Player(commands.Cog):
                 helper.deleteSongsBesidesThese(songs_to_save)
             except:
                 pass
-            # print(f"downloading song from _play_song method")
-            # self.client.getSong(self.current_song.id, self.current_song.title)
-            # print(f"moved past download line")
+            print(f"Loading current song from this path: {playlist.current_song.path}")
             audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
+
             if self.playing is False:
                 self.playing = True
+                print(f"Attempting to play current song.")
                 self.voice.play(source = audio, after = self.play_next)
 
 
@@ -276,6 +277,7 @@ class Player(commands.Cog):
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
         else:
+            # join voice channel before downloading if self.voice is None.
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
             await playlist.addToQ(ctx, new_song)
@@ -293,21 +295,22 @@ class Player(commands.Cog):
                 self.voice = await current_channel.connect(timeout = None)
                 self._play_song()
                 await self.leaveWhenDone(ctx)
-            elif self.playing is False:
+            elif self.playing is False: # perhaps use self.voice.is_playing() instead
                 self._play_song()
             else:
                 return
     
     async def _skip(self, ctx):
+        print(f"***skipping")
         playlist = self.playlist
         if playlist.current_song:
             await ctx.send(embed=Embed(title=f"Skipping {playlist.current_song.title}."))
             self.voice.stop()
             self.playing = False
             self.from_skip = True
-            self.current_song = None
+            playlist.current_song = None
             self._play_song()
-        # need to be able to skip even if no songs are in quqeue after the current song.
+        # need to be able to skip even if no songs are in queue after the current song.
         else:
             await ctx.send(embed=Embed(title=f"Queue is already empty."))
 
