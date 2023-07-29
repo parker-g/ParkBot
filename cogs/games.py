@@ -494,7 +494,7 @@ class GamesController(Cog):
         queue = self.getPlayerQueue(ctx)
         await queue._playJack(ctx)
     
-    
+
 
 
 
@@ -2244,5 +2244,5 @@ class PokerRanker(Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(PlayerQueue(bot))        
+    await bot.add_cog(GamesController(bot))        
 
