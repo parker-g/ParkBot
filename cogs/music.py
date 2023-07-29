@@ -176,7 +176,7 @@ class YoutubeClient:
         base_address = "https://www.youtube.com/watch?v="
         ytdl_format_options = {
             # add an option to limit download size to maybe 20 mb
-            "max_filesize": 40000000, # I think this is bytes, so this should be around 10mb (10 mil)
+            "max_filesize": 10000000, # I think this is bytes, so this should be around 10mb (10 mil)
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
@@ -285,7 +285,7 @@ class Player(commands.Cog):
                 try: 
                     self.client.downloadSong(new_song)
                 except yt_dlp.utils.DownloadError as e:
-                    await ctx.send(embed=Embed(title="Download Error", description=f"The video you requested was too large. Please try a different one.\nRemoving this video from the queue - {new_song.title}."))
+                    await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
                     playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
             # check if there's already a voice connection
 
