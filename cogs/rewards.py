@@ -1,11 +1,23 @@
 import pyttsx3
 import discord
 import asyncio
+from cogs.controller import Controller
 from discord.ext.commands import Cog
 from discord.ext import commands
+from discord import Embed
 from config.config import NAUGHTY_WORDS
 
-class Reward(Cog):
+
+class RewardsController(Controller):
+    def __init__(self, bot):
+        super().__init__(bot, TTS)
+    
+    @commands.command()
+    async def say(self, ctx, *args) -> None:
+        tts = self.getGuildClazz(ctx) # should be a TTS instance
+        await tts._say(ctx, args)
+
+class TTS(Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -20,8 +32,14 @@ class Reward(Cog):
         message = await ctx.send("Processed Request")
         await message.delete(delay = 5.0)
 
-    @commands.command()
-    async def say(self, ctx, *args):
+    async def _say(self, ctx, *args):
+        
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice_client:
+            if voice_client.is_playing():
+                await ctx.send(embed=Embed(title=f"Unable to Speak", description=f"The voice client is already occupied. Try again when it's not."))
+                return
+            
         speech = ""
         for arg in args:
             arg = str(arg)
@@ -45,5 +63,5 @@ class Reward(Cog):
         
 
 async def setup(bot):
-   await bot.add_cog(Reward(bot))
+   await bot.add_cog(RewardsController(bot))
 

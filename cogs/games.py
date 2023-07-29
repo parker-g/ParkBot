@@ -1,5 +1,6 @@
 import random
 import asyncio
+from cogs.controller import Controller
 from collections import Counter
 from cogs.economy import Economy
 from discord.ext.commands.cog import Cog
@@ -439,59 +440,50 @@ class PlayerQueue(Cog):
         except Exception as e:
             await ctx.send(f"An exception occured, {e}")
 
-class GamesController(Cog):
+class GamesController(Controller):
     """High level controller of all games. Assigns each guild a PlayerQueue, and routes requests from guilds to their respective PlayerQueue instance."""
     def __init__(self, bot):
-        self.bot = bot
-        self.guilds_to_queues = {guild : PlayerQueue(self.bot) for guild in self.bot.guilds}
-
-    def safeAddGuild(self, guild) -> None:
-        if guild not in self.guilds_to_queues:
-            self.guilds_to_queues[guild] = PlayerQueue(self.bot)
-
-    def getPlayerQueue(self, ctx) -> PlayerQueue:
-        guild = ctx.guild
-        self.safeAddGuild(guild)
-        return self.guilds_to_queues[guild]
+        super().__init__(bot, PlayerQueue)
+    
     
     @commands.command("joinQ")
     async def joinQueue(self, ctx) -> None:
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._joinQueue(ctx)
 
     @commands.command("leaveQ")
     async def leaveQueue(self, ctx):
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._leaveQueue(ctx)
     
     @commands.command("clearQ")
     async def clearQueue(self, ctx):
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._clearQueue(ctx)
 
-    @commands.command("showQ")
+    @commands.command("showPlayers")
     async def showQueue(self, ctx):
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._showQueue(ctx)
     
     @commands.command()
     async def setBet(self, ctx, bet) -> None:
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._setBet(ctx, bet)
 
     @commands.command()
     async def beg(self, ctx) -> None:
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._beg(ctx)
     
     @commands.command("playJack")
     async def playBlackJack(self, ctx) -> None:
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._playJack(ctx)
     
     @commands.command()
     async def playPoker(self, ctx) -> None:
-        queue = self.getPlayerQueue(ctx)
+        queue = self.getGuildClazz(ctx)
         await queue._playJack(ctx)
     
 

@@ -2,6 +2,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
 from discord.ext import commands
+from cogs.controller import Controller
 from discord import Embed
 from mutagen import mp3
 from collections import deque
@@ -49,7 +50,6 @@ class Song:
             return True
         return False
 
-# music controller needs to create a new playlist for each server it exists in.
 class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -207,8 +207,7 @@ class Player(commands.Cog):
         self.voice = None
 
     def play_next(self, err = None):
-        print(f"***starting play_next method")
-        # need to find how to get the guild from here. perhaps pass ctx as an argument here
+        # print(f"***starting play_next method")
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
@@ -242,12 +241,12 @@ class Player(commands.Cog):
             return
 
     def _play_song(self):
-        print(f"***starting _play_song method")
+        # print(f"***starting _play_song method")
         playlist = self.playlist
         if not playlist.isEmpty():
             print(f"Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
             if self.voice.is_playing():
-                print(f"A song is already playing! Will return early from _play_song call.")
+                # print(f"A song is already playing! Will return early from _play_song call.")
                 return
             playlist.current_song = playlist.playque[0]
             playlist.pop()
@@ -301,7 +300,6 @@ class Player(commands.Cog):
                 return
     
     async def _skip(self, ctx):
-        print(f"***skipping")
         playlist = self.playlist
         if playlist.current_song:
             await ctx.send(embed=Embed(title=f"Skipping {playlist.current_song.title}."))
@@ -345,22 +343,22 @@ class Player(commands.Cog):
             print(f"self.voice is already None.")
             return
 
-class MusicController(commands.Cog):
+class MusicController(Controller):
     """Class that has top-level control of playing music. The MusicController constructs a PlayList, YoutubeClient,\n
     and Player for each guild the ParkBot is a part of. The `play` and `skip` commands access the appropriate Player instance,\n
     then execute the lower level `_play` or `_skip` commands on the instance. In other words, the MusicController directs users' commands
     to their guild's instance of the ParkBot."""
     def __init__(self, bot):
-        self.bot = bot
-        self.playlists:dict[discord.Guild, PlayList] = {guild: PlayList(self.bot) for guild in self.bot.guilds}
-        self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot)) for playlist in self.playlists.values()}
+        super().__init__(bot, PlayList)
+        #self.guilds_to_clazzs:dict[discord.Guild, PlayList] - this exists but isnt explicit here
+        self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot)) for playlist in self.guilds_to_clazzs.values()}
         self.client = YoutubeClient(bot)
         self.voice = None
         self.playing = False
         self.from_skip = False
 
     @commands.command()
-    async def readGuilds(self, ctx):
+    async def showGuilds(self, ctx):
         guilds = self.bot.guilds
         string = ""
         for guild in guilds:
@@ -370,17 +368,17 @@ class MusicController(commands.Cog):
     @commands.command()
     async def showQ(self, ctx):
         """Gets the playlist associated with the caller's guild, and shows it in a text channel."""
-        playlist = self.playlists[ctx.guild]
+        playlist:PlayList = self.getGuildClazz(ctx)
         await playlist._showQ(ctx)
 
     @commands.command()
     async def showHistory(self, ctx):
-        playlist = self.playlists[ctx.guild]
+        playlist:PlayList = self.getGuildClazz(ctx)
         await playlist._showHistory(ctx)
 
     @commands.command()
     async def currentSong(self, ctx):
-        playlist = self.playlists[ctx.guild]
+        playlist:PlayList = self.getGuildClazz(ctx)
         await ctx.send(embed=Embed(title=f"Current Song", description=f"{playlist.current_song.title}"))
 
 
@@ -403,28 +401,27 @@ class MusicController(commands.Cog):
     @commands.command()
     async def play(self, ctx, *args) -> None:
         """Accesses a guild's Player and attempts to play a song through it."""
-        guild = ctx.guild
-        playlist = self.playlists[guild]
+        playlist = self.getGuildClazz(ctx)
         player = self.players[playlist]
         await player._play(ctx, args)
 
     @commands.command()
     async def skip(self, ctx):
-        guild = ctx.guild
-        playlist = self.playlists[guild]
+        playlist = self.getGuildClazz(ctx)
         player = self.players[playlist]
         await player._skip(ctx)
             
     @commands.command()
     async def kickBot(self, ctx):
-        # check whether a voice connection exists in this guild
+        # check whether a voice connection exists in this guild, and terminate it if so
         voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
         if voice is not None:
             if voice.is_connected():
-                if self.playing is True:
+                if voice.is_playing():
                     voice.stop()
                 await voice.disconnect()
         self.voice = None
+        self.playing = False
 
     def getAudioLength(self, path_to_audio):
         audio = mp3.MP3(path_to_audio)
