@@ -176,7 +176,7 @@ class YoutubeClient:
         base_address = "https://www.youtube.com/watch?v="
         ytdl_format_options = {
             # add an option to limit download size to maybe 20 mb
-            "max_filesize": 10000000, # I think this is bytes, so this should be around 10mb (10 mil)
+            "max_filesize": 40000000, # I think this is bytes, so this should be around 10mb (10 mil)
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
