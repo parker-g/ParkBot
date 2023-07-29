@@ -4,11 +4,6 @@ import logging
 import discord
 import helper
 
-#note for me:
-# when using python keyword in terminal, u must reference the direct path to the venv python executable.
-# don't forget this ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
@@ -45,7 +40,7 @@ async def help(ctx):
     em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     em.add_field(name='voice commands', value="`say`")
-    em.add_field(name='blackjack commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playJack`, `resetJack`")
+    em.add_field(name='game commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playPoker`, `playJack`, `resetJack`")
     em.add_field(name='music commands', value="`play`, `skip`, `showQ`, `currentSong`, `kickBot`")
     await ctx.send(embed = em)
 
@@ -95,9 +90,14 @@ async def getNewAssignments(ctx):
 
 @help.command()
 async def playJack(ctx):
-    em = discord.Embed(title="playJack", description = "begin a game of blackjack. players must first have joined the queue using `joinQ`. players will remain in player queue until they leave.")
+    em = discord.Embed(title="playJack", description = "begin a game of blackjack. players must first have joined the queue using `joinQ`. players will remain in player queue until they leave. set bets before hand to win some GleepCoins.")
     await ctx.send(embed = em)
 
+@help.command()
+async def playPoker(ctx):
+    em = discord.Embed(title="playPoker", description = "begin a game of Poker. players must first have joined the queue using `joinQ`. players will remain in player queue until they leave. don't worry about setting bets before the game, you will set bets during the game.")
+    await ctx.send(embed = em)
+    
 @help.command()
 async def setBet(ctx):
     em = discord.Embed(title="setBet", description = "usage : `setBet <amount>`\nuse this command to bet your valuable GleepCoins in the next gambling game.")

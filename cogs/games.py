@@ -1,5 +1,6 @@
 import random
 import asyncio
+from cogs.controller import Controller
 from collections import Counter
 from cogs.economy import Economy
 from discord.ext.commands.cog import Cog
@@ -7,17 +8,6 @@ from discord.ext import commands
 from discord import Member, Embed, TextChannel
 from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
 
-# blackjack note - 
-# need to modify game play function so that 
-    # dealer deals cards to players besides himself
-    # dealer deals himself two cards, shows only one
-    # let players play their hands
-
-    # dealer reveals his second card, dealer plays till over 17 
-    # for players that haven't busted:
-        # compare player score to dealer score
-        # if player score higher, player added to winners
-        # if player score lower, do nothing
 
 class Card:
     """
@@ -169,7 +159,6 @@ class Deck:
     Each card in the deck is represented as a tuple of (num, suit).\n
     This class provides methods for working with a deck such as  `.shuffle()`, and for pretty printing cards.
     """
-
     blackjack_face_legend = {
         "ace": 1,
         "jack": 10,
@@ -204,10 +193,10 @@ class Deck:
 
 class Player:
     """
-    The Player represents a participant in any of the games in the games cog."""
-    def __init__(self, ctx, member:Member):
+    The Player class represents a participant in any of the games in the games cog."""
+    def __init__(self, ctx):
         self.name = ctx.author.name
-        self.member = member
+        self.member = ctx.author
         self.hand:list[Card] = []
         self.bet = 0
         self.done = False
@@ -311,6 +300,7 @@ class Player:
 
 
 
+
 class PlayerQueue(Cog):
     """
     The PlayerQueue class is used as a controller of the games available in the games.py 'cog'.\n
@@ -320,11 +310,10 @@ class PlayerQueue(Cog):
         self.bot:commands.Bot = bot
         self.q:list[Player] = []
 
-    @commands.command("joinQ")
-    async def joinQueue(self, ctx):
+    async def _joinQueue(self, ctx):
         """
         This is a command giving Discord server members the ability to join the PlayerQueue, by executing the command in a text channel."""
-        new_player = Player(ctx, ctx.author)
+        new_player = Player(ctx)
         # check if person using command is already in the player pool
         for player in self.q:
             if ctx.author.name == player.name:
@@ -339,8 +328,7 @@ class PlayerQueue(Cog):
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
         
-    @commands.command("leaveQ")
-    async def leaveQueue(self, ctx):
+    async def _leaveQueue(self, ctx):
         """
         This command gives users the ability to leave the PlayerQueue. If a player leaves the queue, any bet they had previously set will be returned to their bank."""
         # get player who used the command
@@ -359,8 +347,7 @@ class PlayerQueue(Cog):
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=5.0)
 
-    @commands.command("clearQ")
-    async def clearQueue(self, ctx):
+    async def _clearQueue(self, ctx):
         """
         Discord server members can clear the PlayerQueue with this command."""
         economy = Economy(self.bot)
@@ -373,8 +360,7 @@ class PlayerQueue(Cog):
         message = await ctx.send(embed= Embed(title = f"All players have been removed from queue."))
         await message.delete(delay=5.0)
 
-    @commands.command("showPlayers")
-    async def showQueue(self, ctx):
+    async def _showQueue(self, ctx):
         """
         This command provides users the ability to see who is currently in the PlayerQueue."""
         players_string = ""
@@ -383,7 +369,7 @@ class PlayerQueue(Cog):
         em = Embed(title="Players in Queue", description=f"{players_string}")
         await ctx.send(embed = em)
 
-    async def _setBet(self, ctx, inputPlayer, bet:int) -> bool:
+    async def __setBet(self, ctx, inputPlayer, bet:int) -> bool:
         """
         Withdraws GleepCoins from a user's 'bank account', into a player's `player.bet` attribute.\n
         This method accomplishes the same thing as the setBet() method, without sending messages to the Discord chat."""
@@ -401,8 +387,8 @@ class PlayerQueue(Cog):
                     print(f"Error setting bet for player, {player.name} : {e}")
         return success
     
-    @commands.command()
-    async def setBet(self, ctx, bet:int):
+    
+    async def _setBet(self, ctx, bet:int):
         """
         Discord users who have joined the PlayerQueue can use this command to set a bet, valid for the next game of BlackJack.\n"""
         bet = int(bet)
@@ -425,8 +411,7 @@ class PlayerQueue(Cog):
         message = await ctx.send(embed = Embed(title=message_str))
         await message.delete(delay=7.5)
 
-    @commands.command()
-    async def beg(self, ctx):
+    async def _beg(self, ctx):
         """
         Players who have exhausted their bank account can use this command to make money."""
         economy = Economy(self.bot)
@@ -435,8 +420,7 @@ class PlayerQueue(Cog):
         beg_message = await ctx.send(embed=Embed(title=f"{ctx.author.name} recieved {amount} GleepCoins from begging."))
         await beg_message.delete(delay=5.0)
 
-    @commands.command()
-    async def playJack(self, ctx):
+    async def _playJack(self, ctx):
         """
         This command is the PlayerQueue's interface with a blackjack game. It begins a game of blackjack, using all the players in the queue."""
         await ctx.send(f"Attempting to start blackjack game.")
@@ -446,8 +430,7 @@ class PlayerQueue(Cog):
         except Exception as error:
             await ctx.send(f"An exception occured, {error}")
 
-    @commands.command()
-    async def playPoker(self, ctx):
+    async def _playPoker(self, ctx):
         """
         This command puts all players in the PlayerQueue in a game of Texas Hold'em Poker."""
         await ctx.send(f"Attempting to start Poker game.")
@@ -457,7 +440,57 @@ class PlayerQueue(Cog):
         except Exception as e:
             await ctx.send(f"An exception occured, {e}")
 
+class GamesController(Controller):
+    """High level controller of all games. Assigns each guild a PlayerQueue, and routes requests from guilds to their respective PlayerQueue instance."""
+    def __init__(self, bot):
+        super().__init__(bot, PlayerQueue)
+    
+    
+    @commands.command("joinQ")
+    async def joinQueue(self, ctx) -> None:
+        queue = self.getGuildClazz(ctx)
+        await queue._joinQueue(ctx)
 
+    @commands.command("leaveQ")
+    async def leaveQueue(self, ctx):
+        queue = self.getGuildClazz(ctx)
+        await queue._leaveQueue(ctx)
+    
+    @commands.command("clearQ")
+    async def clearQueue(self, ctx):
+        queue = self.getGuildClazz(ctx)
+        await queue._clearQueue(ctx)
+
+    @commands.command("showPlayers")
+    async def showQueue(self, ctx):
+        queue = self.getGuildClazz(ctx)
+        await queue._showQueue(ctx)
+    
+    @commands.command()
+    async def setBet(self, ctx, bet) -> None:
+        queue = self.getGuildClazz(ctx)
+        await queue._setBet(ctx, bet)
+
+    @commands.command()
+    async def beg(self, ctx) -> None:
+        queue = self.getGuildClazz(ctx)
+        await queue._beg(ctx)
+    
+    @commands.command("playJack")
+    async def playBlackJack(self, ctx) -> None:
+        queue = self.getGuildClazz(ctx)
+        await queue._playJack(ctx)
+    
+    @commands.command()
+    async def playPoker(self, ctx) -> None:
+        queue = self.getGuildClazz(ctx)
+        await queue._playJack(ctx)
+    
+
+
+
+
+    
 
 class Dealer(Player):
     def __init__(self, deck:Deck, players:list[Player]):
@@ -923,7 +956,7 @@ class Poker(commands.Cog):
             if message.author.name == small_blind_player.name:
                 try:
                     small_blind = int(message.content)
-                    is_success = await self.player_queue._setBet(ctx, small_blind_player, small_blind)
+                    is_success = await self.player_queue.__setBet(ctx, small_blind_player, small_blind)
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
                     if is_success is True:
                         self.small_blind = small_blind
@@ -943,7 +976,7 @@ class Poker(commands.Cog):
                         error_msg = await ctx.send(embed=Embed(title=f"Big blind must be larger than small blind. Please type a number larger than {self.small_blind}."))
                         await error_msg.delete(delay = 7.0)
                     elif big_blind > self.small_blind:
-                        success = await self.player_queue._setBet(ctx, big_blind_player, big_blind)
+                        success = await self.player_queue.__setBet(ctx, big_blind_player, big_blind)
                         if success is True:
                             self.big_blind = big_blind
                             self.min_bet = self.big_blind
@@ -992,7 +1025,7 @@ class Poker(commands.Cog):
                         if (user.name == player.name):
                             match emoji:
                                 case "📞":
-                                    isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
+                                    isSuccess = await self.player_queue.__setBet(ctx, player, min_bet)
                                     if isSuccess:
                                         call_msg = await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                         await call_msg.delete(delay=5.0)
@@ -1010,7 +1043,7 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            isSuccess = await self.player_queue._setBet(ctx, player, raise_amount)
+                                            isSuccess = await self.player_queue.__setBet(ctx, player, raise_amount)
                                             if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount} GleepCoins."))
                                                 self.pushToPot(player)
@@ -1105,7 +1138,7 @@ class Poker(commands.Cog):
                             match emoji:
                                 case "📞":
                                     if min_bet > 0:
-                                        isSuccess = await self.player_queue._setBet(ctx, player, min_bet)
+                                        isSuccess = await self.player_queue.__setBet(ctx, player, min_bet)
                                         if isSuccess:
                                             await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                             self.pushToPot(player)
@@ -1124,7 +1157,7 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            isSuccess = await self.player_queue._setBet(ctx, player, raise_amount) 
+                                            isSuccess = await self.player_queue.__setBet(ctx, player, raise_amount) 
                                             if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount}."))
                                                 self.pushToPot(player)
@@ -2203,5 +2236,5 @@ class PokerRanker(Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(PlayerQueue(bot))        
+    await bot.add_cog(GamesController(bot))        
 

@@ -5,6 +5,8 @@ from helper import write_iterable
 from canvasapi import Canvas
 import discord
 
+
+
 class CanvasClient(commands.Cog):
     def __init__(self, bot, api_key, base_url, course_num):
         self.bot = bot
@@ -12,7 +14,7 @@ class CanvasClient(commands.Cog):
         self.base_url = base_url
         self.course = course_num
     
-    def get_dates_range(self, how_many_days_ahead) -> list[datetime]:
+    def get_dates_range(self, how_many_days_ahead) -> list[date]:
         today = date.today()
         dates_list = [(today + timedelta(days=x)) for x in range(how_many_days_ahead)]
         return dates_list
@@ -60,8 +62,8 @@ class CanvasClient(commands.Cog):
     
     @commands.command()
     async def getNewAssignments(self, ctx, num:str):
-        num = int(num)
-        assignments, time_diff = self._get_new_assignments(DATETIME_FILE, num)
+        int_num = int(num)
+        assignments, time_diff = self._get_new_assignments(DATETIME_FILE, int_num)
         pretty_string = ""
         for item in assignments:
             pretty_string += f"{item}\n"
