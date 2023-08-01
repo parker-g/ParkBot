@@ -1,24 +1,28 @@
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
-from discord.ext import commands
 from cogs.controller import Controller
-from discord import Embed
-from mutagen import mp3
 from collections import deque
+import asyncio
 import helper
 import html
+
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError # can be thrown when max amount of youtube searches has been met/exceeded
 import discord
+from discord import Embed
+from discord.ext import commands
+from discord import VoiceClient
+from mutagen import mp3
 import yt_dlp
 from youtube_dl import YoutubeDL
-import asyncio
+
 
 # current goal:
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
     # introduct database to handle all the files in 'data' folder. this will probably make bot harder to set up for noobies, but will be easier to handle data from multiple guilds at once. and look cleaner with a clean data folder.
+
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
-    # users can turn on / turn off autoplay (off by default)
+    # users can turn on / turn off autoplay (off by default and turns off whenever mongrel bot leaves voice)
         # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
 
 
@@ -264,6 +268,15 @@ class Player(commands.Cog):
                 self.voice.play(source = audio, after = self.play_next)
 
 
+    async def join_voice(self, ctx) -> VoiceClient:
+        """Only call this after checking that the ctx.author.voice is not None, or you may receive an error."""
+        # don't need to check which guild etc, because while using context, this information is inferred
+        current_channel = ctx.author.voice.channel
+        voice = await current_channel.connect(timeout = None)
+        return voice
+        
+
+
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -276,7 +289,9 @@ class Player(commands.Cog):
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
         else:
-            # join voice channel before downloading if self.voice is None.
+            if len(playlist.playque) == 0:
+                if self.voice is None:
+                    self.voice = self.join_voice(ctx)
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
             await playlist.addToQ(ctx, new_song)
@@ -289,9 +304,7 @@ class Player(commands.Cog):
             # check if there's already a voice connection
 
             if self.voice is None:
-                current_channel = ctx.author.voice.channel
-                # create voice connection
-                self.voice = await current_channel.connect(timeout = None)
+                self.voice = await self.join_voice(ctx)
                 self._play_song()
                 await self.leaveWhenDone(ctx)
             elif self.playing is False: # perhaps use self.voice.is_playing() instead
@@ -315,13 +328,13 @@ class Player(commands.Cog):
     async def leaveWhenDone(self, ctx):
         print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
-        # this didn't work last time, INVESTIGATE!
         print(f"done sleeping, checking if voice client playing")
         # message = await ctx.send(f"checking if voice client playing")
         # await message.delete(delay=7.0)
         if self.voice is not None:
             if self.voice.is_connected():
-                if not self.voice.is_playing():
+                # get the voice channel it's connected to and check the amount of users in the voice channel.
+                if not self.voice.is_playing(): # or if len(users in channel) < 2:
                     try:
                         await self.voice.disconnect()
                         await ctx.send(embed=Embed(title=f'Left voice chat due to inactivity.'))

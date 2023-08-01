@@ -161,7 +161,7 @@ async def resetGames(ctx):
 
 @bot.command()
 async def checkCogs(ctx):
-    cogs = ["PlayerQueue", "CanvasClient", "Economy", "MusicController", "Reward"]
+    cogs = ["GamesController", "CanvasClient", "Economy", "MusicController", "RewardsController"]
     cog_string = ""
     for cog in cogs:
         if bot.get_cog(cog) is not None:
