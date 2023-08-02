@@ -6,12 +6,23 @@ from cogs.controller import Controller
 from discord import Embed
 from mutagen import mp3
 from collections import deque
+import logging
+import asyncio
 import helper
+import time
 import html
 import discord
+from discord import Embed
+from discord.ext import commands
+from mutagen import mp3
 import yt_dlp
 from youtube_dl import YoutubeDL
-import asyncio
+
+# new music specific log
+music_handler = logging.FileHandler("music.log", encoding="utf-8", mode="w")
+logger = logging.Logger("music_logger")
+logger.addHandler(music_handler)
+
 
 # current goal:
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
@@ -263,7 +274,7 @@ class Player(commands.Cog):
                 print(f"Attempting to play current song.")
                 self.voice.play(source = audio, after = self.play_next)
 
-
+    
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -275,8 +286,7 @@ class Player(commands.Cog):
         if song_titles_and_ids is None:
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
-        else:
-            # join voice channel before downloading if self.voice is None.
+        else: 
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
             await playlist.addToQ(ctx, new_song)
@@ -284,6 +294,7 @@ class Player(commands.Cog):
                 try: 
                     self.client.downloadSong(new_song)
                 except yt_dlp.utils.DownloadError as e:
+                    logger.error(f"{time.localtime()}Download Error: {e}", exc_info=True, stack_info=True)
                     await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
                     playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
             # check if there's already a voice connection
@@ -330,6 +341,7 @@ class Player(commands.Cog):
                         return
                     except Exception as e:
                         error_message = await ctx.send(f"Bot was cleared to leave the voice channel, however It was unable to execute this action. Exception: {e}")
+                        logger.error(error_message, exc_info=True)
                         await error_message.delete(delay=7.0)
                         return
                 elif self.voice.is_playing():
@@ -349,6 +361,7 @@ class MusicController(Controller):
     then execute the lower level `_play` or `_skip` commands on the instance. In other words, the MusicController directs users' commands
     to their guild's instance of the ParkBot."""
     def __init__(self, bot):
+        logger.info(f"{time.asctime(time.localtime())}: MusicController constructed.")
         super().__init__(bot, PlayList)
         #self.guilds_to_clazzs:dict[discord.Guild, PlayList] - this exists but isnt explicit here
         self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot)) for playlist in self.guilds_to_clazzs.values()}
