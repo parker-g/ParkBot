@@ -15,6 +15,7 @@ from discord.ext import commands
 from mutagen import mp3
 import yt_dlp
 from youtube_dl import YoutubeDL
+from parkproxies.proxy_service import ProxyService
 
 # new music specific log
 music_handler = logging.FileHandler(f"{WORKING_DIRECTORY}music.log", encoding="utf-8", mode="w")
@@ -222,8 +223,9 @@ class Player(commands.Cog):
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
-        songs_to_delete = [song.slug_title for song in playlist.playhistory]
+        songs_to_delete = [song.slug_title for song in playlist.playhistory if song not in playlist.playque]
         helper.deleteTheseFiles(songs_to_delete)
+        logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs, {songs_to_delete}")
         if not playlist.isEmpty():
             if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
                 playlist.current_song = playlist.playque[0]
@@ -264,7 +266,7 @@ class Player(commands.Cog):
                 return
             playlist.current_song = playlist.playque[0]
             playlist.playque.pop()
-            songs_to_delete = [song.slug_title for song in playlist.playhistory]
+            songs_to_delete = [song.slug_title for song in playlist.playhistory if song not in playlist.playque]
             playlist.playhistory.appendleft(playlist.current_song)
             try:
                 helper.deleteTheseFiles(songs_to_delete)
