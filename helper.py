@@ -52,14 +52,13 @@ def slugify(string):
             new_string += letter
     return new_string
 
-def deleteAudioFile(song_name):
+def cleanupSong(song_path):
+    """Remove leftover files from a failed yt_dlp download."""
     os.chdir(DATA_DIRECTORY)
-    # in data directory 
-
     files = os.listdir(os.getcwd())
     for file in files:
         # if the file minus the .mp3 extension equals input song name
-        if str(file[:-4]) == song_name:
+        if (str(file[:-4]) == song_path) or (str(file[:-5]) == song_path):
             try:
                 os.remove(file)
             except Exception as e:

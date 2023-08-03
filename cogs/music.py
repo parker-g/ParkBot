@@ -12,7 +12,6 @@ from googleapiclient.errors import HttpError # can be thrown when max amount of 
 import discord
 from discord import Embed
 from discord.ext import commands
-from discord import VoiceClient
 from mutagen import mp3
 import yt_dlp
 from youtube_dl import YoutubeDL
@@ -24,7 +23,6 @@ logger.addHandler(music_handler)
 
 def getTime() -> str:
     return time.asctime(time.localtime())
->>>>>>> Stashed changes
 
 # current goal:
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
@@ -239,7 +237,7 @@ class Player(commands.Cog):
                 except yt_dlp.utils.DownloadError:
                     logger.error(f"{getTime()}: The video you wanted to download was too large. Deleting this song from the queue.")
                     playlist.remove(next_song)
-                    helper.deleteAudioFile(next_song.slug_title)
+                    helper.cleanupSong(next_song.slug_title)
             # otherwise, pre download a song ahead in the queue after a song is playing
             audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
             if self.playing is False:
@@ -252,7 +250,7 @@ class Player(commands.Cog):
                         self.client.downloadSong(preload_song)
                     except yt_dlp.utils.DownloadError:
                         logger.error(f"{time.asctime(time.localtime())}: Error preloading the next undownloaded song in play_next method")
-                        helper.deleteAudioFile(preload_song.slug_title)
+                        helper.cleanupSong(preload_song.slug_title)
         elif err:
             logger.error(f"{getTime()}: Error in play_next method: {err}" )
             return
@@ -306,7 +304,7 @@ class Player(commands.Cog):
                     logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
                     await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
                     playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
-                    helper.deleteAudioFile(new_song.slug_title)
+                    helper.cleanupSong(new_song.slug_title)
             # check if there's already a voice connection
 
             if self.voice is None:
