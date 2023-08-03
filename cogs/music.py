@@ -269,7 +269,6 @@ class Player(commands.Cog):
             try:
                 helper.deleteTheseFiles(songs_to_delete)
                 logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs.")
->>>>>>> Stashed changes
             except:
                 pass
             # print(f"Loading current song from this path: {playlist.current_song.path}")
