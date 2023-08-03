@@ -1,8 +1,10 @@
-from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
+from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY
 from cogs.controller import Controller
 from collections import deque
 import asyncio
 import helper
+import time
+import logging
 import html
 
 from googleapiclient.discovery import build
@@ -15,11 +17,18 @@ from mutagen import mp3
 import yt_dlp
 from youtube_dl import YoutubeDL
 
+# new music specific log
+music_handler = logging.FileHandler(f"{WORKING_DIRECTORY}music.log", encoding="utf-8", mode="w")
+logger = logging.Logger("music_logger")
+logger.addHandler(music_handler)
+
+def getTime() -> str:
+    return time.asctime(time.localtime())
+>>>>>>> Stashed changes
 
 # current goal:
     # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
     # introduct database to handle all the files in 'data' folder. this will probably make bot harder to set up for noobies, but will be easier to handle data from multiple guilds at once. and look cleaner with a clean data folder.
-
 # requested feature: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
     # users can turn on / turn off autoplay (off by default and turns off whenever mongrel bot leaves voice)
@@ -171,7 +180,7 @@ class YoutubeClient:
             if ctx:
                 await ctx.send(err_message)
             else:
-                print(err_message + "\n")
+                logger.error(f"{getTime()}: {err_message}")
 
     
     def downloadSong(self, song:Song):
@@ -215,9 +224,8 @@ class Player(commands.Cog):
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
-        songs_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
-
-        helper.deleteSongsBesidesThese(songs_to_save)
+        songs_to_delete = [song.slug_title for song in playlist.playhistory]
+        helper.deleteTheseFiles(songs_to_delete)
         if not playlist.isEmpty():
             if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
                 playlist.current_song = playlist.playque[0]
@@ -229,8 +237,9 @@ class Player(commands.Cog):
                 try: 
                     self.client.downloadSong(next_song)
                 except yt_dlp.utils.DownloadError:
-                    print(f"The video you wanted to download was too large. Deleting this song from the queue.")
+                    logger.error(f"{getTime()}: The video you wanted to download was too large. Deleting this song from the queue.")
                     playlist.remove(next_song)
+                    helper.deleteAudioFile(next_song.slug_title)
             # otherwise, pre download a song ahead in the queue after a song is playing
             audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
             if self.playing is False:
@@ -239,44 +248,41 @@ class Player(commands.Cog):
                 # check if num of downloaded songs is < 4, if so then download the next undownloaded song.
                 preload_song = playlist.getNextUndownloadedSong()
                 if preload_song is not None:
-                    self.client.downloadSong(preload_song)
+                    try:
+                        self.client.downloadSong(preload_song)
+                    except yt_dlp.utils.DownloadError:
+                        logger.error(f"{time.asctime(time.localtime())}: Error preloading the next undownloaded song in play_next method")
+                        helper.deleteAudioFile(preload_song.slug_title)
         elif err:
-            print(f"Error in play_next method: ", err)
+            logger.error(f"{getTime()}: Error in play_next method: {err}" )
             return
 
     def _play_song(self):
         # print(f"***starting _play_song method")
         playlist = self.playlist
         if not playlist.isEmpty():
-            print(f"Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
+            logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
             if self.voice.is_playing():
                 # print(f"A song is already playing! Will return early from _play_song call.")
                 return
             playlist.current_song = playlist.playque[0]
             playlist.pop()
-            songs_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
+            songs_to_delete = [song.slug_title for song in playlist.playhistory]
             try:
-                helper.deleteSongsBesidesThese(songs_to_save)
+                helper.deleteTheseFiles(songs_to_delete)
+                logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs.")
+>>>>>>> Stashed changes
             except:
                 pass
-            print(f"Loading current song from this path: {playlist.current_song.path}")
+            # print(f"Loading current song from this path: {playlist.current_song.path}")
             audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
 
             if self.playing is False:
                 self.playing = True
-                print(f"Attempting to play current song.")
+                # print(f"Attempting to play current song.")
                 self.voice.play(source = audio, after = self.play_next)
 
-
-    async def join_voice(self, ctx) -> VoiceClient:
-        """Only call this after checking that the ctx.author.voice is not None, or you may receive an error."""
-        # don't need to check which guild etc, because while using context, this information is inferred
-        current_channel = ctx.author.voice.channel
-        voice = await current_channel.connect(timeout = None)
-        return voice
-        
-
-
+    
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -288,23 +294,25 @@ class Player(commands.Cog):
         if song_titles_and_ids is None:
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
-        else:
-            if len(playlist.playque) == 0:
-                if self.voice is None:
-                    self.voice = self.join_voice(ctx)
+        else: 
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
             await playlist.addToQ(ctx, new_song)
             if len(playlist.playque) < 4: # download up to 3 songs ahead of time
                 try: 
                     self.client.downloadSong(new_song)
+                    logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {new_song.title}")
                 except yt_dlp.utils.DownloadError as e:
+                    logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
                     await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
                     playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
+                    helper.deleteAudioFile(new_song.slug_title)
             # check if there's already a voice connection
 
             if self.voice is None:
-                self.voice = await self.join_voice(ctx)
+                current_channel = ctx.author.voice.channel
+                # create voice connection
+                self.voice = await current_channel.connect(timeout = None)
                 self._play_song()
                 await self.leaveWhenDone(ctx)
             elif self.playing is False: # perhaps use self.voice.is_playing() instead
@@ -328,6 +336,7 @@ class Player(commands.Cog):
     async def leaveWhenDone(self, ctx):
         print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
+        # this didn't work last time, INVESTIGATE!
         print(f"done sleeping, checking if voice client playing")
         # message = await ctx.send(f"checking if voice client playing")
         # await message.delete(delay=7.0)
@@ -343,6 +352,7 @@ class Player(commands.Cog):
                         return
                     except Exception as e:
                         error_message = await ctx.send(f"Bot was cleared to leave the voice channel, however It was unable to execute this action. Exception: {e}")
+                        logger.error(error_message, exc_info=True)
                         await error_message.delete(delay=7.0)
                         return
                 elif self.voice.is_playing():
@@ -361,7 +371,9 @@ class MusicController(Controller):
     and Player for each guild the ParkBot is a part of. The `play` and `skip` commands access the appropriate Player instance,\n
     then execute the lower level `_play` or `_skip` commands on the instance. In other words, the MusicController directs users' commands
     to their guild's instance of the ParkBot."""
+    # the songs_to_save doesn't 
     def __init__(self, bot):
+        logger.info(f"{time.asctime(time.localtime())}: MusicController constructed.")
         super().__init__(bot, PlayList)
         #self.guilds_to_clazzs:dict[discord.Guild, PlayList] - this exists but isnt explicit here
         self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot)) for playlist in self.guilds_to_clazzs.values()}
