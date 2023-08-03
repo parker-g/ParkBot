@@ -259,16 +259,16 @@ class Player(commands.Cog):
         # print(f"***starting _play_song method")
         playlist = self.playlist
         if not playlist.isEmpty():
-            logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
+            # logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
             if self.voice.is_playing():
-                # print(f"A song is already playing! Will return early from _play_song call.")
                 return
             playlist.current_song = playlist.playque[0]
-            playlist.pop()
+            playlist.playque.pop()
             songs_to_delete = [song.slug_title for song in playlist.playhistory]
+            playlist.playhistory.appendleft(playlist.current_song)
             try:
                 helper.deleteTheseFiles(songs_to_delete)
-                logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs.")
+                logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs, {songs_to_delete}")
             except:
                 pass
             # print(f"Loading current song from this path: {playlist.current_song.path}")
