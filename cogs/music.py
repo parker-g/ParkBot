@@ -15,7 +15,6 @@ from discord.ext import commands
 from mutagen import mp3
 import yt_dlp
 from youtube_dl import YoutubeDL
-from parkproxies.proxy_service import ProxyService
 
 # new music specific log
 music_handler = logging.FileHandler(f"{WORKING_DIRECTORY}music.log", encoding="utf-8", mode="w")
