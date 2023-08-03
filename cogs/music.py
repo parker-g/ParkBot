@@ -1,6 +1,6 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH
+from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY
 from discord.ext import commands
 from cogs.controller import Controller
 from discord import Embed
@@ -19,7 +19,7 @@ import yt_dlp
 from youtube_dl import YoutubeDL
 
 # new music specific log
-music_handler = logging.FileHandler("music.log", encoding="utf-8", mode="w")
+music_handler = logging.FileHandler(f"{WORKING_DIRECTORY}music.log", encoding="utf-8", mode="w")
 logger = logging.Logger("music_logger")
 logger.addHandler(music_handler)
 
@@ -264,6 +264,7 @@ class Player(commands.Cog):
             songs_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
             try:
                 helper.deleteSongsBesidesThese(songs_to_save)
+                logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs.")
             except:
                 pass
             print(f"Loading current song from this path: {playlist.current_song.path}")
@@ -293,8 +294,9 @@ class Player(commands.Cog):
             if len(playlist.playque) < 4: # download up to 3 songs ahead of time
                 try: 
                     self.client.downloadSong(new_song)
+                    logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {new_song.title}")
                 except yt_dlp.utils.DownloadError as e:
-                    logger.error(f"{time.localtime()}Download Error: {e}", exc_info=True, stack_info=True)
+                    logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
                     await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
                     playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
             # check if there's already a voice connection
