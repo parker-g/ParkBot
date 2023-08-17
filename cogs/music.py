@@ -24,15 +24,27 @@ logger.addHandler(music_handler)
 def getTime() -> str:
     return time.asctime(time.localtime())
 
-# current goal:
-    # refactor cogs (starting with music) to allow bot to serve all cogs to more than one server at one time. (user story: I can use ParkBot music feature simaltaneously from two different discord servers.)
-    # introduct database to handle all the files in 'data' folder. this will probably make bot harder to set up for noobies, but will be easier to handle data from multiple guilds at once. and look cleaner with a clean data folder.
-# requested feature: autoplay suggested videos/songs -
+#TODO
+# current goal: autoplay suggested videos/songs -
     # could extract tags from the video I'm on and perform a search of those tags, return first video
     # users can turn on / turn off autoplay (off by default and turns off whenever mongrel bot leaves voice)
         # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
+ 
+#TODO
+# backburner goal:
+    # introduce database to handle all the files in 'data' folder. I think this would be a tradeoff between setup difficulty and ease of operating in the long term.
+    # honestly, might not be worth it to most operators unless they are serving dozens of servers. either way, it would
+    # be good practice for me. I could practice the dependency injection pattern by creating a class, ("FileManager" perhaps?) that is 
+    # constructed upon booting the bot - which establishes a database client if DB url/creds are provided, otherwise handles all data in the ParkBot/data/ directory.
 
+    # also, this would be a simple, pythonic way of doing this. I think the more safe way, which could more easily be done in something llike Java, 
+    # would be to create an interface, let's call it "DataManager". then create subclasses which implement this interface, such as DBManager and FileManager.
+    # then, only use calls to the DataManager interface whenever you need to work with IO operations.
 
+    #pythonic way - the 'interface' would be a DataManager class which defines each method(including its parameters and return type), but doesn't implement them (passing on each method).
+    # let classes that want to implement this interface just extend the DataManager class
+
+#TODO
 # planned feature : ability to play songs from URls (youtube, spotify, soundcloud) could pretty easily play spotify stuff. their API seems not bad. I think doing this would require me to provide my spotify login tho. and spotify limits to listening on one device so i dont like this idea.
 class Song:
     def __init__(self):
@@ -140,8 +152,7 @@ class PlayList(commands.Cog):
                 count += 1
         return count
 
-#ideally each guild would have its own youtube client but this shouldn't be necessary
-# for the small number of requests i am anticipating.
+
 class YoutubeClient:
     """
     The YoutubeClient is used to grab resources from youtube, using both the youtube API and ytdl.\n
@@ -222,9 +233,9 @@ class Player(commands.Cog):
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
-        songs_to_delete = [song.slug_title for song in playlist.playhistory if song not in playlist.playque]
-        helper.deleteTheseFiles(songs_to_delete)
-        logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs, {songs_to_delete}")
+        song_titles_to_save = [song.slug_title for song in playlist.playque]
+        helper.deleteSongsBesidesThese(song_titles_to_save)
+        logger.info(f"{time.asctime(time.localtime())}: ParkBot songs besides those in this list, {song_titles_to_save}")
         if not playlist.isEmpty():
             if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
                 playlist.current_song = playlist.playque[0]
@@ -255,7 +266,7 @@ class Player(commands.Cog):
         elif err:
             logger.error(f"{getTime()}: Error in play_next method: {err}" )
             return
-
+        
     def _play_song(self):
         # print(f"***starting _play_song method")
         playlist = self.playlist
@@ -265,11 +276,11 @@ class Player(commands.Cog):
                 return
             playlist.current_song = playlist.playque[0]
             playlist.playque.pop()
-            songs_to_delete = [song.slug_title for song in playlist.playhistory if song not in playlist.playque]
+            song_titles_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
             playlist.playhistory.appendleft(playlist.current_song)
             try:
-                helper.deleteTheseFiles(songs_to_delete)
-                logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted already-played songs, {songs_to_delete}")
+                helper.deleteSongsBesidesThese(song_titles_to_save)
+                logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted all songs besides those in this list, {song_titles_to_save}")
             except:
                 pass
             # print(f"Loading current song from this path: {playlist.current_song.path}")
@@ -280,7 +291,7 @@ class Player(commands.Cog):
                 # print(f"Attempting to play current song.")
                 self.voice.play(source = audio, after = self.play_next)
 
-    
+    #TODO make bot join different voice channel if caller is in different voice channel than bot
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -292,12 +303,12 @@ class Player(commands.Cog):
         if song_titles_and_ids is None:
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
-        else: 
+        else:
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
             await playlist.addToQ(ctx, new_song)
             if len(playlist.playque) < 4: # download up to 3 songs ahead of time
-                try: 
+                try:
                     self.client.downloadSong(new_song)
                     logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {new_song.title}")
                 except yt_dlp.utils.DownloadError as e:
@@ -314,6 +325,8 @@ class Player(commands.Cog):
                 self._play_song()
                 await self.leaveWhenDone(ctx)
             elif self.playing is False: # perhaps use self.voice.is_playing() instead
+                # check if bot is in the correct channel
+                # if 
                 self._play_song()
             else:
                 return
@@ -406,7 +419,7 @@ class MusicController(Controller):
         await ctx.send(embed=Embed(title=f"Current Song", description=f"{playlist.current_song.title}"))
 
 
-    # I want to continue experimenting with this later down the line -
+    #NOTE - I want to continue experimenting with this later down the line -
     #seems there's some way to play songs without downloading ? not sure
     async def playURL(self, ctx, url):
         author_vc = ctx.author.voice.channel
@@ -417,11 +430,7 @@ class MusicController(Controller):
             info = ydl.extract_info(url, download=False)
             audio_url = info['formats'][0]['url']
             self.voice.play(discord.FFmpegPCMAudio(audio_url))
-
-    # i think I need to wrap the play commands into a new class - each Player instance should have a guild associated with it
-    # when the bot checks if its in a voice channel - need to also check if theres's anyone else in the voice channel. if not, then join the caller's voice channel. (for cases when the bot is by itself in a voice channel while its caller is in another channel.)
-    
-    
+ 
     @commands.command()
     async def play(self, ctx, *args) -> None:
         """Accesses a guild's Player and attempts to play a song through it."""
