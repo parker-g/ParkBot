@@ -7,6 +7,8 @@ import time
 import logging
 import html
 
+from spotipy import Spotify, SpotifyException
+from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError # can be thrown when max amount of youtube searches has been met/exceeded
 import discord
@@ -108,7 +110,6 @@ class PlayList(commands.Cog):
             playhistory = self.playhistory.copy()
             playhistory.pop() # copy current playhistory, leaving popping off the most recent edition (the current song)
             playhistory_with_index = enumerate(self.playhistory, start=1)
-
             for index, song in playhistory_with_index: # skip first song in playhistory as this is the current song
                 pretty_string += f"{index}: {song.title}\n"
             await ctx.send(embed = Embed(title=f"Recently Played", description=f"{pretty_string}"))
@@ -153,7 +154,33 @@ class PlayList(commands.Cog):
             if song.downloaded is True:
                 count += 1
         return count
+    
+class SpotifyClient:
+    def __init__(self, client_id, client_secret):
+        self.auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+        self.sp = Spotify(auth_manager=self.auth_manager)
 
+    def getSpotifySongId(self, query:str) -> str | None:
+        id = None
+        try:
+            results = sp.search(q=query, type="track")
+            first_track = results["tracks"]['items'][0]
+            id = first_track['id']
+        except SpotifyException as e:
+            print("Error accessing the spotify API. Returning None.")
+        # album = first_track["album"]
+        # artists = first_track["artists"]
+        return id
+    
+    def getSongRecommendation(self, spotify_song_id:str) -> dict[str, list[str]] | None:
+        songs_to_artists = {}
+        try:
+            recommendations = sp.recommendations(seed_tracks=[spotify_song_id], limit=1)
+            for track in recommendations["tracks"]:
+                songs_to_artists[track['name']] = [artist['name'] for artist in track['artists']]
+        except SpotifyException as e:
+            print(f"Error accessing spotify API. Returning None.")
+        return songs_to_artists
 
 class YoutubeClient:
     """
@@ -220,6 +247,7 @@ class YoutubeClient:
         song.setDownloaded()
         return
 
+
 class Player(commands.Cog):
     """Class that performs logic pertaining to playing or skipping songs. Constructed with a PlayList and YoutubeClient."""
     def __init__(self, bot, playlist:PlayList, client: YoutubeClient):
@@ -229,6 +257,10 @@ class Player(commands.Cog):
         self.playlist = playlist
         self.client = client
         self.voice = None
+
+        self.autoplay = False
+        self.autoplay_count = 0
+
 
     def play_next(self, err = None):
         # print(f"***starting play_next method")
@@ -243,6 +275,9 @@ class Player(commands.Cog):
                 playlist.current_song = playlist.playque[0]
             playlist.pop()
             self.from_skip = False
+            # if autoplay is True, search and add antoher song to the queue
+            if self.autoplay is True:
+                autoplay_song = 
             next_song = playlist.getNextSong()
             # download next song if its not downloaded
             if (next_song is not None) and (next_song.downloaded is False):

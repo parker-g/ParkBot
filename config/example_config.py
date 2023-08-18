@@ -1,19 +1,24 @@
 # save a filled out version of this file as config.py, in this directory.
 
-# this config file uses windows style back slashes in directory naming - you may need to change all '\\' to '/' to run on a linux machine
+# this config file uses windows-style back slashes in directory naming - you may need to change all '\\' to '/' to run on a linux machine
+
 
 # pound sign legend: 
 
 # == this variable is necessary for the discord Bot to run
-## == this variable is necessary for the Music feature
+## == this variable is necessary for the Music feature 
 ### == this variable is necessary for the Canvas feature
-
+#### == this variable is optional
 
 TOKEN = '' # this is your Discord API token, the soul of your Discord Bot
 
 WORKING_DIRECTORY = "" # this should be the path to your local instance of the ParkBot repository, ie "C:/Users/Parker/Documents/GitHub-Repos/ParkBot/"
 
 GOOGLE_API_KEY = '' ## a google API key is necessary to host the Music feature, since searching for songs on youtube (within google's TOS) requires a key.
+
+SPOTIFY_CLIENT_ID = "" #### Client ID provided by spotify, used to access the Spotify API. use this for access to the music 'autoplay' feature.
+
+SPOTIFY_CLIENT_SECRET = "" #### The api-key corresponding to your spotify client ID. Make sure to provide this value in conjunction with your client ID to allow the music 'autoplay' feature to work.
 
 FFMPEG_PATH = "C:/Program Files/FFmpeg/bin/ffmpeg.exe" ## (the current value of FFMPEG_PATH is an example) this is the path to your FFMPEG executable. this exe will be used to process audio (music) before it can be played.
 
