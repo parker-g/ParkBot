@@ -105,10 +105,12 @@ class PlayList(commands.Cog):
         if len(self.playhistory) > 1:
             pretty_string = ""
             pretty_string += f"Playing: {self.current_song.title}\n\n"
-            count = 1 # skip the first song in playque
-            for song in self.playhistory:
-                pretty_string += f"{count}: {song.title}\n"
-                count += 1
+            playhistory = self.playhistory.copy()
+            playhistory.pop() # copy current playhistory, leaving popping off the most recent edition (the current song)
+            playhistory_with_index = enumerate(self.playhistory, start=1)
+
+            for index, song in playhistory_with_index: # skip first song in playhistory as this is the current song
+                pretty_string += f"{index}: {song.title}\n"
             await ctx.send(embed = Embed(title=f"Recently Played", description=f"{pretty_string}"))
         else:
             await ctx.send(embed = Embed(title=f"No songs have been played yet."))
@@ -277,7 +279,7 @@ class Player(commands.Cog):
             playlist.current_song = playlist.playque[0]
             playlist.playque.pop()
             song_titles_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
-            playlist.playhistory.appendleft(playlist.current_song)
+            playlist.playhistory.append(playlist.current_song)
             try:
                 helper.deleteSongsBesidesThese(song_titles_to_save)
                 logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted all songs besides those in this list, {song_titles_to_save}")
