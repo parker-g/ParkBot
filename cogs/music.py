@@ -283,17 +283,16 @@ class Player(commands.Cog):
         self.autoplay = False
 
     def play_next(self, err = None):
-        # print(f"***starting play_next method")
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
-        song_titles_to_save = [song.slug_title for song in playlist.playque]
+        song_titles_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
         helper.deleteSongsBesidesThese(song_titles_to_save)
-        logger.info(f"{time.asctime(time.localtime())}: ParkBot songs besides those in this list, {song_titles_to_save}")
+        logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted songs besides those in this list, {song_titles_to_save}")
         if not playlist.isEmpty():
             if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
                 playlist.current_song = playlist.playque[0]
-            playlist.pop()
+            playlist.playque.popleft()
             self.from_skip = False
             # if autoplay is True, search and add antoher song to the queue
             next_song = playlist.getNextSong()
@@ -326,25 +325,46 @@ class Player(commands.Cog):
         # print(f"***starting _play_song method")
         playlist = self.playlist
         if not playlist.isEmpty():
+            logger.debug(f"{getTime()}: Playlist is not empty so continuing _play_song method.")
             # logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
             if self.voice.is_playing():
+                logger.debug(f"{getTime}: Voice is already playing, so returning early.")
                 return
             playlist.current_song = playlist.playque[0]
-            playlist.playque.pop()
+            logger.debug(f"{getTime()}: _play_song iterating current_song to {playlist.playque[0].title}.")
+
+            next_song = playlist.getNextUndownloadedSong()
+            if (next_song is not None) and (next_song.downloaded is False):
+                logger.debug(f"{getTime()}: _play_song attempting to download the next song in queue, {next_song.title}")
+                try: 
+                    self.ytclient.downloadSong(next_song)
+                except yt_dlp.utils.DownloadError:
+                    logger.error(f"{getTime()}: The video you wanted to download was too large. Deleting this song from the queue.")
+                    playlist.remove(next_song)
+                    helper.cleanupSong(next_song.slug_title)
+            
+            bye = playlist.playque.popleft()
+            logger.debug(f"{getTime()}: _play_song popping left song off the playque, {bye.title}.")
             song_titles_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
             playlist.playhistory.append(playlist.current_song)
+
             try:
                 helper.deleteSongsBesidesThese(song_titles_to_save)
+                logger.debug(f"Songs remaining after deleting in _play_song: {[song.title for song in self.playlist.playque]}")
                 logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted all songs besides those in this list, {song_titles_to_save}")
             except:
                 pass
             # print(f"Loading current song from this path: {playlist.current_song.path}")
             audio = discord.FFmpegPCMAudio(playlist.current_song.path, executable=FFMPEG_PATH)
-
+            if audio is not None:
+                logger.debug(f"{getTime()}: _play_song successfully created a discord compatible audio from {playlist.current_song.title}")
+            else:
+                logger.debug(f"{getTime()}: _play_song failed to create a discord compatible audio from {playlist.current_song.title}")
             if self.playing is False:
                 self.playing = True
-                # print(f"Attempting to play current song.")
+                logger.debug(f"{getTime()}: _play_song attempting to voice.play current song.")
                 self.voice.play(source = audio, after = self.play_next)
+
 
     #TODO make bot join different voice channel if caller is in different voice channel than bot
     async def _play(self, ctx, *args) -> None:
@@ -396,10 +416,22 @@ class Player(commands.Cog):
                                 yt_song_title_and_id = await self.ytclient.getSearchResultsWithString(query_string)
                                 song.setData(yt_song_title_and_id[0])
                                 playlist.add(song)
+                        # do pre-download down here too to avoid calling play_next with no song downloaded
+                        if len(playlist.playque) < 4:
+                            try:
+                                autoplay_song = playlist.getNextUndownloadedSong()
+                                self.ytclient.downloadSong(autoplay_song)
+                                logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {autoplay_song.title}")
+                            except yt_dlp.utils.DownloadError as e:
+                                logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
+                                await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
+                                playlist.remove(autoplay_song) # removes the song without adding it to playhistory, since it wasn't played
+                                helper.cleanupSong(autoplay_song.slug_title)
+                        
                 #NOTE this leaveWhenDone method can + will be moved around again when I fix the problem where the bot needs to re-join callers channel whenever the caller calls play
                 await self.leaveWhenDone(ctx)
             
-            elif (self.playing is False) and (self.voice is not None): # perhaps use self.voice.is_playing() instead
+            elif self.playing is False: # perhaps use self.voice.is_playing() instead
                     # check if bot is in the correct channel
                     # if 
                     self._play_song()
@@ -407,14 +439,19 @@ class Player(commands.Cog):
             else:
                 return
     
+    #TODO skip is deleting a song after the next song
     async def _skip(self, ctx):
         playlist = self.playlist
-        if playlist.current_song is not None:
-            await ctx.send(embed=Embed(title=f"Skipping {playlist.current_song.title}."))
+        current_song = playlist.current_song
+        if current_song is not None:
+            logger.info(f"{getTime()}: Skipping {current_song}")
+            await ctx.send(embed=Embed(title=f"Skipping {current_song.title}."))
             self.voice.stop()
             self.playing = False
             self.from_skip = True
+            playlist.playhistory.append(current_song)
             playlist.current_song = None
+            logger.debug(f"{getTime()}: _skip calling _play_song().")
             self._play_song()
         # need to be able to skip even if no songs are in queue after the current song.
         else:
@@ -526,7 +563,6 @@ class MusicController(Controller):
             await ctx.send(embed=Embed(title=f"Please type an argument after `autoplay`, such as `on`, or `off`."))
             return
         string = str(args[0])
-        print(string)
         if isinstance(string, str):
             print("Your argument is now a string.")
             match string:
@@ -537,7 +573,6 @@ class MusicController(Controller):
                 case _:
                     new_bool = player.autoplay
             player.autoplay = new_bool
-            print(player.autoplay)
             await ctx.send(embed=Embed(title=f"Music autoplay set to {player.autoplay}."))
         else:
             await ctx.send(embed=Embed(title=f"Invalid Argument", description=f"Please try again, using something like `yes`, `on`, `off`, or `no`."))
