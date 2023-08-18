@@ -1,4 +1,4 @@
-from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY
+from config.config import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 from cogs.controller import Controller
 from collections import deque
 import asyncio
@@ -172,12 +172,12 @@ class SpotifyClient:
         # artists = first_track["artists"]
         return id
     
-    def getSongRecommendation(self, spotify_song_id:str) -> dict[str, list[str]] | None:
-        songs_to_artists = {}
+    def getSongRecommendation(self, spotify_song_id:str) -> tuple[str, list[str]] | None:
+        songs_to_artists = None
         try:
             recommendations = sp.recommendations(seed_tracks=[spotify_song_id], limit=1)
             for track in recommendations["tracks"]:
-                songs_to_artists[track['name']] = [artist['name'] for artist in track['artists']]
+                songs_to_artists = (track['name'], [artist['name'] for artist in track['artists']])
         except SpotifyException as e:
             print(f"Error accessing spotify API. Returning None.")
         return songs_to_artists
@@ -220,6 +220,25 @@ class YoutubeClient:
             else:
                 logger.error(f"{getTime()}: {err_message}")
 
+    async def getSearchResultsWithString(self, query:str, maxResults=1) -> list[tuple[str, str]] | None:
+        request = self.service.search().list(
+        part='snippet',
+        maxResults=int(maxResults),
+        q=str(query))
+
+        try:
+            response = request.execute() # response is a json object in dict format
+            titles_and_ids = []
+            for item in response["items"]:
+                id = item["id"]["videoId"]
+                title = html.unescape(item["snippet"]["title"])
+                titles_and_ids.append((title, id))
+
+            return titles_and_ids
+        except HttpError as e:
+            err_message = f"You have run out of requests to the YouTube API for today. Wait until the next day to get another 100 search requests. Error: {e}"
+            logger.error(f"{getTime()}: {err_message}")
+
     
     def downloadSong(self, song:Song):
         id = str(song.id)
@@ -250,12 +269,13 @@ class YoutubeClient:
 
 class Player(commands.Cog):
     """Class that performs logic pertaining to playing or skipping songs. Constructed with a PlayList and YoutubeClient."""
-    def __init__(self, bot, playlist:PlayList, client: YoutubeClient):
+    def __init__(self, bot, playlist:PlayList, ytclient: YoutubeClient, spotifyclient: SpotifyClient):
         self.playing = False
         self.from_skip = False
         self.bot = bot
         self.playlist = playlist
-        self.client = client
+        self.ytclient = ytclient
+        self.spclient = spotifyclient
         self.voice = None
 
         self.autoplay = False
@@ -276,13 +296,12 @@ class Player(commands.Cog):
             playlist.pop()
             self.from_skip = False
             # if autoplay is True, search and add antoher song to the queue
-            if self.autoplay is True:
-                autoplay_song = 
+           
             next_song = playlist.getNextSong()
             # download next song if its not downloaded
             if (next_song is not None) and (next_song.downloaded is False):
                 try: 
-                    self.client.downloadSong(next_song)
+                    self.ytclient.downloadSong(next_song)
                 except yt_dlp.utils.DownloadError:
                     logger.error(f"{getTime()}: The video you wanted to download was too large. Deleting this song from the queue.")
                     playlist.remove(next_song)
@@ -296,7 +315,7 @@ class Player(commands.Cog):
                 preload_song = playlist.getNextUndownloadedSong()
                 if preload_song is not None:
                     try:
-                        self.client.downloadSong(preload_song)
+                        self.ytclient.downloadSong(preload_song)
                     except yt_dlp.utils.DownloadError:
                         logger.error(f"{time.asctime(time.localtime())}: Error preloading the next undownloaded song in play_next method")
                         helper.cleanupSong(preload_song.slug_title)
@@ -337,7 +356,7 @@ class Player(commands.Cog):
         if ctx.author.voice is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
             return
-        song_titles_and_ids = await self.client.getSearchResults(None, args, maxResults=1)
+        song_titles_and_ids = await self.ytclient.getSearchResults(None, args, maxResults=1)
         if song_titles_and_ids is None:
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
@@ -347,7 +366,7 @@ class Player(commands.Cog):
             await playlist.addToQ(ctx, new_song)
             if len(playlist.playque) < 4: # download up to 3 songs ahead of time
                 try:
-                    self.client.downloadSong(new_song)
+                    self.ytclient.downloadSong(new_song)
                     logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {new_song.title}")
                 except yt_dlp.utils.DownloadError as e:
                     logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
@@ -511,5 +530,6 @@ class MusicController(Controller):
     
 
 async def setup(bot):
+    
     await bot.add_cog(MusicController(bot))
         
