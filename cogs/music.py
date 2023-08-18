@@ -160,27 +160,29 @@ class SpotifyClient:
         self.auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
         self.sp = Spotify(auth_manager=self.auth_manager)
 
-    def getSpotifySongId(self, query:str) -> str | None:
+    def getSpotifySongId(self, song_title:str) -> str | None:
+        """Searches for an input song query, and returns the Spotify song ID of the search's first result."""
         id = None
         try:
-            results = sp.search(q=query, type="track")
+            results = self.sp.search(q=song_title, type="track")
             first_track = results["tracks"]['items'][0]
             id = first_track['id']
         except SpotifyException as e:
-            print("Error accessing the spotify API. Returning None.")
+            raise Exception("Error accessing the spotify API. Returning None.")
         # album = first_track["album"]
         # artists = first_track["artists"]
         return id
     
-    def getSongRecommendation(self, spotify_song_id:str) -> tuple[str, list[str]] | None:
-        songs_to_artists = None
+    def getSongRecommendations(self, spotify_song_id:str) -> list[tuple[str, list[str]]] | None:
+        """Grabs songs recommendations from spotify based on an input song. Returns 3 recommendations by default."""
+        songs_to_artists = []
         try:
-            recommendations = sp.recommendations(seed_tracks=[spotify_song_id], limit=1)
+            recommendations = self.sp.recommendations(seed_tracks=[spotify_song_id], limit=3)
             for track in recommendations["tracks"]:
-                songs_to_artists = (track['name'], [artist['name'] for artist in track['artists']])
+                songs_to_artists.append((track['name'], [artist['name'] for artist in track['artists']]))
         except SpotifyException as e:
-            print(f"Error accessing spotify API. Returning None.")
-        return songs_to_artists
+            raise Exception("Error accessing spotify API. Returning None.")
+        return songs_to_artists 
 
 class YoutubeClient:
     """
@@ -279,8 +281,6 @@ class Player(commands.Cog):
         self.voice = None
 
         self.autoplay = False
-        self.autoplay_count = 0
-
 
     def play_next(self, err = None):
         # print(f"***starting play_next method")
@@ -296,7 +296,6 @@ class Player(commands.Cog):
             playlist.pop()
             self.from_skip = False
             # if autoplay is True, search and add antoher song to the queue
-           
             next_song = playlist.getNextSong()
             # download next song if its not downloaded
             if (next_song is not None) and (next_song.downloaded is False):
@@ -348,7 +347,6 @@ class Player(commands.Cog):
                 self.voice.play(source = audio, after = self.play_next)
 
     #TODO make bot join different voice channel if caller is in different voice channel than bot
-    #TODO current song is being handled incorrectly, example: when skipping last song in queue, "showQ" still shows the now skipped song as the current song.
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -380,11 +378,32 @@ class Player(commands.Cog):
                 # create voice connection
                 self.voice = await current_channel.connect(timeout = None)
                 self._play_song()
+
+
+                if (self.autoplay is True) and (len(playlist.playque) < 7):
+                    print("attempting to download autoplay stuff")
+                    # add 3 related songs to the playque
+                    id = self.spclient.getSpotifySongId(new_song.title)
+                    if id is not None:
+                        autoplay_songs = self.spclient.getSongRecommendations(id)
+                        if autoplay_songs is not None:
+                            for title_and_artist in autoplay_songs:
+                                print(title_and_artist)
+                                title = title_and_artist[0]
+                                artist = title_and_artist[1][0]
+                                query_string = f"{title} {artist}"
+                                song = Song()
+                                yt_song_title_and_id = await self.ytclient.getSearchResultsWithString(query_string)
+                                song.setData(yt_song_title_and_id[0])
+                                playlist.add(song)
+                #NOTE this leaveWhenDone method can + will be moved around again when I fix the problem where the bot needs to re-join callers channel whenever the caller calls play
                 await self.leaveWhenDone(ctx)
-            elif self.playing is False: # perhaps use self.voice.is_playing() instead
-                # check if bot is in the correct channel
-                # if 
-                self._play_song()
+            
+            elif (self.playing is False) and (self.voice is not None): # perhaps use self.voice.is_playing() instead
+                    # check if bot is in the correct channel
+                    # if 
+                    self._play_song()
+                    return
             else:
                 return
     
@@ -403,6 +422,7 @@ class Player(commands.Cog):
 
     async def leaveWhenDone(self, ctx):
         playlist = self.playlist
+
         print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
         # this didn't work last time, INVESTIGATE!
@@ -418,6 +438,7 @@ class Player(commands.Cog):
                         await ctx.send(embed=Embed(title=f'Left voice chat due to inactivity.'))
                         self.voice = None
                         playlist.current_song = None
+                        self.autoplay = False
                         return
                     except Exception as e:
                         error_message = await ctx.send(f"Bot was cleared to leave the voice channel, however It was unable to execute this action. Exception: {e}")
@@ -430,6 +451,7 @@ class Player(commands.Cog):
                 print(f"self.voice is already disconnected. setting self.voice to none.")
                 playlist.current_song = None
                 self.voice = None
+                self.autoplay = False
                 return
         else:
             print(f"self.voice is already None.")
@@ -446,7 +468,7 @@ class MusicController(Controller):
         logger.info(f"{time.asctime(time.localtime())}: MusicController constructed.")
         super().__init__(bot, PlayList)
         #self.guilds_to_clazzs:dict[discord.Guild, PlayList] - this exists but isnt explicit here
-        self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot)) for playlist in self.guilds_to_clazzs.values()}
+        self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot), SpotifyClient(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)) for playlist in self.guilds_to_clazzs.values()}
         self.client = YoutubeClient(bot)
         self.voice = None
         self.playing = False
@@ -495,6 +517,31 @@ class MusicController(Controller):
         playlist = self.getGuildClazz(ctx)
         player = self.players[playlist]
         await player._play(ctx, args)
+
+    @commands.command()
+    async def autoplay(self, ctx, *args) -> None:
+        playlist = self.getGuildClazz(ctx)
+        player = self.players[playlist]
+        if args is None:
+            await ctx.send(embed=Embed(title=f"Please type an argument after `autoplay`, such as `on`, or `off`."))
+            return
+        string = str(args[0])
+        print(string)
+        if isinstance(string, str):
+            print("Your argument is now a string.")
+            match string:
+                case "on" | "true" | "yes":
+                    new_bool = True
+                case "off" | "false" | "no":
+                    new_bool = False
+                case _:
+                    new_bool = player.autoplay
+            player.autoplay = new_bool
+            print(player.autoplay)
+            await ctx.send(embed=Embed(title=f"Music autoplay set to {player.autoplay}."))
+        else:
+            await ctx.send(embed=Embed(title=f"Invalid Argument", description=f"Please try again, using something like `yes`, `on`, `off`, or `no`."))
+        
 
     @commands.command()
     async def skip(self, ctx):

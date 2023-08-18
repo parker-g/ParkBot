@@ -7,3 +7,4 @@ discord.log
 /data/*.mp3
 test.py
 nssm.exe
+.cache
