@@ -724,8 +724,6 @@ class BlackJackGame(Cog):
         # empty players before giving opportunity for another round to start
 
 
-# could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
-# bot, deck, player queue, players, and dealer.
 
 class Poker(commands.Cog):
     """

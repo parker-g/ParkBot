@@ -76,7 +76,7 @@ class Song:
 class PlayList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.current_song:Song = None
+        self.current_song:Song = None 
         self.prev_song:Song = None
         self.playque:deque[Song] = deque()
         self.playhistory = deque(maxlen=5)
@@ -292,6 +292,7 @@ class Player(commands.Cog):
                 self.voice.play(source = audio, after = self.play_next)
 
     #TODO make bot join different voice channel if caller is in different voice channel than bot
+    #TODO current song is being handled incorrectly, example: when skipping last song in queue, "showQ" still shows the now skipped song as the current song.
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -333,7 +334,7 @@ class Player(commands.Cog):
     
     async def _skip(self, ctx):
         playlist = self.playlist
-        if playlist.current_song:
+        if playlist.current_song is not None:
             await ctx.send(embed=Embed(title=f"Skipping {playlist.current_song.title}."))
             self.voice.stop()
             self.playing = False
@@ -345,6 +346,7 @@ class Player(commands.Cog):
             await ctx.send(embed=Embed(title=f"Queue is already empty."))
 
     async def leaveWhenDone(self, ctx):
+        playlist = self.playlist
         print(f"sleeping for 600 seconds before checking if voice is playing")    
         await asyncio.sleep(600.0)
         # this didn't work last time, INVESTIGATE!
@@ -359,7 +361,7 @@ class Player(commands.Cog):
                         await self.voice.disconnect()
                         await ctx.send(embed=Embed(title=f'Left voice chat due to inactivity.'))
                         self.voice = None
-                        self.current_song = None
+                        playlist.current_song = None
                         return
                     except Exception as e:
                         error_message = await ctx.send(f"Bot was cleared to leave the voice channel, however It was unable to execute this action. Exception: {e}")
@@ -370,7 +372,7 @@ class Player(commands.Cog):
                     await self.leaveWhenDone(ctx)
             elif not self.voice.is_connected():
                 print(f"self.voice is already disconnected. setting self.voice to none.")
-                self.current_song = None
+                playlist.current_song = None
                 self.voice = None
                 return
         else:
