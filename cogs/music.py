@@ -104,9 +104,9 @@ class PlayList(commands.Cog):
             await ctx.send(embed = Embed(title=f"No songs in queue yet."))
 
     async def _showHistory(self, ctx) -> None:
-        if len(self.playhistory) > 1:
+        if len(self.playhistory) > 0:
             pretty_string = ""
-            pretty_string += f"Playing: {self.current_song.title}\n\n"
+            pretty_string += f"Playing: {self.current_song.title}\n"
             playhistory = self.playhistory.copy()
             playhistory.pop() # copy current playhistory, leaving popping off the most recent edition (the current song)
             playhistory_with_index = enumerate(self.playhistory, start=1)
@@ -174,7 +174,7 @@ class SpotifyClient:
         return id
     
     def getSongRecommendations(self, spotify_song_id:str) -> list[tuple[str, list[str]]] | None:
-        """Grabs songs recommendations from spotify based on an input song. Returns 3 recommendations by default."""
+        """Grabs songs recommendations from spotify based on an input song. Returns 3 recommendations by default.\nList format: [(song_name, [song_author1, song_author2]), (song2_name, [song_author1])]"""
         songs_to_artists = []
         try:
             recommendations = self.sp.recommendations(seed_tracks=[spotify_song_id], limit=3)
@@ -283,12 +283,14 @@ class Player(commands.Cog):
         self.autoplay = False
 
     def play_next(self, err = None):
+        logger.debug(f"{getTime()}: play_next method executing")
         playlist = self.playlist
         self.playing = False
         playlist.prev_song = playlist.current_song
         song_titles_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
         helper.deleteSongsBesidesThese(song_titles_to_save)
         logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted songs besides those in this list, {song_titles_to_save}")
+        #TODO review this `from skip` logic
         if not playlist.isEmpty():
             if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
                 playlist.current_song = playlist.playque[0]
@@ -324,25 +326,29 @@ class Player(commands.Cog):
     def _play_song(self):
         # print(f"***starting _play_song method")
         playlist = self.playlist
+
         if not playlist.isEmpty():
             logger.debug(f"{getTime()}: Playlist is not empty so continuing _play_song method.")
-            # logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
+            logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
             if self.voice.is_playing():
-                logger.debug(f"{getTime}: Voice is already playing, so returning early.")
+                logger.debug(f"{(getTime())}: Voice is already playing, so returning early.")
                 return
             playlist.current_song = playlist.playque[0]
             logger.debug(f"{getTime()}: _play_song iterating current_song to {playlist.playque[0].title}.")
+            logger.debug(f"{getTime()}: Current playlist: {[song.title for song in playlist.playque]}")
 
             next_song = playlist.getNextUndownloadedSong()
             if (next_song is not None) and (next_song.downloaded is False):
                 logger.debug(f"{getTime()}: _play_song attempting to download the next song in queue, {next_song.title}")
                 try: 
-                    self.ytclient.downloadSong(next_song)
+                    self.ytclient.downloadSong(next_song) # does this remove song from the queue?
                 except yt_dlp.utils.DownloadError:
                     logger.error(f"{getTime()}: The video you wanted to download was too large. Deleting this song from the queue.")
                     playlist.remove(next_song)
+                    logger.error(f"{getTime()}: Removed {next_song.title} from playlist due to a YT Download error.")
                     helper.cleanupSong(next_song.slug_title)
             
+            # if coming from a skip, don't pop the left song.
             bye = playlist.playque.popleft()
             logger.debug(f"{getTime()}: _play_song popping left song off the playque, {bye.title}.")
             song_titles_to_save = [song.slug_title for song in playlist.playque] + [playlist.current_song.slug_title]
@@ -350,7 +356,6 @@ class Player(commands.Cog):
 
             try:
                 helper.deleteSongsBesidesThese(song_titles_to_save)
-                logger.debug(f"Songs remaining after deleting in _play_song: {[song.title for song in self.playlist.playque]}")
                 logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted all songs besides those in this list, {song_titles_to_save}")
             except:
                 pass
@@ -367,6 +372,87 @@ class Player(commands.Cog):
 
 
     #TODO make bot join different voice channel if caller is in different voice channel than bot
+
+
+    async def _autoplay(self, ctx, *args) -> None:
+        """A variation of `_play()` that is called when the `autoplay` flag is true.\nQueries spotify for songs recommended to the user's input query, and adds the top 3 to the playque."""
+        self.autoplay = False
+        playlist = self.playlist
+        new_song = Song()
+        if ctx.author.voice is None:
+            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
+            return
+        song_titles_and_ids = await self.ytclient.getSearchResults(None, args, maxResults=1)
+        if song_titles_and_ids is None:
+            await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
+            return
+        else:
+            if self.voice is not None:
+                if not self.voice.is_playing():
+                    await self.voice.disconnect()
+                    user_channel = ctx.author.voice.channel
+                    self.voice = await user_channel.connect(timeout = None)
+                else:
+                    pass
+
+            elif (self.voice is None):
+                user_channel = ctx.author.voice.channel
+                # create voice connection
+                self.voice = await user_channel.connect(timeout = None)
+            
+
+            new_song.setData(song_titles_and_ids[0])
+            await playlist.addToQ(ctx, new_song)
+            if len(playlist.playque) < 4: # download up to 3 songs ahead of time
+                try:
+                    self.ytclient.downloadSong(new_song)
+                    logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {new_song.title}")
+                except yt_dlp.utils.DownloadError as e:
+                    logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
+                    await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
+                    playlist.remove(new_song) # removes the song without adding it to playhistory, since it wasn't played
+                    helper.cleanupSong(new_song.slug_title)
+        
+            # play song if music isnt already playing
+            if not self.voice.is_playing():
+                self._play_song()
+
+            # now, check if we should autoplay, and attempt to query spotify to add more songs to queue
+            if (len(playlist.playque) < 7):
+                logger.debug(f"{getTime()}: _autoplay attempting to download autoplay stuff")
+                # add 3 related songs to the playque
+                id = self.spclient.getSpotifySongId(new_song.title)
+                if id is not None:
+                    autoplay_songs = self.spclient.getSongRecommendations(id)
+                    if autoplay_songs is not None:
+                        for title_and_artist in autoplay_songs:
+                            print(title_and_artist)
+                            title = title_and_artist[0]
+                            artist = title_and_artist[1][0]
+                            query_string = f"{title} {artist}"
+                            song = Song()
+                            yt_song_title_and_id = await self.ytclient.getSearchResultsWithString(query_string)
+                            song.setData(yt_song_title_and_id[0])
+                            playlist.add(song)
+
+                    # pre-download a song
+                    if len(playlist.playque) < 4:
+                        try:
+                            autoplay_song = playlist.getNextUndownloadedSong()
+                            self.ytclient.downloadSong(autoplay_song)
+                            logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {autoplay_song.title}")
+                        except yt_dlp.utils.DownloadError as e:
+                            logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
+                            await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
+                            playlist.remove(autoplay_song) # removes the song without adding it to playhistory, since it wasn't played
+                            helper.cleanupSong(autoplay_song.slug_title)
+                await ctx.send(embed=Embed(title=f"Up Next", description=f"{playlist.playque[0]}\n"))
+            return
+            
+
+    async def test_play(self, ctx, *args) -> None:
+        pass
+
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -379,6 +465,22 @@ class Player(commands.Cog):
             await ctx.send(embed=Embed(title=f"Search Error", description=f"There was an issue with the results of the search for your song. Please try again, but change your search term slightly."))
             return
         else:
+            if self.voice is not None:
+                if not self.voice.is_playing():
+                    await self.voice.disconnect()
+                    user_channel = ctx.author.voice.channel
+                    self.voice = await user_channel.connect(timeout = None)
+                else:
+                    pass
+
+            elif (self.voice is None):
+                user_channel = ctx.author.voice.channel
+                # create voice connection
+                self.voice = await user_channel.connect(timeout = None)
+            
+            
+
+
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
             await playlist.addToQ(ctx, new_song)
@@ -393,49 +495,10 @@ class Player(commands.Cog):
                     helper.cleanupSong(new_song.slug_title)
             # check if there's already a voice connection
 
-            if self.voice is None:
-                current_channel = ctx.author.voice.channel
-                # create voice connection
-                self.voice = await current_channel.connect(timeout = None)
+            if not self.voice.is_playing():
                 self._play_song()
-
-
-                if (self.autoplay is True) and (len(playlist.playque) < 7):
-                    print("attempting to download autoplay stuff")
-                    # add 3 related songs to the playque
-                    id = self.spclient.getSpotifySongId(new_song.title)
-                    if id is not None:
-                        autoplay_songs = self.spclient.getSongRecommendations(id)
-                        if autoplay_songs is not None:
-                            for title_and_artist in autoplay_songs:
-                                print(title_and_artist)
-                                title = title_and_artist[0]
-                                artist = title_and_artist[1][0]
-                                query_string = f"{title} {artist}"
-                                song = Song()
-                                yt_song_title_and_id = await self.ytclient.getSearchResultsWithString(query_string)
-                                song.setData(yt_song_title_and_id[0])
-                                playlist.add(song)
-                        # do pre-download down here too to avoid calling play_next with no song downloaded
-                        if len(playlist.playque) < 4:
-                            try:
-                                autoplay_song = playlist.getNextUndownloadedSong()
-                                self.ytclient.downloadSong(autoplay_song)
-                                logger.info(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance downloaded a song - {autoplay_song.title}")
-                            except yt_dlp.utils.DownloadError as e:
-                                logger.error(f"{time.asctime(time.localtime())}: ParkBot {ctx.guild} instance had a download Error - {e}", exc_info=True, stack_info=True)
-                                await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
-                                playlist.remove(autoplay_song) # removes the song without adding it to playhistory, since it wasn't played
-                                helper.cleanupSong(autoplay_song.slug_title)
-                        
-                #NOTE this leaveWhenDone method can + will be moved around again when I fix the problem where the bot needs to re-join callers channel whenever the caller calls play
                 await self.leaveWhenDone(ctx)
-            
-            elif self.playing is False: # perhaps use self.voice.is_playing() instead
-                    # check if bot is in the correct channel
-                    # if 
-                    self._play_song()
-                    return
+
             else:
                 return
     
@@ -444,7 +507,7 @@ class Player(commands.Cog):
         playlist = self.playlist
         current_song = playlist.current_song
         if current_song is not None:
-            logger.info(f"{getTime()}: Skipping {current_song}")
+            logger.info(f"{getTime()}: Skipping {current_song.title}")
             await ctx.send(embed=Embed(title=f"Skipping {current_song.title}."))
             self.voice.stop()
             self.playing = False
@@ -553,10 +616,14 @@ class MusicController(Controller):
         """Accesses a guild's Player and attempts to play a song through it."""
         playlist = self.getGuildClazz(ctx)
         player = self.players[playlist]
-        await player._play(ctx, args)
+        if player.autoplay is True:
+            await player._autoplay(ctx, args)
+        else:
+            await player._play(ctx, args)
 
     @commands.command()
     async def autoplay(self, ctx, *args) -> None:
+        """Command used to check or set the status of a Player's autoplay flag."""
         playlist = self.getGuildClazz(ctx)
         player = self.players[playlist]
         if args is None:
@@ -564,7 +631,6 @@ class MusicController(Controller):
             return
         string = str(args[0])
         if isinstance(string, str):
-            print("Your argument is now a string.")
             match string:
                 case "on" | "true" | "yes":
                     new_bool = True
@@ -572,8 +638,11 @@ class MusicController(Controller):
                     new_bool = False
                 case _:
                     new_bool = player.autoplay
+            if player.autoplay != new_bool: # if autoplay is being changed, tell the users
+                await ctx.send(embed=Embed(title=f"Music autoplay set to {new_bool}."))
+            else:
+                await ctx.send(embed=Embed(title=f"Music autoplay is currently: {player.autoplay}."))
             player.autoplay = new_bool
-            await ctx.send(embed=Embed(title=f"Music autoplay set to {player.autoplay}."))
         else:
             await ctx.send(embed=Embed(title=f"Invalid Argument", description=f"Please try again, using something like `yes`, `on`, `off`, or `no`."))
         
