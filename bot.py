@@ -1,12 +1,12 @@
 from discord.ext import commands
-from config.config import TOKEN
+from config.config import TOKEN, WORKING_DIRECTORY
 import logging
 import discord
 import helper
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
 
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler = logging.FileHandler(filename=WORKING_DIRECTORY +'discord.log', encoding='utf-8', mode='w')
 
 # 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
 # i make sure to specifically set the 'message_content_ intent to True, bc that's the main intent I will be using
@@ -37,7 +37,7 @@ async def on_ready():
 @bot.group(invoke_without_command=True)
 async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
-    em.add_field(name='pic commands', value='`milkies`, `creator`, `dallE`, `findFurry`')
+    em.add_field(name='pic commands', value='`creator`, `dallE`, `findFurry`')
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     em.add_field(name='voice commands', value="`say`")
     em.add_field(name='game commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playPoker`, `playJack`, `resetJack`")
@@ -54,11 +54,6 @@ async def heymongrel(ctx):
 @help.command()
 async def say(ctx):
     em = discord.Embed(title='say', description='usage: `say <what you want bot to say>`. bot speaks requested string in voice channel.')
-    await ctx.send(embed = em)
-
-@help.command()
-async def milkies(ctx):
-    em = discord.Embed(title='milkies', description='try it and find out sweet cheeks ;)')
     await ctx.send(embed = em)
 
 @help.command()
@@ -161,7 +156,7 @@ async def resetGames(ctx):
 
 @bot.command()
 async def checkCogs(ctx):
-    cogs = ["PlayerQueue", "CanvasClient", "Economy", "MusicController", "Reward"]
+    cogs = ["GamesController", "CanvasClient", "Economy", "MusicController", "RewardsController"]
     cog_string = ""
     for cog in cogs:
         if bot.get_cog(cog) is not None:

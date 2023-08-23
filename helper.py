@@ -52,14 +52,13 @@ def slugify(string):
             new_string += letter
     return new_string
 
-def cleanAudioFile(song_name):
+def cleanupSong(song_path):
+    """Remove leftover files from a failed yt_dlp download."""
     os.chdir(DATA_DIRECTORY)
-    # in data directory 
-
     files = os.listdir(os.getcwd())
     for file in files:
         # if the file minus the .mp3 extension equals input song name
-        if str(file[:-4]) == song_name:
+        if (str(file[:-4]) == song_path) or (str(file[:-5]) == song_path):
             try:
                 os.remove(file)
             except Exception as e:
@@ -105,6 +104,22 @@ def deleteSongsBesidesThese(slugified_song_titles:list) -> None:
             except Exception as e:
                 print(e)
 
+    os.chdir(WORKING_DIRECTORY)
+
+def deleteTheseFiles(file_paths:list) -> None:
+    "Deletes all .webm, .ytdl, and .mp3 files which are included in the file_paths parameter."
+    os.chdir(DATA_DIRECTORY)
+    files = os.listdir(os.getcwd())
+    for file in files:
+        # delete any songs that are webm or ytdl extensions
+        if (str(file) in file_paths):
+            way = os.getcwd()
+            way += f"\\{file}"
+            try:
+                os.remove(way)
+            except Exception as e:
+                print(e)
+    
     os.chdir(WORKING_DIRECTORY)
 
 def write_iterable(file_path:str, iterable:list | dict) -> None:

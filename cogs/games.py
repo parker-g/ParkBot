@@ -303,7 +303,7 @@ class Player:
 
 class PlayerQueue(Cog):
     """
-    The PlayerQueue class is used as a controller of the games available in the games.py 'cog'.\n
+    The PlayerQueue class is used as a guild-level-distributor of the games available in the games.py 'cog'.\n
     self.q is a list[Card]. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
     Right now, I'm actually realizing that it would be much more simple if I instead just incorporated the discord.Member object into the Player class as an attribute. Removing the possibility of confusing others with tuples in the player queue."""
     def __init__(self, bot):
@@ -441,7 +441,7 @@ class PlayerQueue(Cog):
             await ctx.send(f"An exception occured, {e}")
 
 class GamesController(Controller):
-    """High level controller of all games. Assigns each guild a PlayerQueue, and routes requests from guilds to their respective PlayerQueue instance."""
+    """High level controller of PlayerQueues. Assigns each guild a PlayerQueue, and routes requests from guilds to their respective PlayerQueue instance."""
     def __init__(self, bot):
         super().__init__(bot, PlayerQueue)
     
@@ -724,8 +724,6 @@ class BlackJackGame(Cog):
         # empty players before giving opportunity for another round to start
 
 
-# could lowkey create a Game super class that BlackJack and Poker would inherit from - simply making them share attributes such as the 
-# bot, deck, player queue, players, and dealer.
 
 class Poker(commands.Cog):
     """
