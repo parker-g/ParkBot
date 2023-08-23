@@ -283,6 +283,7 @@ class Player(commands.Cog):
         self.autoplay = False
 
     def play_next(self, err = None):
+        # self.from_skip = False
         logger.debug(f"{getTime()}: play_next method executing")
         playlist = self.playlist
         self.playing = False
@@ -292,7 +293,7 @@ class Player(commands.Cog):
         logger.info(f"{time.asctime(time.localtime())}: ParkBot deleted songs besides those in this list, {song_titles_to_save}")
         #TODO review this `from skip` logic
         if not playlist.isEmpty():
-            if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. (why? current song should be None if coming from a skip.)
+            if not self.from_skip: # if coming from a skip, don't iterate current song to the next song. if coming from a skip, I want to negate this call to play_next
                 playlist.current_song = playlist.playque[0]
             playlist.playque.popleft()
             self.from_skip = False
@@ -331,7 +332,7 @@ class Player(commands.Cog):
             logger.debug(f"{getTime()}: Playlist is not empty so continuing _play_song method.")
             logger.debug(f"{getTime()}: Playlist is not empty! Contents: {[song.title for song in playlist.playque]}")
             if self.voice.is_playing():
-                logger.debug(f"{(getTime())}: Voice is already playing, so returning early.")
+                logger.debug(f"{getTime()}: Voice is already playing, so returning early.")
                 return
             playlist.current_song = playlist.playque[0]
             logger.debug(f"{getTime()}: _play_song iterating current_song to {playlist.playque[0].title}.")
@@ -446,7 +447,7 @@ class Player(commands.Cog):
                             await ctx.send(embed=Embed(title="Download Error", description=f"{e}"))
                             playlist.remove(autoplay_song) # removes the song without adding it to playhistory, since it wasn't played
                             helper.cleanupSong(autoplay_song.slug_title)
-                await ctx.send(embed=Embed(title=f"Up Next", description=f"{playlist.playque[0]}\n"))
+                await ctx.send(embed=Embed(title=f"Up Next", description=f"{playlist.playque[0].title}\n"))
             return
             
 
