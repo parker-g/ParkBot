@@ -371,10 +371,7 @@ class Player(commands.Cog):
                 logger.debug(f"{getTime()}: _play_song attempting to voice.play current song.")
                 self.voice.play(source = audio, after = self.play_next)
 
-
-    #TODO make bot join different voice channel if caller is in different voice channel than bot
-
-
+     
     async def _autoplay(self, ctx, *args) -> None:
         """A variation of `_play()` that is called when the `autoplay` flag is true.\nQueries spotify for songs recommended to the user's input query, and adds the top 3 to the playque."""
         self.autoplay = False
@@ -453,7 +450,8 @@ class Player(commands.Cog):
 
     async def test_play(self, ctx, *args) -> None:
         pass
-
+      
+      
     async def _play(self, ctx, *args) -> None:
         playlist = self.playlist
         new_song = Song()
@@ -478,9 +476,6 @@ class Player(commands.Cog):
                 user_channel = ctx.author.voice.channel
                 # create voice connection
                 self.voice = await user_channel.connect(timeout = None)
-            
-            
-
 
             new_song.setData(song_titles_and_ids[0])
             # make this check in each of the play functions.
