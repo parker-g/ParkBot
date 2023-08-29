@@ -5,7 +5,7 @@
 # Project Organization
 
 <p align="center">
-  <img width="250" height="250" src="images/ParkBot-architecture.png">
+  <img width="1000" height="500" src="images/parkbot-architecture.png">
 </p>
 
 ## setting up and running your discord bot instance -
