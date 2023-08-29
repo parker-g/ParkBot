@@ -2,10 +2,11 @@
   <img width="250" height="250" src="images/ParkBot-logo (1).png">
 </p>
 
-# Project Organization
+ParkBot is a Discord bot written in Python with the objective of bringing fun to your discord servers! Features include searching, playing, and even autoplaying music; games to play by yourself or with other users, an economy, and more!
 
+## project organization
 <p align="center">
-  <img width="1000" height="500" src="images/parkbot-architecture.png">
+  <img width="800" height="400" src="images/parkbot-architecture.png">
 </p>
 
 ## setting up and running your discord bot instance -
