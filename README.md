@@ -6,7 +6,7 @@ ParkBot is a Discord bot written in Python with the objective of bringing fun to
 
 ## project organization
 <p align="center">
-  <img width="800" height="400" src="images/parkbot-architecture.png">
+  <img width="800" height="400" src="images/parkbot-architecture-2.png">
 </p>
 
 ## setting up and running your discord bot instance -
