@@ -3,7 +3,8 @@ from tkinter import ttk
 import requests
 
 
-# provide a GUI for users to enter the required information needed for 
+# provide a GUI for users to enter the required information needed to setup the bot's configuration
+
 class ConfigWizard:
     
     fields = {

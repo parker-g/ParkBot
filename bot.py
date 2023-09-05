@@ -170,19 +170,15 @@ async def heymongrel(ctx):
     await ctx.send(embed = em)
 
 @bot.command()
-async def milkies(ctx):
-    await ctx.send(file=discord.File('images/milkies.jpg'))
-
-@bot.command()
 async def creator(ctx):
-    await ctx.send(file=discord.File('images/gigachad.jpg'))
+    await ctx.send(file=discord.File('data/images/gigachad.jpg'))
 
 @bot.command()
 async def dallE(ctx, args:str):
-    em = discord.Embed()
-    em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
+    em = discord.Embed(title=f"dallE", description=f"I\'m working on processing your prompt. This may take a minute.")
+    await ctx.send(embed=em)
     image = helper.get_image(args=args)
-    await ctx.send(embed =em, file=discord.File(image))
+    await ctx.send(embed=discord.Embed(title=f"Dall-E Generated Result"), file=discord.File(image))
 
 @bot.command()
 async def findFurry(ctx):
