@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 import requests
+from pathlib import Path
+import os
 
 
 # provide a GUI for users to enter the required information needed to setup the bot's configuration
@@ -25,12 +27,17 @@ class ConfigWizard:
     }
 
     def downloadFFMPEG(self):
-        
+        pass
+    
+    def getProjectRoot(self):
+        dir = os.getcwd()
+        # check if we are in the top directory of parkBot project
+
+
 
     def createConfigGUI(self):
-        frame = ttk.Frame(root, padding=10)
-        frame.grid()
-        
+        self.frame = ttk.Frame(root, padding=10)
+        self.frame.grid()
 
     def __init__(self, project_root_directory:str):
         pass

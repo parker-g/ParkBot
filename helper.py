@@ -35,7 +35,6 @@ def bubbleSortCards(cards_list:list) -> None:
             # can just exit the main loop.
             return
 
-
 def slugify(string):
     new_string = ""
     no_nos = [
@@ -160,7 +159,6 @@ def setUserAmount(df:pd.DataFrame, username, new_money_value):
     user_index = df.index[df['Usernames'] == username].tolist()
     user_index = user_index[0]
     df.at[user_index, "GleepCoins"] = int(new_money_value)
-
 
 def getUserAmount(df, username) -> int:
     user_index = df.index[df['Usernames'] == username].tolist()
