@@ -3,24 +3,7 @@ from pathlib import Path
 import subprocess
 import os
 
-class SetupWizard:
-    
-    fields = {
-        0: "TOKEN",
-        1: "CANVAS_API_KEY",
-        2: "WORKING_DIRECTORY",
-        3: "DATA_DIRECTORY",
-        4: "CANVAS_BASE_URL",
-        5: "CANVAS_COURSE_NUM",
-        6: "DATETIME_FILE",
-        7: "BANK_PATH",
-        8: "THREADS_PATH",
-        9: "NAUGHTY_WORDS",
-        10: "SPOTIFY_CLIENT_ID",
-        11: "SPOTIFY_CLIENT_SECRET",
-        12: "GOOGLE_API_KEY",
-        13: "FFMPEG_PATH",
-    }   
+class VenvSetupWizard:
     
     def isInProjectRoot(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
@@ -60,7 +43,7 @@ class SetupWizard:
     def __init__(self):
         inRoot = self.isInProjectRoot()
         if inRoot is False:
-            raise FileNotFoundError(f"You execute the setup wizard in the root directory of the ParkBot project.")
+            raise FileNotFoundError(f"You must execute the setup wizard from the root directory of the ParkBot project.")
         self.root = Path(os.getcwd())
         self.env = self.root / ".venv"
         self.data_dir = self.root / "data"
@@ -72,5 +55,5 @@ class SetupWizard:
         self.pipInstallDeps()
 
 if  __name__ == "__main__":
-    wiz = SetupWizard()
+    wiz = VenvSetupWizard()
     wiz.main()
