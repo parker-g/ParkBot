@@ -71,9 +71,6 @@ class SetupWizard:
         self.createVenv(self.env)
         self.pipInstallDeps()
 
-        
-
-
 if  __name__ == "__main__":
     wiz = SetupWizard()
     wiz.main()
