@@ -15,6 +15,10 @@ class OSHome(Enum):
     windows = Path("C:/Users/")
     linux = Path("/home/")
 
+class FFMPEG(Enum):
+    windows = "ffmpeg.exe"
+    linux = "ffmpeg"
+
 class HandlerFactory:
     @classmethod
     def getHandler(cls):
@@ -30,7 +34,7 @@ class HandlerFactory:
             
 
 class ExternalDependencyHandler:
-    """Abstract class to Handle downloading ParkBot dependencies that can't be installed through pip."""
+    """Abstract class to model DependencyHandler behaviors"""
 
     def isInProjectRoot(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
@@ -41,14 +45,27 @@ class ExternalDependencyHandler:
         if root_components == intersection:
             return True
         return False
+    
+    def findFile(self, desired_file:str, where_to_look:list[Path]) -> Path | None:
+        """Searches specified directories for a desired file, returns the path to the first instance of the desired file."""
+        for dir in where_to_look:
+            for root, dir, files in os.walk(dir):
+                if desired_file in files:
+                    return Path(root) / desired_file
+        return None
         
     def findFFMPEG(self, operating_system:str) -> Path | None:
         pass
+
     
 
+
 class WindowsDependencyHandler(ExternalDependencyHandler):
+    """Searches for and downloads depedencies specific to Windows."""
 
     def __init__(self, operating_sys):
+        if not self.isInProjectRoot():
+            raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
         if operating_sys != "windows":
             raise OSError(f"Setup Handler spawned the wrong version of it's depedency handler. Please try to run the setup.sh script again.")
         self.operating_sys = operating_sys
@@ -56,28 +73,38 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
     def findFFMPEG(self) -> Path | None:
         """Returns the path to 'ffmpeg.exe' if it exists in `C:\\Users\\<user>\\` or `C:\\Program Files\\`"""
         username = os.getlogin()
-        user_home = Path("C:/Users") / username
-        for root, dir, files in os.walk(user_home):
-            if "ffmpeg.exe" in files:
-                return Path(root) / "ffmpeg.exe"
-        for root, dir, files in os.walk("C:/Program Files"):
-            if "ffmpeg.exe" in files:
-                return Path(root) / "ffmpeg.exe"
-        return None
+        user_home_dir = Path("C:/Users") / username
+        parkbot = Path(os.getcwd())
+        dirs_to_search = [parkbot, user_home_dir, Path("C:/Program Files")]
 
-class LinuxDependencyHandler(ExternalDependencyHandler):
-
-    def __init__(self, operating_sys):
-        if operating_sys != "linux":
-            raise OSError(f"Setup Handler spawned the wrong version of it's depedency handler. Please try to run the setup.sh script again.")
-
-    def getFFMPEGPathLinux(self) -> Path | None:
-        username = os.getlogin()
-        user_home = Path("C:/Users") / username
+        return self.findFile(FFMPEG.windows.value, dirs_to_search)
+    
+    def findNSSM(self) -> Path | None:
+        pass
+    
     
 
+class LinuxDependencyHandler(ExternalDependencyHandler):
+    """Searches for and downloads depedencies specific to Linux."""
+    def __init__(self, operating_sys):
+        if not self.isInProjectRoot():
+            raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
+        if operating_sys != "linux":
+            raise OSError(f"Setup Handler spawned the wrong version of it's depedency handler. Please try to run the setup.sh script again.")
+        
+    def getFFMPEGPathLinux(self) -> Path | None:
+        """Checks a user's home directory, opt, and usr/local directories for ffmpeg.exe. Returns path of the first instance it finds."""
+        parkbot = Path(os.getcwd())
+        username = os.getlogin()
+        user_home = Path("/home") / username
+        usr_local = Path("/usr/local/")
+        opt = Path("/opt/")
+    
+        dirs_to_search = [parkbot, user_home, usr_local, opt]
+        return self.findFile(FFMPEG.linux.value, dirs_to_search)
+
 class FFMPEGDownloader:
-    """Finds out the appropriate version of FFMPEG to install on a system."""
+    """Parses different versions of FFMPEG."""
     
     def getBuilds(self) -> dict[str, str]:
         """GET requests a github repo that hosts FFMPEG builds, and parses response's contents to return a dictionary of {'build_name':'build_download_link'}"""
@@ -95,7 +122,7 @@ class FFMPEGDownloader:
             results[tit] = final_link
         return results
     
-
+    def getBestBuild(self, operating_system)
     def __init__(self, os:str):
         self.operating_sys = os
         self.builds = self.getBuilds()
@@ -106,7 +133,10 @@ class FFMPEGDownloader:
     def getDownloadLink(self, platform:str) -> str:
         """Returns the most appropriate FFMPEG download link for a user's operating system."""
         
-    
+class WindowsDownloader(FFMPEGDownloader):
+    def __init__(self, )
+
+
 if __name__ == "__main__":
     handler = HandlerFactory.getHandler()
 
