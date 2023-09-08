@@ -10,3 +10,4 @@ nssm.exe
 .cache
 *.zip
 ffmpeg*
+.config

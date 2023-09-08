@@ -127,8 +127,8 @@ class FFMPEGDownloader:
                 raise OSError("This computer's architecture is not currently supported for easy setup.")
             
 
-    def downloadFFMPEG(self, download_dir:Path, extract_destination) -> None:
-        """Takes an optional download"""
+    def _downloadFFMPEG(self, download_dir:Path, extract_destination) -> None:
+        """Downloads FFMPEG archive, extracts the archive to `extract_destination` and deletes the archive."""
         match self.operating_sys:
             case "windows":
                 file_ext = ".zip"
@@ -167,18 +167,25 @@ class ExternalDependencyHandler:
         return None
 
     def findFFMPEG(self, operating_system:str) -> Path | None:
+        """Returns a Path to the first found instance of the ffmpeg executable."""
+        pass
+    
+    def getFFMPEG(self, operating_system:str) -> Path | None:
         pass
 
-    def main(self, download_dir = None, extract_destination = None):
-        if download_dir is None:
-            download_dir = Path(os.getcwd())
-        if extract_destination is None:
-            extract_destination = Path(os.getcwd())
+    def downloadAndExtract(self, download_dir = None, extract_destination = None) -> Path:
+        """Downloads and extracts the FFMPEG archive."""
         ffmpeg = self.findFFMPEG(self.operating_sys)
+        here = Path(os.getcwd())
         if not ffmpeg:
+            if download_dir is None:
+                download_dir = here
+            if extract_destination is None:
+                extract_destination = here
             downloader = FFMPEGDownloader(self.operating_sys, self.machine)
-            downloader.downloadFFMPEG(download_dir, extract_destination)
-        #TODO write ffmpeg executable path to the config file
+            downloader._downloadFFMPEG(download_dir, extract_destination)
+        ffmpeg = self.findFFMPEG(self.operating_sys)
+        return ffmpeg
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Windows."""
@@ -190,20 +197,23 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         username = os.getlogin()
         self.user_home = Path("C:/Users") / username
 
-
     def findFFMPEG(self) -> Path | None:
-        """Returns the path to 'ffmpeg.exe' if it exists in `C:\\Users\\<user>\\` or `C:\\Program Files\\`"""
+        """Returns the path to 'ffmpeg.exe' if it exists in ParkBot directory, `C:\\Users\\<user>\\`, or `C:\\Program Files\\`"""
         parkbot = Path(os.getcwd())
-        dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
+        # dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
+        dirs_to_search = [parkbot]
 
         return self.findFile(FFMPEG.windows.value, dirs_to_search)
     
     def findNSSM(self) -> Path | None:
-        """Returns path to "nssm.exe" if it exists in ParkBot direectory, user's home directory or Program Files directory."""
+        """Returns path to "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
         parkbot = Path(os.getcwd())
         dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
 
         return self.findFile("nssm.exe", dirs_to_search)
+    
+    def getFFMPEGPath(self) -> Path: 
+        self.
     
     
 
@@ -241,6 +251,8 @@ class HandlerFactory:
 
 if __name__ == "__main__":
     handler = HandlerFactory.getHandler()
+    handler.
+
 
 
 
