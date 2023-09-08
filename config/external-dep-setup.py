@@ -118,6 +118,18 @@ class NSSMDownloader(Downloader):
 class FFMPEGDownloader(Downloader):
     """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
 
+    def _findFFMPEG(self) -> Path | None:
+        # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
+        # should really only accept win64 for now, as the rest of setup doesnt support 32
+        """Searches ParkBot directory for `ffmpeg.exe`, returns the path to it."""
+        desired_file = self.ffmpeg
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for filename in files:
+                if (desired_file == filename):
+                    return Path(dirpath) / desired_file
+        return None
+
     # linux64-gpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl-shared.tar.xz
     # linux64-gpl-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
     # linux64-lgpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl-shared.tar.xz
@@ -145,6 +157,11 @@ class FFMPEGDownloader(Downloader):
         #self.operating_sys
         #self.machine
         self.builds = self.getBuilds()
+        match self.operating_sys:
+            case "windows":
+                self.ffmpeg = 'ffmpeg.exe'
+            case "linux":
+                self.ffmpeg = 'ffmpeg'
 
         # {
         # linux64-gpl-shared-tar
@@ -180,10 +197,15 @@ class FFMPEGDownloader(Downloader):
                 return self.getBestLinuxBuildLink(builds)
             case _:
                 raise OSError("This computer's architecture is not currently supported for easy setup.")
-            
+    
+    def moveFFMPEG(self, ffmpeg_location:Path, ffmpeg_parent_dir:Path, final_exe_destination:Path) -> None:
+        """Pulls the ffmpeg.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
+        os.rename(ffmpeg_location, final_exe_destination / self.ffmpeg)
+        shutil.rmtree(str(ffmpeg_parent_dir))
 
     def _downloadFFMPEG(self, download_dir:Path, extract_destination) -> None:
         """Downloads FFMPEG archive, extracts the archive to `extract_destination` and deletes the archive."""
+        parkbot_dir = Path(os.getcwd())
         match self.operating_sys:
             case "windows":
                 file_ext = ".zip"
@@ -195,6 +217,9 @@ class FFMPEGDownloader(Downloader):
         link = self.getDownloadLink(self.builds)
         self.downloadURL(link, download_destination)
         self.extract(download_destination, extract_destination)
+        ffmpeg_exe_location = self._findFFMPEG()
+        ffmpeg_parent_directory = ffmpeg_exe_location.parent.parent 
+        self.moveFFMPEG(ffmpeg_exe_location, ffmpeg_parent_directory, parkbot_dir)
 
 
 class ExternalDependencyHandler:
@@ -312,7 +337,7 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
                 extract_destination = here
             downloader = NSSMDownloader(self.operating_sys, self.machine)
             downloader.downloadNSSM(download_dir, extract_destination)
-        nssm_path = self.findFFMPEG()
+        nssm_path = self.findNSSM()
         return nssm_path
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
