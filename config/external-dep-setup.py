@@ -7,6 +7,7 @@ from enum import Enum
 from zipfile import ZipFile
 from tarfile import TarFile
 import configparser
+import shutil
 
 machines = {
     "x64": "AMD64",
@@ -29,26 +30,21 @@ class OSHome(Enum):
 
 class FFMPEG(Enum):
     windows = "ffmpeg.exe"
-    linux = "ffmpeg"
+    linux = "ffmpeg"    
 
-class FFMPEGDownloader:
-    """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
+
+class Downloader:
+
+    def __init__(self, os:str, machine:str):
+        self.operating_sys = os
+        self.machine = machine
 
     #thanks stackoverflow
     def downloadURL(self, url, download_destination, chunk_size=128) -> None:
-
         r = requests.get(url, stream=True)
         with open(download_destination, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 fd.write(chunk)
-
-    def extract(self, archive, extract_destination) -> None:
-        """Extracts `archive` into `extract_destination`, and deletes `archive`."""
-        match self.operating_sys:
-            case "linux":
-                self.extractTar(archive, extract_destination)
-            case "windows":
-                self.extractZip(archive, extract_destination)
 
     def extractZip(self, zip_file, unzip_destination) -> None:
         """Extracts and deletes the specified zip archive."""
@@ -64,10 +60,67 @@ class FFMPEGDownloader:
         tar.close()
         os.remove(tar_file)
 
+    def extract(self, archive, extract_destination) -> None:
+        """Extracts `archive` into `extract_destination`, and deletes `archive`."""
+        match self.operating_sys:
+            case "linux":
+                self.extractTar(archive, extract_destination)
+            case "windows":
+                self.extractZip(archive, extract_destination)
+
+class NSSMDownloader(Downloader):
+
+    def _findNSSM(self, nssm_version:str) -> Path | None:
+        # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
+        # should really only accept win64 for now, as the rest of setup doesnt support 32
+        """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
+        desired_file = "nssm.exe"
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for filename in files:
+                if (desired_file == filename) and (dirpath[-5:] == nssm_version):
+                    return Path(dirpath) / desired_file
+        return None
+    
+    # https://www.devdungeon.com/content/run-python-script-windows-service - instructions for using nssm after installation
+    """Downloads the most recent stable version of NSSM.exe (the non-sucking-service-manager)."""
+    def __init__(self, os:str, machine:str):
+        super().__init__(os, machine)
+        if self.operating_sys != 'windows':
+            raise OSError(f"No need to download NSSM on an operating system besides windows.")
+
+    def findNSSM64(self) -> Path | None:
+        """Returns path to 64 bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
+        return self._findNSSM("win64")
+    
+    def findNSSM32(self) -> Path | None:
+        """Returns path to 32 bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
+        return self._findNSSM("win32")
+
+    def moveNSSM(self, nssm_location:Path, final_exe_destination:Path) -> None:
+        """Pulls the nssm.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
+        nssm_parent_dir = Path(os.getcwd()) / "nssm-2.24"
+        os.rename(nssm_location, final_exe_destination / "nssm.exe")
+        shutil.rmtree(str(nssm_parent_dir))
+
+    def downloadNSSM(self, download_dir:Path, extract_destination):
+        parkbot_dir = Path(os.getcwd())
+        download_url = "https://www.nssm.cc/release/nssm-2.24.zip"
+        nssm_destination = download_dir / "nssm.zip"
+        self.downloadURL(download_url, nssm_destination)
+        self.extractZip(nssm_destination, extract_destination)
+        nssm_path = self.findNSSM64()
+        if nssm_path is not None:
+            self.moveNSSM(nssm_path, parkbot_dir)
+        else:
+            raise IOError(f"Attempted to download `nssm.exe`, but cannot find it in file system.")
+
+class FFMPEGDownloader(Downloader):
+    """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
+
     # linux64-gpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl-shared.tar.xz
     # linux64-gpl-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
     # linux64-lgpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl-shared.tar.xz
-
     def getBuilds(self) -> dict[str, str]:
         host = "https://github.com"
         """GET requests a github repo that hosts FFMPEG builds, and parses response's contents to return a dictionary of {'build_name':'build_download_link'}"""
@@ -78,7 +131,7 @@ class FFMPEGDownloader:
         for item in list_items:
             title = item.find("span", attrs={"class":"Truncate-text text-bold"})
             if (title is not None) and (title.text != "Source code") and (title.text != ""):
-                print(title.text)
+                # print(title.text)
                 words = title.text.split("-")
                 words = words[:-1] + words[-1].split(".")[:2]
                 tit = ("-".join(words[3:]))
@@ -87,10 +140,12 @@ class FFMPEGDownloader:
                 results[tit] = host + link
         return results
     
-    def __init__(self, os:str, machine:str, download_destination = None):
-        self.operating_sys = os
-        self.machine = machine
+    def __init__(self, os:str, machine:str):
+        super().__init__(os, machine)
+        #self.operating_sys
+        #self.machine
         self.builds = self.getBuilds()
+
         # {
         # linux64-gpl-shared-tar
         # linux64-gpl-tar
@@ -166,16 +221,13 @@ class ExternalDependencyHandler:
                     return Path(root) / desired_file
         return None
 
-    def findFFMPEG(self, operating_system:str) -> Path | None:
+    def findFFMPEG(self) -> Path | None:
         """Returns a Path to the first found instance of the ffmpeg executable."""
         pass
-    
-    def getFFMPEG(self, operating_system:str) -> Path | None:
-        pass
 
-    def downloadAndExtract(self, download_dir = None, extract_destination = None) -> Path:
-        """Downloads and extracts the FFMPEG archive."""
-        ffmpeg = self.findFFMPEG(self.operating_sys)
+    def downloadExtractFFMPEG(self, download_dir = None, extract_destination = None) -> Path:
+        """Downloads and extracts the FFMPEG archive. Returns the path to the extracted FFMPEG executable."""
+        ffmpeg = self.findFFMPEG()
         here = Path(os.getcwd())
         if not ffmpeg:
             if download_dir is None:
@@ -184,8 +236,43 @@ class ExternalDependencyHandler:
                 extract_destination = here
             downloader = FFMPEGDownloader(self.operating_sys, self.machine)
             downloader._downloadFFMPEG(download_dir, extract_destination)
-        ffmpeg = self.findFFMPEG(self.operating_sys)
+        ffmpeg = self.findFFMPEG()
         return ffmpeg
+    
+    def downloadExtractAllDeps(self, download_dir = None, extract_destination = None) -> dict[str, Path]:
+        """Downloads and extracts all external depedencies required for the ParkBot depending on a user's OS/Machine."""
+        pass
+    
+    def writeConfig(self, exe_paths:dict[str, Path]) -> None:
+        ffmpeg_path = exe_paths["ffmpeg"]
+        config_path = Path(os.getcwd()) / "bot.config"
+        config = configparser.ConfigParser()
+        here = Path(os.getcwd())
+        config['DEFAULT'] = {
+            "TOKEN" : "",
+            "WORKING_DIRECTORY" : str(here),
+            "DATA_DIRECTORY" : str(Path(here) / "data"),
+            "BANK_PATH" : str(Path(here) / "data" / "bank.csv"),
+            "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
+            "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+        }
+        config["MUSIC"] = {
+            "FFMPEG_PATH" : str(ffmpeg_path),
+            "GOOGLE_API_KEY" : "",
+        }
+        config["FOR-AUTOPLAY"] = {
+            "SPOTIFY_CLIENT_ID" : "",
+            "SPOTIFY_CLIENT_SECRET" : "",
+        }
+        config["CANVAS"] = {
+            "CANVAS_API_KEY": "",
+            "CANVAS_BASE_URL": "",
+            "CANVAS_COURSE_NUM": "",
+            "DATETIME_FILE": str(Path(os.getcwd())  / "data" / "last_time.txt")
+        }
+        with open(config_path, "w") as configfile:
+            config.write(configfile)
+        return
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Windows."""
@@ -202,20 +289,37 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         parkbot = Path(os.getcwd())
         # dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
         dirs_to_search = [parkbot]
-
         return self.findFile(FFMPEG.windows.value, dirs_to_search)
     
     def findNSSM(self) -> Path | None:
         """Returns path to "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
         parkbot = Path(os.getcwd())
-        dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
+        # dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
+        dirs_to_search = [parkbot]
 
         return self.findFile("nssm.exe", dirs_to_search)
     
-    def getFFMPEGPath(self) -> Path: 
-        self.
     
+
+    def downloadExtractNSSM(self, download_dir = None, extract_destination = None) -> Path:
+        """Downloads and extracts the FFMPEG archive. Returns the path to the extracted FFMPEG executable."""
+        nssm = self.findNSSM()
+        here = Path(os.getcwd())
+        if not nssm:
+            if download_dir is None:
+                download_dir = here
+            if extract_destination is None:
+                extract_destination = here
+            downloader = NSSMDownloader(self.operating_sys, self.machine)
+            downloader.downloadNSSM(download_dir, extract_destination)
+        nssm_path = self.findFFMPEG()
+        return nssm_path
     
+    def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
+        results = {}
+        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
+        results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
+        return results
 
 class LinuxDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Linux."""
@@ -231,27 +335,30 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         parkbot = Path(os.getcwd())
         usr_local = Path("/usr/local/")
         opt = Path("/opt/")
-    
         dirs_to_search = [parkbot, self.user_home, usr_local, opt]
-        return self.findFile(FFMPEG.linux.value, dirs_to_search)
+        return self.findFile(FFMPEG.linux.value, dirs_to_search)    
+    
+    def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
+        results = {}
+        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
+        return results
 
 class HandlerFactory:
     @classmethod
     def getHandler(cls):
-        try:
-            operating_sys:str = platform.system().lower()
-            match operating_sys:
-                case "windows":
-                    return WindowsDependencyHandler()
-                case "linux":
-                    return LinuxDependencyHandler()
-        except KeyError:
-            raise OSError(f"This program does not currently support setup for operating systems besides linux or windows.")
-
+        operating_sys:str = platform.system().lower()
+        match operating_sys:
+            case "windows":
+                return WindowsDependencyHandler()
+            case "linux":
+                return LinuxDependencyHandler()
+            case _:
+                raise OSError(f"This program does not currently support setup for operating systems besides linux or windows.")            
 
 if __name__ == "__main__":
     handler = HandlerFactory.getHandler()
-    handler.
+    exe_paths = handler.downloadExtractAllDeps()
+    handler.writeConfig(exe_paths)
 
 
 
