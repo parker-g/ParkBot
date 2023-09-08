@@ -8,3 +8,5 @@ discord.log
 test.py
 nssm.exe
 .cache
+*.zip
+ffmpeg*
