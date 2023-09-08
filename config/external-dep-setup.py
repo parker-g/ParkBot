@@ -8,11 +8,6 @@ from zipfile import ZipFile
 from tarfile import TarFile
 import configparser
 
-systems = {
-    "linux": "linux",
-    "windows": "windows",
-    # "darwin": "mac",
-}
 machines = {
     "x64": "AMD64",
     "AMD64": "AMD64",
@@ -22,6 +17,7 @@ machines = {
     "armv8b": "arm64",
     "armv8l": "arm64",
 }
+
 machines_to_github_versions = {
     "64": "AMD64",
     "arm64": "arm64",
@@ -37,29 +33,36 @@ class FFMPEG(Enum):
 
 class FFMPEGDownloader:
     """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
-    
+
     #thanks stackoverflow
-    def downloadURL(self, url, save_path, chunk_size=128) -> None:
+    def downloadURL(self, url, download_destination, chunk_size=128) -> None:
+
         r = requests.get(url, stream=True)
-        with open(save_path, 'wb') as fd:
+        with open(download_destination, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 fd.write(chunk)
 
     def extract(self, archive, extract_destination) -> None:
-        """Extracts `archive` into `extract_destination`."""
+        """Extracts `archive` into `extract_destination`, and deletes `archive`."""
         match self.operating_sys:
             case "linux":
                 self.extractTar(archive, extract_destination)
             case "windows":
                 self.extractZip(archive, extract_destination)
-        
+
     def extractZip(self, zip_file, unzip_destination) -> None:
+        """Extracts and deletes the specified zip archive."""
         zip = ZipFile(zip_file, "r")
         zip.extractall(unzip_destination)
+        zip.close()
+        os.remove(zip_file)
 
     def extractTar(self, tar_file, extract_destination) -> None:
+        """Extracts and deletes the specified tar archive."""
         tar = TarFile(tar_file, "r")
         tar.extractall(extract_destination)
+        tar.close()
+        os.remove(tar_file)
 
     # linux64-gpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl-shared.tar.xz
     # linux64-gpl-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
@@ -102,7 +105,6 @@ class FFMPEGDownloader:
         # }
 
         self.best_match = None
-        self.download_destination = download_destination
 
     def getBestLinuxBuildLink(self, builds) -> str:
         "Gets download link for Linux depending on user's CPU instruction set."
@@ -115,7 +117,7 @@ class FFMPEGDownloader:
                 raise OSError(f"This computer's architecture is not currently supported for easy setup.")
 
     def getDownloadLink(self, builds):
-        """Returns the most appropriate FFMPEG download link for a user's operating system."""
+        """Returns the appropriate FFMPEG download link for a user's operating system."""
         match self.operating_sys:
             case "windows":
                 return builds["win64-gpl-zip"]
@@ -125,11 +127,20 @@ class FFMPEGDownloader:
                 raise OSError("This computer's architecture is not currently supported for easy setup.")
             
 
-    def downloadFFMPEG(self, download_destination, extract_destination) -> None:
+    def downloadFFMPEG(self, download_dir:Path, extract_destination) -> None:
+        """Takes an optional download"""
+        match self.operating_sys:
+            case "windows":
+                file_ext = ".zip"
+            case "linux":
+                file_ext = ".tar.xz"
+            case _:
+                raise OSError()
+        download_destination = download_dir / f"ffmpeg{file_ext}"
         link = self.getDownloadLink(self.builds)
-        self.downloadURL(link, download_destination) # downloads zip
+        self.downloadURL(link, download_destination)
         self.extract(download_destination, extract_destination)
-        
+
 
 class ExternalDependencyHandler:
     """Super class to model DependencyHandler behaviors and provide basic operations."""
@@ -158,12 +169,16 @@ class ExternalDependencyHandler:
     def findFFMPEG(self, operating_system:str) -> Path | None:
         pass
 
-    def main(self, download_dest, extract_destination):
+    def main(self, download_dir = None, extract_destination = None):
+        if download_dir is None:
+            download_dir = Path(os.getcwd())
+        if extract_destination is None:
+            extract_destination = Path(os.getcwd())
         ffmpeg = self.findFFMPEG(self.operating_sys)
-        parkbot_scripts_dir = Path(os.getcwd()) / ".venv" / "Scripts"
         if not ffmpeg:
             downloader = FFMPEGDownloader(self.operating_sys, self.machine)
-            downloader.downloadFFMPEG(parkbot_scripts_dir)
+            downloader.downloadFFMPEG(download_dir, extract_destination)
+        #TODO write ffmpeg executable path to the config file
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Windows."""
