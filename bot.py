@@ -1,15 +1,20 @@
 from discord.ext import commands
-from config.config import TOKEN, WORKING_DIRECTORY
 import logging
 import discord
 import helper
+import configparser
+
+parser = configparser.ConfigParser()
+parser.read("bot.config")
+TOKEN = parser["DEFAULT"]["token"]
+WORKING_DIRECTORY = parser["DEFAULT"]["working_directory"]
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
 
 handler = logging.FileHandler(filename=WORKING_DIRECTORY +'discord.log', encoding='utf-8', mode='w')
 
 # 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
-# i make sure to specifically set the 'message_content_ intent to True, bc that's the main intent I will be using
+# i make sure to specifically set the 'message_content_ intent to True
 
 intents = discord.Intents.default()
 intents.message_content = True
