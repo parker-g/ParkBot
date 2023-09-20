@@ -1,36 +1,15 @@
 from tkinter import ttk
-import tkinter as tk
+from tkinter import *
 from configparser import ConfigParser
+from pathlib import Path
 import sys
+import os
 
-# provide a GUI for users to enter the required information needed to setup the bot's configuration
-
-# config['DEFAULT'] = {
-#             "TOKEN" : "",
-#             "WORKING_DIRECTORY" : str(here),
-#             "DATA_DIRECTORY" : str(Path(here) / "data"),
-#             "BANK_PATH" : str(Path(here) / "data" / "bank.csv"),
-#             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
-#             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
-#         }
-#         config["MUSIC"] = {
-#             "FFMPEG_PATH" : str(ffmpeg_path),
-#             "GOOGLE_API_KEY" : "",
-#         }
-#         config["FOR-AUTOPLAY"] = {
-#             "SPOTIFY_CLIENT_ID" : "",
-#             "SPOTIFY_CLIENT_SECRET" : "",
-#         }
-#         config["CANVAS"] = {
-#             "CANVAS_API_KEY": "",
-#             "CANVAS_BASE_URL": "",
-#             "CANVAS_COURSE_NUM": "",
-#             "DATETIME_FILE": str(Path(os.getcwd())  / "data" / "last_time.txt")
-#         }
+CONFIG_FILE = "bot.config"
 
 class ConfigWizard:
     
-    DEFAULT = {
+    REQUIRED = {
         "TOKEN" : "",
         "WORKING_DIRECTORY" : "",
         "DATA_DIRECTORY" : "",
@@ -59,13 +38,126 @@ class ConfigWizard:
     def __init__(self):
         pass
 
+    def readConfigValues(self) -> dict[str, dict[str, str]]:
+        # see if any of all config values already contain a value
+        # if so, keep those existing values unless a user submits something besides a blank
+
+        result = {}
+        config = ConfigParser()
+        config_path = Path(os.getcwd())  / CONFIG_FILE
+        file = config.read(config_path)
+
+        result["REQUIRED"] = dict(config.items(section="REQUIRED"))
+        result["MUSIC"] = dict(config.items(section="MUSIC"))
+        result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
+        result["CANVAS"] = dict(config.items(section="CANVAS"))
+        return result
+    
+    def writeConfigValues(self, new_values:dict[str, Entry]):
+        old_conf = self.readConfigValues()
+        new_config = ConfigParser()
+        # we are able to iterate through all keys of the conf here because we already wrote
+        # all sections and keys to the conf during the external dependency setup.
+
+        for section_key in old_conf:
+            new_config[section_key] = {}
+            for key in old_conf[section_key]:
+                if old_conf[section_key][key] != "": # if theres already a value there, don't overwrite it
+                    new_config[section_key][key] = old_conf[section_key][key]
+                else:
+                    new_config[section_key][key] = new_values[key].get()
+        
+        with open(CONFIG_FILE, "w") as file:
+            new_config.write(file)
+
+    def overwriteConfigValues(self, new_values:dict[str, Entry]):
+        old_conf = self.readConfigValues()
+        new_config = ConfigParser()
+        print(new_values)
+        for section_key in old_conf:
+            new_config[section_key] = {}
+            for key in old_conf[section_key]:
+                if key in new_values:
+                    new_config[section_key][key] = new_values[key].get()
+                else:
+                    new_config[section_key][key] = old_conf[section_key][key]
+
+        with open(CONFIG_FILE, "w") as file:
+            new_config.write(file)
+
+
+    def writeConfig(self, overwriteBool:bool, entries:dict):
+        if overwriteBool is True:
+            write_function = self.overwriteConfigValues
+        else:
+            write_function = self.writeConfigValues
+        write_function(entries)
+    
     def createConfigGUI(self):
-        root = tk.Tk()
-        self.frame = ttk.Frame(root, padding=10)
-        self.frame.grid()
-        ttk.Label(self.frame, text="Discord API Token", name="disc-token").grid(row=0, column=0)
-        ttk.Entry(self.frame, name="disc-token", width=100).grid(row=1, column=5, columnspan=30)
-        root.mainloop()
+        # creating main tkinter window/toplevel
+        master = Tk()
+        master.geometry("350x300")
+
+        # this will create a label widget
+        l1 = Label(master, text = "Discord API Token:")
+        l2 = Label(master, text = "Google API Key:")
+        separator = Label(master, text = "-- Optional Fields Below --")
+        l3 = Label(master, text = "Spotify Client ID:")
+        l4 = Label(master, text = "Spotify Client Secret:")
+        l5 = Label(master, text = "Naughty Words:")
+        l6 = Label(master, text = "Canvas API Key:")
+        l7 = Label(master, text = "Canvas Base URL:")
+        l8 = Label(master, text = "Canvas Course Num:")
+        # grid method to arrange labels in respective
+        # rows and columns as specified
+        l1.grid(row = 0, column = 0, sticky = W, pady = 2)
+        l2.grid(row = 1, column = 0, sticky = W, pady = 2)
+        separator.grid(row = 2, column = 1, sticky = W, pady = 2)
+        l3.grid(row = 3, column = 0, sticky = W, pady = 2)
+        l4.grid(row = 4, column = 0, sticky = W, pady = 2)
+        l5.grid(row = 5, column = 0, sticky = W, pady = 2)
+        l6.grid(row = 6, column = 0, sticky = W, pady = 2)
+        l7.grid(row = 7, column = 0, sticky = W, pady = 2)
+        l8.grid(row = 8, column = 0, sticky = W, pady = 2)
+
+        # entry widgets, used to take entry from user
+        e1 = Entry(master)
+        e2 = Entry(master)
+        e3 = Entry(master)
+        e4 = Entry(master)
+        e5 = Entry(master)
+        e6 = Entry(master)
+        e7 = Entry(master)
+        e8 = Entry(master)
+
+        entries = {
+            "token" : e1,
+            "google_api_key" : e2,
+            "spotify_client_id" : e3,
+            "spotify_client_secret" : e4,
+            "naughty_words" : e5,
+            "canvas_api_key": e6,
+            "canvas_base_url": e7,
+            "canvas_course_num": e8,
+        }
+        overwrite = BooleanVar(master)
+        radio = Checkbutton(master, text="Overwrite Current Config?", variable=overwrite, onvalue=True, offvalue=False, height=5, width = 20)
+        submit = Button(master, command = lambda: [self.writeConfig(overwrite.get(), entries), master.destroy()], text="Submit New Values")
+
+        # this will arrange entry widgets
+        e1.grid(row = 0, column = 1, pady = 2)
+        e2.grid(row = 1, column = 1, pady = 2)
+        e3.grid(row = 3, column = 1, pady = 2)
+        e4.grid(row = 4, column = 1, pady = 2)
+        e5.grid(row = 5, column = 1, pady = 2)
+        e6.grid(row = 6, column = 1, pady = 2)
+        e7.grid(row = 7, column = 1, pady = 2)
+        e8.grid(row = 8, column = 1, pady = 2)
+        radio.grid(row = 9, column = 0, pady = 2)
+        submit.grid(row = 9, column = 1, pady = 2)
+        # infinite loop which can be terminated by keyboard
+        # or mouse interrupt
+        mainloop()
         # root = tk.Tk()
         # frm = frame
         # frm = ttk.Frame(root, padding=10)

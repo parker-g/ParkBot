@@ -273,7 +273,7 @@ class ExternalDependencyHandler:
         config_path = Path(os.getcwd()) / "bot.config"
         config = configparser.ConfigParser()
         here = Path(os.getcwd())
-        config['DEFAULT'] = {
+        config['REQUIRED'] = {
             "TOKEN" : "",
             "WORKING_DIRECTORY" : str(here),
             "DATA_DIRECTORY" : str(Path(here) / "data"),
