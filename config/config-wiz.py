@@ -2,8 +2,24 @@ from tkinter import ttk
 from tkinter import *
 from configparser import ConfigParser
 from pathlib import Path
-import sys
 import os
+
+def read(config_filename) -> dict[str, dict[str, str]]:
+    """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""
+    # see if any of all config values already contain a value
+    # if so, keep those existing values unless a user submits something besides a blank
+    here = Path(os.getcwd())
+
+    result = {}
+    config = ConfigParser()
+    config_path = Path(os.getcwd())  / config_filename
+    file = config.read(config_path)
+
+    result["REQUIRED"] = dict(config.items(section="REQUIRED"))
+    result["MUSIC"] = dict(config.items(section="MUSIC"))
+    result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
+    result["CANVAS"] = dict(config.items(section="CANVAS"))
+    return result
 
 CONFIG_FILE = "bot.config"
 
@@ -39,26 +55,13 @@ class ConfigWizard:
         pass
 
     def readConfigValues(self) -> dict[str, dict[str, str]]:
-        # see if any of all config values already contain a value
-        # if so, keep those existing values unless a user submits something besides a blank
-
-        result = {}
-        config = ConfigParser()
-        config_path = Path(os.getcwd())  / CONFIG_FILE
-        file = config.read(config_path)
-
-        result["REQUIRED"] = dict(config.items(section="REQUIRED"))
-        result["MUSIC"] = dict(config.items(section="MUSIC"))
-        result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
-        result["CANVAS"] = dict(config.items(section="CANVAS"))
-        return result
+        return read(CONFIG_FILE)
     
     def writeConfigValues(self, new_values:dict[str, Entry]):
         old_conf = self.readConfigValues()
         new_config = ConfigParser()
         # we are able to iterate through all keys of the conf here because we already wrote
         # all sections and keys to the conf during the external dependency setup.
-
         for section_key in old_conf:
             new_config[section_key] = {}
             for key in old_conf[section_key]:
@@ -73,11 +76,11 @@ class ConfigWizard:
     def overwriteConfigValues(self, new_values:dict[str, Entry]):
         old_conf = self.readConfigValues()
         new_config = ConfigParser()
-        print(new_values)
+        print([new_values[key].get() for key in new_values])
         for section_key in old_conf:
             new_config[section_key] = {}
             for key in old_conf[section_key]:
-                if key in new_values:
+                if (key in new_values) and (new_values[key].get().strip() != ""):
                     new_config[section_key][key] = new_values[key].get()
                 else:
                     new_config[section_key][key] = old_conf[section_key][key]
@@ -140,9 +143,10 @@ class ConfigWizard:
             "canvas_base_url": e7,
             "canvas_course_num": e8,
         }
-        overwrite = BooleanVar(master)
-        radio = Checkbutton(master, text="Overwrite Current Config?", variable=overwrite, onvalue=True, offvalue=False, height=5, width = 20)
-        submit = Button(master, command = lambda: [self.writeConfig(overwrite.get(), entries), master.destroy()], text="Submit New Values")
+
+        toOverwrite = BooleanVar(master)
+        checkBox = Checkbutton(master, text="Overwrite non-null values?", variable=toOverwrite, onvalue=True, offvalue=False, height=5, width = 20)
+        submit = Button(master, command = lambda: [self.writeConfig(toOverwrite.get(), entries), master.destroy()], text="Submit New Values")
 
         # this will arrange entry widgets
         e1.grid(row = 0, column = 1, pady = 2)
@@ -153,18 +157,9 @@ class ConfigWizard:
         e6.grid(row = 6, column = 1, pady = 2)
         e7.grid(row = 7, column = 1, pady = 2)
         e8.grid(row = 8, column = 1, pady = 2)
-        radio.grid(row = 9, column = 0, pady = 2)
+        checkBox.grid(row = 9, column = 0, pady = 2)
         submit.grid(row = 9, column = 1, pady = 2)
-        # infinite loop which can be terminated by keyboard
-        # or mouse interrupt
         mainloop()
-        # root = tk.Tk()
-        # frm = frame
-        # frm = ttk.Frame(root, padding=10)
-        # frm.grid()
-        # ttk.Label(frm, text="Hello World!").grid(column=0, row=0)
-        # ttk.Button(frm, text="Quit", command=root.destroy).grid(column=1, row=0)
-        # root.mainloop()
 
 if __name__ == "__main__":
     wiz = ConfigWizard()

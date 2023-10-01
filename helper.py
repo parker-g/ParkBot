@@ -1,4 +1,4 @@
-from config.config import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
+from config.configuration import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
 import pandas as pd
 import replicate
 import requests

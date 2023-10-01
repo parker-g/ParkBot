@@ -1,11 +1,10 @@
-from config.config import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
+from config.configuration import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
 from datetime import datetime, timedelta, date
 from discord.ext import commands
 from helper import write_iterable
 from canvasapi import Canvas
+from configparser import ConfigParser
 import discord
-
-
 
 class CanvasClient(commands.Cog):
     def __init__(self, bot, api_key, base_url, course_num):

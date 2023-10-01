@@ -1,13 +1,8 @@
+from config.configuration import WORKING_DIRECTORY, TOKEN
 from discord.ext import commands
 import logging
 import discord
 import helper
-import configparser
-
-parser = configparser.ConfigParser()
-parser.read("bot.config")
-TOKEN = parser["DEFAULT"]["token"]
-WORKING_DIRECTORY = parser["DEFAULT"]["working_directory"]
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
 
