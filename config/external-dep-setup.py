@@ -8,6 +8,7 @@ from zipfile import ZipFile
 from tarfile import TarFile
 import configparser
 import shutil
+import subprocess
 
 machines = {
     "x64": "AMD64",
@@ -67,6 +68,55 @@ class Downloader:
                 self.extractTar(archive, extract_destination)
             case "windows":
                 self.extractZip(archive, extract_destination)
+
+class NSSMConfigurator:
+
+    def _findNSSM(self) -> Path | None:
+    # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
+    # should really only accept win64 for now, as the rest of setup doesnt support 32
+        """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
+        desired_file = "nssm.exe"
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for filename in files:
+                if (desired_file == filename):
+                    return Path(dirpath) / desired_file
+        return None
+    
+    def _findPython(self) -> Path | None:
+        """Searches ParkBot's directory for a virtual environment and returns the path to its python executable."""
+        desired_file = "python.exe"
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for dir in dirs:
+                for dirpath, dirs, files in os.walk(dir):
+                    for filename in files:
+                        if (desired_file == filename):
+                            return Path(dirpath) / desired_file
+        return None
+    
+    def _findBotPy(self) -> Path | None:
+        """Searches ParkBot's directory for the 'bot.py' file, and returns its path as a Path object."""
+        desired_file = "bot.py"
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for filename in files:
+                if (desired_file == filename):
+                    return Path(dirpath) / desired_file
+        return None
+
+    def installBotService(self, service_name:str = "ParkBotService") -> bool:
+        """Uses the 'nssm.exe' executable to create a windows service. All the 'nssm' service does is link a python executable to a '.py' file, so that whenever the service is started, the python file is executed with the given executable."""
+        nssm_exe = self._findNSSM()
+        python_venv_exe = self._findPython()
+        bot_py_path = self._findBotPy()
+        command_string = f"{nssm_exe} install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
+        completed_process = subprocess.run(command_string, text=True)
+        if completed_process.returncode == 0:
+            print(f"ParkBotService was installed as a service.")
+            return True
+        return False
+
 
 class NSSMDownloader(Downloader):
 
@@ -341,10 +391,14 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         return nssm_path
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
+        configurator = NSSMConfigurator()
         results = {}
         results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
+        configurator.installBotService()
         return results
+    
+
 
 class LinuxDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Linux."""
@@ -384,6 +438,7 @@ if __name__ == "__main__":
     handler = HandlerFactory.getHandler()
     exe_paths = handler.downloadExtractAllDeps()
     handler.writeConfig(exe_paths)
+
 
 
 

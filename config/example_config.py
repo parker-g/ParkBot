@@ -1,3 +1,5 @@
+# DEPRECATED --------------------
+
 # save a filled out version of this file as config.py, in this directory.
 
 # this config file uses windows-style back slashes in directory naming - you may need to change all '\\' to '/' to run on a linux machine
