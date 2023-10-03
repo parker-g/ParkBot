@@ -114,6 +114,8 @@ class NSSMConfigurator:
         completed_process = subprocess.run(command_string, text=True)
         if completed_process.returncode == 0:
             print(f"ParkBotService was installed as a service.")
+        elif completed_process.returncode != 0:
+            print("-"*30 +f"\nParkBotService failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return True
         return False
 
@@ -278,6 +280,25 @@ class ExternalDependencyHandler:
         self.operating_sys = platform.system().lower()
         self.machine = machines[platform.machine()]
 
+    def read(self, config_filename:str | Path) -> dict[str, dict[str, str]] | None:
+        """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""
+        # see if any of all config values already contain a value
+        # if so, keep those existing values unless a user submits something besides a blank
+        here = Path(os.getcwd())
+        
+        result = {}
+        config = configparser.ConfigParser()
+        config_path = Path(os.getcwd())  / config_filename
+        file = config.read(config_path)
+        if file is None:
+            return None
+        
+        result["REQUIRED"] = dict(config.items(section="REQUIRED"))
+        result["MUSIC"] = dict(config.items(section="MUSIC"))
+        result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
+        result["CANVAS"] = dict(config.items(section="CANVAS"))
+        return result
+
     def isInProjectRoot(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
         here = Path(os.getcwd())
@@ -319,11 +340,15 @@ class ExternalDependencyHandler:
         pass
     
     def writeConfig(self, exe_paths:dict[str, Path]) -> None:
+        # attempt to read a config if one exists
         ffmpeg_path = exe_paths["ffmpeg"]
-        config_path = Path(os.getcwd()) / "bot.config"
-        config = configparser.ConfigParser()
+        config_path:Path = Path(os.getcwd()) / "bot.config"
+
+        current_config = self.read(config_path)
+
+        new_config = configparser.ConfigParser()
         here = Path(os.getcwd())
-        config['REQUIRED'] = {
+        new_config['REQUIRED'] = {
             "TOKEN" : "",
             "WORKING_DIRECTORY" : str(here),
             "DATA_DIRECTORY" : str(Path(here) / "data"),
@@ -331,22 +356,31 @@ class ExternalDependencyHandler:
             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
         }
-        config["MUSIC"] = {
+        new_config["MUSIC"] = {
             "FFMPEG_PATH" : str(ffmpeg_path),
             "GOOGLE_API_KEY" : "",
         }
-        config["FOR-AUTOPLAY"] = {
+        new_config["FOR-AUTOPLAY"] = {
             "SPOTIFY_CLIENT_ID" : "",
             "SPOTIFY_CLIENT_SECRET" : "",
         }
-        config["CANVAS"] = {
+        new_config["CANVAS"] = {
             "CANVAS_API_KEY": "",
             "CANVAS_BASE_URL": "",
             "CANVAS_COURSE_NUM": "",
             "DATETIME_FILE": str(Path(os.getcwd())  / "data" / "last_time.txt")
         }
+
+        if current_config is not None:
+            for section in new_config:
+                if section in current_config:
+                    for key in new_config[section]:
+                        if key in current_config[section]:
+                            new_config[section][key] = current_config[section][key]
+                            # retain values that already exist, rather than overwriting them
+
         with open(config_path, "w") as configfile:
-            config.write(configfile)
+            new_config.write(configfile)
         return
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
@@ -438,9 +472,3 @@ if __name__ == "__main__":
     handler = HandlerFactory.getHandler()
     exe_paths = handler.downloadExtractAllDeps()
     handler.writeConfig(exe_paths)
-
-
-
-
-
-
