@@ -1,4 +1,4 @@
-from config.config import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
+from config.configuration import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
 import pandas as pd
 import replicate
 import requests
@@ -34,7 +34,6 @@ def bubbleSortCards(cards_list:list) -> None:
             # if we haven't needed to make a single swap, we
             # can just exit the main loop.
             return
-
 
 def slugify(string):
     new_string = ""
@@ -160,7 +159,6 @@ def setUserAmount(df:pd.DataFrame, username, new_money_value):
     user_index = df.index[df['Usernames'] == username].tolist()
     user_index = user_index[0]
     df.at[user_index, "GleepCoins"] = int(new_money_value)
-
 
 def getUserAmount(df, username) -> int:
     user_index = df.index[df['Usernames'] == username].tolist()

@@ -3,7 +3,7 @@ import helper
 from discord.ext.commands import Context
 from discord.ext import commands
 from discord.ext.commands import Cog
-from config.config import BANK_PATH
+from config.configuration import BANK_PATH
 from discord import Embed
 
 

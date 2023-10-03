@@ -484,7 +484,7 @@ class GamesController(Controller):
     @commands.command()
     async def playPoker(self, ctx) -> None:
         queue = self.getGuildClazz(ctx)
-        await queue._playJack(ctx)
+        await queue._playPoker(ctx)
     
 
 

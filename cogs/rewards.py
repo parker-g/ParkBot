@@ -5,7 +5,7 @@ from cogs.controller import Controller
 from discord.ext.commands import Cog
 from discord.ext import commands
 from discord import Embed
-from config.config import NAUGHTY_WORDS
+from config.configuration import NAUGHTY_WORDS
 
 
 class RewardsController(Controller):
