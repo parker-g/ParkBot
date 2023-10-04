@@ -94,7 +94,6 @@ class NSSMConfigurator:
                     for filename in files:
                         if (desired_file == filename):
                             return Path(dirpath).absolute() / desired_file
-                        
         return None
     
     def _findBotPy(self) -> Path | None:
