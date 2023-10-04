@@ -92,9 +92,12 @@ class ConfigWizard:
     def writeConfig(self, overwriteBool:bool, entries:dict):
         if overwriteBool is True:
             write_function = self.overwriteConfigValues
+            print("-"*50 + f"\nNon-empty config inputs were written to 'bot.config'.")
         else:
             write_function = self.writeConfigValues
+            print("-"*50 + f"\nConfig values which were empty in 'bot.config' have been populated with your inputs :)")
         write_function(entries)
+        
     
     def createConfigGUI(self):
         # creating main tkinter window/toplevel

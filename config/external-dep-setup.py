@@ -9,6 +9,7 @@ from tarfile import TarFile
 import configparser
 import shutil
 import subprocess
+import time
 
 machines = {
     "x64": "AMD64",
@@ -71,17 +72,17 @@ class Downloader:
 
 class NSSMConfigurator:
 
-    def _findNSSM(self) -> Path | None:
-    # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
-    # should really only accept win64 for now, as the rest of setup doesnt support 32
-        """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
-        desired_file = "nssm.exe"
-        parkbot_dir = Path(os.getcwd())
-        for dirpath, dirs, files in os.walk(parkbot_dir):
-            for filename in files:
-                if (desired_file == filename):
-                    return Path(dirpath) / desired_file
-        return None
+    # def _findNSSM(self) -> Path | None:
+    # # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
+    # # should really only accept win64 for now, as the rest of setup doesnt support 32
+    #     """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
+    #     desired_file = "nssm.exe"
+    #     parkbot_dir = Path(os.getcwd())
+    #     for dirpath, dirs, files in os.walk(parkbot_dir):
+    #         for filename in files:
+    #             if (desired_file == filename):
+    #                 return Path(dirpath) / desired_file
+    #     return None
     
     def _findPython(self) -> Path | None:
         """Searches ParkBot's directory for a virtual environment and returns the path to its python executable."""
@@ -92,7 +93,8 @@ class NSSMConfigurator:
                 for dirpath, dirs, files in os.walk(dir):
                     for filename in files:
                         if (desired_file == filename):
-                            return Path(dirpath) / desired_file
+                            return Path(dirpath).absolute() / desired_file
+                        
         return None
     
     def _findBotPy(self) -> Path | None:
@@ -102,20 +104,24 @@ class NSSMConfigurator:
         for dirpath, dirs, files in os.walk(parkbot_dir):
             for filename in files:
                 if (desired_file == filename):
-                    return Path(dirpath) / desired_file
+                    return Path(dirpath).absolute() / desired_file
         return None
 
     def installBotService(self, service_name:str = "ParkBotService") -> bool:
         """Uses the 'nssm.exe' executable to create a windows service. All the 'nssm' service does is link a python executable to a '.py' file, so that whenever the service is started, the python file is executed with the given executable."""
-        nssm_exe = self._findNSSM()
         python_venv_exe = self._findPython()
         bot_py_path = self._findBotPy()
-        command_string = f"{nssm_exe} install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
-        completed_process = subprocess.run(command_string, text=True)
-        if completed_process.returncode == 0:
-            print(f"ParkBotService was installed as a service.")
-        elif completed_process.returncode != 0:
-            print("-"*30 +f"\nParkBotService failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
+        command_string = f"nssm install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
+        completed_process = subprocess.call(command_string, text=True)
+        if completed_process == 0:
+            # set the services' working directory to the ParkBot working directory
+            change_service_directory = subprocess.call(f"nssm set {service_name} AppDirectory {os.getcwd()}")
+            if change_service_directory == 0:
+                print("-"*50 + f"\n{service_name} was installed as a service!")
+            else:
+                print(f"{service_name} was installed but will not function until it's `working directory` is changed.\nUse the command `nssm set {service_name} AppDirectory <parkbot's-working-directory(can be found in bot.config)>")
+        elif completed_process != 0:
+            print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return True
         return False
 
