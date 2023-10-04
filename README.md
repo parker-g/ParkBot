@@ -14,6 +14,24 @@ ParkBot is a Discord bot written in Python with the objective of bringing fun to
 * python 3.10 or newer installed
 * only tested on windows 11
 
+### easy setup option - setup.sh
+* open a bash-compatible terminal with admin privileges
+* enter the ParkBot root directory, ```cd C:\Users\user1\Documents\GitHub\ParkBot```
+* run the `setup.sh` bash script, ```. setup.sh```
+* enter the required fields in the config GUI and now you have a discord bot as a windows service :D
+* you can start and stop your discord bot using the windows 'sc' service manager, or through the `Services` app.
+
+#### what does the setup script do?
+* this script goes through a few steps including
+    * creating a python virtual environment
+    * downloads pip dependencies to virtual env
+    * downloads ffmpeg.exe (the bot uses this to process audio - for playing music)
+    * if system is windows, downloads 'Non-sucking Service Manager', or `nssm.exe`.
+      * uses `nssm.exe` to create a windows service from your bot
+    * prompts user for key inputs to write to config file (discord api token, google api token, etc)
+
+### Manual Setup Instructions below
+
 #### You will want to begin by creating a virtual environment for this project, if you don't already have one.
 * Open a terminal in the `ParkBot` directory
 #### using command prompt
