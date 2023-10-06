@@ -277,6 +277,7 @@ class Player(commands.Cog):
         self.ytclient = ytclient
         self.spclient = spotifyclient
         self.voice = None
+        self.guild = playlist.guild
 
         self.autoplay = False
 

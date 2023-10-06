@@ -6,7 +6,7 @@ class Controller(Cog):
         :param self.bot: A reference to the discord Bot which is constructing the Controller.
         :param self.clazz: A reference to the class which the Controller will construct an instance of for each guild the Bot is a part of.
         :param self.gulds_to_clazzs: Dictionary storing all the guilds and clazzs that a controller owns."""
-    #this is a quick and easy fix, pretty much a bandaid over an issue which should require surgery
+
     def __init__(self, bot, controlled_class):
         self.bot = bot
         self.clazz = controlled_class

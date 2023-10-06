@@ -4,7 +4,7 @@ from configparser import ConfigParser
 from pathlib import Path
 import os
 
-CONFIG_FILE = "fake.config"
+CONFIG_FILE = "bot.config"
 
 def read(config_filename) -> dict[str, dict[str, str]] | None:
     """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""
