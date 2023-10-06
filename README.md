@@ -45,13 +45,13 @@ ParkBot is a Discord bot written in Python with the objective of bringing fun to
 
 #### now, to configure your project. 
 
-I have provided an example config file in config/example_config.py. you can rename this file to simply `config.py`, then populate it's contents. the project's .gitignore is set to not track any files names config.py, which should prevent you from pushing any sensitive data. however, you should still take precautions not to expose any of your API keys whenever possible.
+when using the setup.sh script, or after running the config-wiz.py, a file called "bot.config" will be created. this file stores sensitive data such as API tokens. treat it with caution. below, I've listed the necessary and non-necessary values that your 'bot.config' file must contain.
 
-* NECESSARY for all instances - obtain a discord api token [here](https://discord.com/developers/applications), create a discord 'application', and also create a 'bot' from the discord developer portal. before adding the bot to your server, be sure to give it permissions to view all guild memebers, view messages, send messages, send private threads, and view/ join voice channels.
+* NECESSARY for all instances - obtain a discord api token [here](https://discord.com/developers/applications), create a discord 'application', and also create a 'bot' from the discord developer portal. before adding the bot to your server, be sure to give it permissions to view all guild memebers, view messages, send messages, send private threads, and view/ join voice channels. enter your discord api token in the 'bot.config' file next to the line `token = `.
 
-* for the MUSIC FEATURE -  you wil need to download FFMPEG, [here](https://www.gyan.dev/ffmpeg/builds/). FFMPEG downloads are zipped in .7z format, so you will need a third party archiving software such as 7-zip or winrar in order to extract the FFMPEG contents. the only piece you need from this download, is the `ffmpeg.exe`. you will need to copy this executable then store in somewhere on your computer. after you have saved this executable somewhere, you will need to copy the path to `ffmpeg.exe`. you will then open up `config.py`, and paste the path in the quoatations next to the variable, `FFMPEG_PATH`. now your discord bot knows where to find FFMPEG for use in audio processing.
+* for the MUSIC FEATURE - (if you used the setup script, you will already have ffmpeg installed and it's path saved in your 'bot.config'.) you wil need to download FFMPEG, [here](https://www.gyan.dev/ffmpeg/builds/). FFMPEG downloads are zipped in .7z format, so you will need a third party archiving software such as 7-zip or winrar in order to extract the FFMPEG contents. the only piece you need from this download, is the `ffmpeg.exe`. you will need to copy this executable then store in somewhere on your computer. after you have saved this executable somewhere, you will need to copy the path to `ffmpeg.exe`. you will then open up `bot.config`, and paste the path next to the line, `ffmpeg_path =`. now your discord bot knows where to find FFMPEG for use in audio processing.
 
-* for the MUSIC FEATURE - you'll also need a YouTube API key. you can find details on obtaining a youtube-data API key [here](https://developers.google.com/youtube/v3/getting-started). once you have registered an application there and obtained your google/youtube API key, you can paste your key in the config/config.py file, in the quotations next to `GOOGLE_API_KEY`.
+* for the MUSIC FEATURE - you'll also need a YouTube API key. you can find details on obtaining a youtube-data API key [here](https://developers.google.com/youtube/v3/getting-started). once you have registered an application there and obtained your google/youtube API key, you can paste your key in the "bot.config' file, on the `google_api_key = ` line.
 
 * for the CANVAS FEATURE - you will need to obtain a canvas API key. this can easily be done by going to your account settings in canvas, where you are given the option to generate a new access token. once you have this token, paste it into the quotations next to `CANVAS_API_TOKEN`.
 
@@ -61,13 +61,15 @@ I have provided an example config file in config/example_config.py. you can rena
 
 ## self-hosting your bot instance as a windows service
 
-there are a couple ways to do this. I have done it using a tool called the NSSM, or "non-sucking-service-manager". its a simple command line tool that lets us turn a python script into a windows service. you can download that project [here](https://nssm.cc/download). once you have downloaded it, copy the `nssm.exe` file to the ParkBot directory.
+there are a couple ways to do this. I have done it using a tool called the NSSM, or "non-sucking-service-manager". its a simple command line tool that lets us turn a python script into a windows service. you can download that project [here](https://nssm.cc/download). once you have downloaded it, copy the `nssm.exe` file to the ParkBot root directory.
 
 * open a terminal in the ParkBot directory, and activate your virtual environment. ensure all your requirements are installed already and the bot is functional.
 
-* the syntax for creating a python service with nssm is like this - ```nssm.exe install "NameYouWantToGiveYourService" "path\to\the\python\executable\you\want\to\use.exe" "path\to\the\python\file\you\want\the\executable\to\execute\on.py"```.
+* the syntax for creating a python service with nssm is like this - ```nssm install "NameYouWantToGiveYourService" "path\to\the\python\executable\you\want\to\use.exe" "path\to\the\python\file\you\want\the\executable\to\execute\on.py"```.
   
-* so, in our use case the command would look like this - ```nssm.exe install "ParkBotService" ".venv\Scripts\python.exe" "bot.py"```. i don't remember whether this worked with relative paths, so if it fails then run the same command, but use absolute paths instead of relative.
+* so, in our use case, naming the service 'ParkBotService', the command would look like this (notice i'm executing the command from the ParkBot directory) - ```C:\...\ParkBot> nssm install "ParkBotService" ".venv\Scripts\python.exe" "bot.py"```. i don't remember whether this worked with relative paths, so if it fails then run the same command, but use absolute paths instead of relative.
+
+* to ensure your service has the proper working directory, you should also execute this command - ```nssm set ParkBotService AppDirectory <ParkBot/root/directory/on/your/machine>```
 
 * if your service creation was a success, find the `Services` program on windows search, then find your service there. Go ahead and boot it up, and feel free to tinker with the settings of the service, such as what you want the service to do upon crashing or a failure.
 
