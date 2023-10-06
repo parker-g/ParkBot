@@ -18,8 +18,9 @@ class RewardsController(Controller):
         await tts._say(ctx, args)
 
 class TTS(Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, guild):
         self.bot = bot
+        self.guild = guild
 
     async def processAudio(self, ctx, string):
         engine = pyttsx3.init("sapi5")

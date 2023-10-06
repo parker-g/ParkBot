@@ -1,12 +1,13 @@
 from config.configuration import WORKING_DIRECTORY, TOKEN
 from discord.ext import commands
+from pathlib import Path
 import logging
 import discord
 import helper
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
-
-handler = logging.FileHandler(filename=WORKING_DIRECTORY +'discord.log', encoding='utf-8', mode='w')
+log_path = Path(WORKING_DIRECTORY) / "discord.log"
+handler = logging.FileHandler(log_path, encoding='utf-8', mode='w')
 
 # 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
 # i make sure to specifically set the 'message_content_ intent to True

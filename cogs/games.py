@@ -306,9 +306,10 @@ class PlayerQueue(Cog):
     The PlayerQueue class is used as a guild-level-distributor of the games available in the games.py 'cog'.\n
     self.q is a list[Card]. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
     Right now, I'm actually realizing that it would be much more simple if I instead just incorporated the discord.Member object into the Player class as an attribute. Removing the possibility of confusing others with tuples in the player queue."""
-    def __init__(self, bot):
+    def __init__(self, bot, guild):
         self.bot:commands.Bot = bot
         self.q:list[Player] = []
+        self.guild = guild
 
     async def _joinQueue(self, ctx):
         """

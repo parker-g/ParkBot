@@ -1,11 +1,13 @@
 from config.configuration import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 from cogs.controller import Controller
 from collections import deque
+from pathlib import Path
 import asyncio
 import helper
 import time
 import logging
 import html
+
 
 from spotipy import Spotify, SpotifyException
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -19,18 +21,13 @@ import yt_dlp
 from youtube_dl import YoutubeDL
 
 # new music specific log
-music_handler = logging.FileHandler(f"{WORKING_DIRECTORY}music.log", encoding="utf-8", mode="w")
+music_log_path = Path(WORKING_DIRECTORY) / "music.log"
+music_handler = logging.FileHandler(music_log_path, encoding="utf-8", mode="w")
 logger = logging.Logger("music_logger")
 logger.addHandler(music_handler)
 
 def getTime() -> str:
     return time.asctime(time.localtime())
-
-#TODO
-# current goal: autoplay suggested videos/songs -
-    # could extract tags from the video I'm on and perform a search of those tags, return first video
-    # users can turn on / turn off autoplay (off by default and turns off whenever mongrel bot leaves voice)
-        # when autoplay is turned off, next 5 songs in queue will stay, anything after will be cleared
  
 #TODO
 # backburner goal:
@@ -64,7 +61,7 @@ class Song:
         self.title = song_title_and_id[0]
         self.id = song_title_and_id[1]
         self.slug_title = helper.slugify(self.title) + ".mp3"
-        self.path = DATA_DIRECTORY + self.slug_title
+        self.path = str(Path(DATA_DIRECTORY) / self.slug_title)
 
     def setDownloaded(self) -> None:
         self.downloaded = True
@@ -76,7 +73,8 @@ class Song:
         return False
 
 class PlayList(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, guild:discord.Guild):
+        self.guild = guild
         self.bot = bot
         self.current_song:Song = None 
         self.prev_song:Song = None
@@ -252,7 +250,7 @@ class YoutubeClient:
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
-            "outtmpl": DATA_DIRECTORY + helper.slugify(title) + ".%(ext)s",  
+            "outtmpl": str(Path(DATA_DIRECTORY) / (helper.slugify(title) + ".%(ext)s")),  
             "ffmpeg_location": FFMPEG_PATH,
             # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
             'postprocessors': [{  # Extract audio using ffmpeg
@@ -559,16 +557,12 @@ class MusicController(Controller):
     then execute the lower level `_play` or `_skip` commands on the instance. In other words, the MusicController directs users' commands
     to their guild's instance of the ParkBot."""
 
-    # the songs_to_save doesn't 
     def __init__(self, bot):
         logger.info(f"{time.asctime(time.localtime())}: MusicController constructed.")
         super().__init__(bot, PlayList)
         #self.guilds_to_clazzs:dict[discord.Guild, PlayList] - this exists but isnt explicit here
         self.players:dict[PlayList, Player] = {playlist: Player(self.bot, playlist, YoutubeClient(self.bot), SpotifyClient(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)) for playlist in self.guilds_to_clazzs.values()}
         self.client = YoutubeClient(bot)
-        self.voice = None
-        self.playing = False
-        self.from_skip = False
 
     @commands.command()
     async def showGuilds(self, ctx):
@@ -597,15 +591,15 @@ class MusicController(Controller):
 
     #NOTE - I want to continue experimenting with this later down the line -
     #seems there's some way to play songs without downloading ? not sure
-    async def playURL(self, ctx, url):
-        author_vc = ctx.author.voice.channel
-        if not self.voice:
-            self.voice = await author_vc.connect()
+    # async def playURL(self, ctx, url):
+    #     author_vc = ctx.author.voice.channel
+    #     if not self.voice:
+    #         self.voice = await author_vc.connect()
         
-        with YoutubeDL() as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info['formats'][0]['url']
-            self.voice.play(discord.FFmpegPCMAudio(audio_url))
+    #     with YoutubeDL() as ydl:
+    #         info = ydl.extract_info(url, download=False)
+    #         audio_url = info['formats'][0]['url']
+    #         self.voice.play(discord.FFmpegPCMAudio(audio_url))
  
     @commands.command()
     async def play(self, ctx, *args) -> None:
@@ -658,8 +652,8 @@ class MusicController(Controller):
                 if voice.is_playing():
                     voice.stop()
                 await voice.disconnect()
-        self.voice = None
-        self.playing = False
+        #TODO need to modify the self.voice and self.playing attributes of whatever guild's player we just terminated
+
 
     def getAudioLength(self, path_to_audio):
         audio = mp3.MP3(path_to_audio)
