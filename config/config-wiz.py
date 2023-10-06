@@ -4,7 +4,9 @@ from configparser import ConfigParser
 from pathlib import Path
 import os
 
-def read(config_filename) -> dict[str, dict[str, str]]:
+CONFIG_FILE = "fake.config"
+
+def read(config_filename) -> dict[str, dict[str, str]] | None:
     """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""
     # see if any of all config values already contain a value
     # if so, keep those existing values unless a user submits something besides a blank
@@ -13,15 +15,15 @@ def read(config_filename) -> dict[str, dict[str, str]]:
     result = {}
     config = ConfigParser()
     config_path = Path(os.getcwd())  / config_filename
-    file = config.read(config_path)
+    success_files = config.read(config_path)
+    if len(success_files) == 0:
+        return None
 
     result["REQUIRED"] = dict(config.items(section="REQUIRED"))
     result["MUSIC"] = dict(config.items(section="MUSIC"))
     result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
     result["CANVAS"] = dict(config.items(section="CANVAS"))
     return result
-
-CONFIG_FILE = "bot.config"
 
 class ConfigWizard:
     
@@ -54,6 +56,50 @@ class ConfigWizard:
     def __init__(self):
         pass
 
+    def writeEmptyConfig(self) -> None:
+        """This method creates a 'bot.config' file if one doesn't exist."""
+        # attempt to read a config if one exists
+        config_path:Path = Path(os.getcwd()) / CONFIG_FILE
+
+        current_config = read(config_path)
+
+        new_config = ConfigParser()
+        here = Path(os.getcwd())
+        new_config['REQUIRED'] = {
+            "TOKEN" : "",
+            "WORKING_DIRECTORY" : str(here),
+            "DATA_DIRECTORY" : str(Path(here) / "data"),
+            "BANK_PATH" : str(Path(here) / "data" / "bank.csv"),
+            "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
+            "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+        }
+        new_config["MUSIC"] = {
+            "FFMPEG_PATH" : "",
+            "GOOGLE_API_KEY" : "",
+        }
+        new_config["FOR-AUTOPLAY"] = {
+            "SPOTIFY_CLIENT_ID" : "",
+            "SPOTIFY_CLIENT_SECRET" : "",
+        }
+        new_config["CANVAS"] = {
+            "CANVAS_API_KEY": "",
+            "CANVAS_BASE_URL": "",
+            "CANVAS_COURSE_NUM": "",
+            "DATETIME_FILE": str(Path(os.getcwd())  / "data" / "last_time.txt")
+        }
+
+        if current_config is not None:
+            for section in new_config:
+                if section in current_config:
+                    for key in new_config[section]:
+                        if key in current_config[section]:
+                            new_config[section][key] = current_config[section][key]
+                            # retain values that already exist, rather than overwriting them
+
+        with open(config_path, "w") as configfile:
+            new_config.write(configfile)
+        return
+    
     def readConfigValues(self) -> dict[str, dict[str, str]]:
         return read(CONFIG_FILE)
     
@@ -92,10 +138,10 @@ class ConfigWizard:
     def writeConfig(self, overwriteBool:bool, entries:dict):
         if overwriteBool is True:
             write_function = self.overwriteConfigValues
-            print("-"*50 + f"\nNon-empty config inputs were written to 'bot.config'.")
+            print("-"*50 + f"\nNon-empty config inputs were written to '{CONFIG_FILE}'.")
         else:
             write_function = self.writeConfigValues
-            print("-"*50 + f"\nConfig values which were empty in 'bot.config' have been populated with your inputs :)")
+            print("-"*50 + f"\nConfig values which were empty in '{CONFIG_FILE}' have been populated with your inputs :)")
         write_function(entries)
         
     
@@ -166,4 +212,5 @@ class ConfigWizard:
 
 if __name__ == "__main__":
     wiz = ConfigWizard()
+    wiz.writeEmptyConfig()
     wiz.createConfigGUI()

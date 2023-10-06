@@ -294,8 +294,8 @@ class ExternalDependencyHandler:
         result = {}
         config = configparser.ConfigParser()
         config_path = Path(os.getcwd())  / config_filename
-        file = config.read(config_path)
-        if file is None:
+        success_files = config.read(config_path)
+        if len(success_files) == 0:
             return None
         
         result["REQUIRED"] = dict(config.items(section="REQUIRED"))
@@ -345,6 +345,7 @@ class ExternalDependencyHandler:
         pass
     
     def writeConfig(self, exe_paths:dict[str, Path]) -> None:
+        """This method reads the existing 'bot.config' file if one exists, and creates a 'bot.config' file if one doesn't exist."""
         # attempt to read a config if one exists
         ffmpeg_path = exe_paths["ffmpeg"]
         config_path:Path = Path(os.getcwd()) / "bot.config"
