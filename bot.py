@@ -1,6 +1,7 @@
 from config.configuration import WORKING_DIRECTORY, TOKEN
 from discord.ext import commands
 from pathlib import Path
+import wavelink
 import logging
 import discord
 import helper
@@ -29,6 +30,7 @@ async def on_ready():
     await bot.load_extension("cogs.rewards")
     await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.canvas")
+    await bot.load_extension("cogs.streamingmusic")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
