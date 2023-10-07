@@ -558,6 +558,7 @@ class MusicController(Controller):
     then execute the lower level `_play` or `_skip` commands on the instance. In other words, the MusicController directs users' commands
     to their guild's instance of the ParkBot."""
 
+    #NOTE could let the musiccontroller be in charge of deleting songs and checking whether its safe to delete a song.
     def __init__(self, bot):
         logger.info(f"{time.asctime(time.localtime())}: MusicController constructed.")
         super().__init__(bot, PlayList)
@@ -587,20 +588,14 @@ class MusicController(Controller):
     @commands.command()
     async def currentSong(self, ctx):
         playlist:PlayList = self.getGuildClazz(ctx)
-        await ctx.send(embed=Embed(title=f"Current Song", description=f"{playlist.current_song.title}"))
+        current_song = playlist.current_song
+        if current_song is None:
+            await ctx.send(embed=Embed(title=f"Current Song", description=f"No song is currently playing."))
+        else:
+            await ctx.send(embed=Embed(title=f"Current Song", description=f"{playlist.current_song.title}"))
 
 
-    #NOTE - I want to continue experimenting with this later down the line -
-    #seems there's some way to play songs without downloading ? not sure
-    # async def playURL(self, ctx, url):
-    #     author_vc = ctx.author.voice.channel
-    #     if not self.voice:
-    #         self.voice = await author_vc.connect()
-        
-    #     with YoutubeDL() as ydl:
-    #         info = ydl.extract_info(url, download=False)
-    #         audio_url = info['formats'][0]['url']
-    #         self.voice.play(discord.FFmpegPCMAudio(audio_url))
+
  
     @commands.command()
     async def play(self, ctx, *args) -> None:
@@ -653,22 +648,37 @@ class MusicController(Controller):
                 if voice.is_playing():
                     voice.stop()
                 await voice.disconnect()
-        #TODO need to modify the self.voice and self.playing attributes of whatever guild's player we just terminated
+        playlist_to_modify = self.guilds_to_clazzs[ctx.guild]
+        player = self.players[playlist_to_modify]
+        player.voice = None
+        player.playing = False
 
 
-    def getAudioLength(self, path_to_audio):
-        audio = mp3.MP3(path_to_audio)
-        audio = audio.info
-        audiolen = int(audio.length)
-        return audiolen
+    #NOTE - I want to continue experimenting with this later down the line -
+    #seems there's some way to play songs without downloading ? not sure
+    # async def playURL(self, ctx, url):
+    #     author_vc = ctx.author.voice.channel
+    #     if not self.voice:
+    #         self.voice = await author_vc.connect()
+        
+    #     with YoutubeDL() as ydl:
+    #         info = ydl.extract_info(url, download=False)
+    #         audio_url = info['formats'][0]['url']
+    #         self.voice.play(discord.FFmpegPCMAudio(audio_url))`
 
-    def formatAudioLength(self, audio_length):
-        seconds = audio_length % (24 * 3600)
-        hour = seconds // 3600
-        seconds %= 3600
-        minutes = seconds // 60
-        seconds %= 60
-        return hour, minutes, seconds
+    # def getAudioLength(self, path_to_audio):
+    #     audio = mp3.MP3(path_to_audio)
+    #     audio = audio.info
+    #     audiolen = int(audio.length)
+    #     return audiolen
+
+    # def formatAudioLength(self, audio_length):
+    #     seconds = audio_length % (24 * 3600)
+    #     hour = seconds // 3600
+    #     seconds %= 3600
+    #     minutes = seconds // 60
+    #     seconds %= 60
+    #     return hour, minutes, seconds
     
 
 async def setup(bot):
