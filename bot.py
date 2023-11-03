@@ -1,4 +1,4 @@
-from config.configuration import WORKING_DIRECTORY, TOKEN
+from config.configuration import WORKING_DIRECTORY, TOKEN, LAVALINK_PASS, LAVALINK_URI
 from discord.ext import commands
 from pathlib import Path
 import wavelink
@@ -16,6 +16,7 @@ handler = logging.FileHandler(log_path, encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
+
 
 # instantiate an instance of the Bot class (Bot is a subclass of Client - so it has all the functionality of Client with the addition of Bot functionality
 bot = commands.Bot(command_prefix='$', intents=intents)

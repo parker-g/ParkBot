@@ -52,6 +52,8 @@ NAUGHTY_WORDS = toList(required["naughty_words"])
 music = config["MUSIC"]
 FFMPEG_PATH = music["ffmpeg_path"]
 GOOGLE_API_KEY = music["google_api_key"]
+LAVALINK_URI = music["lavalink_uri"]
+LAVALINK_PASS = music["lavalink_pass"]
 
 autoplay = config["FOR-AUTOPLAY"]
 SPOTIFY_CLIENT_ID = autoplay["spotify_client_id"]

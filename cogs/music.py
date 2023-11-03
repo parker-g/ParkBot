@@ -8,7 +8,6 @@ import time
 import logging
 import html
 
-
 from spotipy import Spotify, SpotifyException
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
@@ -40,7 +39,7 @@ def getTime() -> str:
     # would be to create an interface, let's call it "DataManager". then create subclasses which implement this interface, such as DBManager and FileManager.
     # then, only use calls to the DataManager interface whenever you need to work with IO operations.
 
-    #pythonic way - the 'interface' would be a DataManager class which defines each method(including its parameters and return type), but doesn't implement them (passing on each method).
+    # pythonic way - the 'interface' would be a DataManager class which defines each method(including its parameters and return type), but doesn't implement them (passing on each method).
     # let classes that want to implement this interface just extend the DataManager class
 
 #TODO
@@ -656,6 +655,7 @@ class MusicController(Controller):
 
     #NOTE - I want to continue experimenting with this later down the line -
     #seems there's some way to play songs without downloading ? not sure
+    
     # async def playURL(self, ctx, url):
     #     author_vc = ctx.author.voice.channel
     #     if not self.voice:
