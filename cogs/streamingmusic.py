@@ -1,13 +1,19 @@
-from config.configuration import LAVALINK_URI, LAVALINK_PASS
-import wavelink
+from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
 from wavelink import Player, YouTubeTrack
-import discord
 from discord.ext.commands import Cog
 from discord.ext import commands
 from discord import Embed
+from pathlib import Path
+import wavelink
+import logging
+import aiohttp
+import io
 import asyncio
-from discord import VoiceClient
+import discord
+import time
 
+def getTime() -> str:
+    return time.asctime(time.localtime())
 
 class StreamingCog(Cog):
 
@@ -22,6 +28,23 @@ class StreamingCog(Cog):
             await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node."))
         else:
             await ctx.send(embed=Embed(title=f"Node connected!: {node.id}"))
+
+    async def leaveWhenDone(self, ctx):
+        print(f"sleeping for 600 seconds before checking if voice is playing")    
+        await asyncio.sleep(600.0)
+        # this didn't work last time, INVESTIGATE!
+        print(f"done sleeping, checking if voice client playing")
+        node = self.getNode()
+        player = node.get_player(ctx.guild.id)
+        if player is None: return
+        if player.autoplay:
+            if player.is_playing():
+                await player.disconnect()
+        else:
+            if not player.is_playing():
+                await self.leaveWhenDone(ctx)
+            else:
+                await player.disconnect()
 
     @commands.command()
     async def createNode(self, ctx) -> None:
@@ -50,7 +73,7 @@ class StreamingCog(Cog):
         if player.is_playing():
             await player.stop()
     
-    @commands.command("skip2")
+    @commands.command("skip")
     async def skip(self, ctx) -> None:
         node = wavelink.NodePool.get_node()
         player = node.get_player(ctx.guild.id)
@@ -58,10 +81,11 @@ class StreamingCog(Cog):
             await ctx.send(embed=Embed(title=f"There is currently no active Player to play songs."))
         else:
             if player.is_connected():
-                if player.is_playing() or len(player.queue) > 0:
+                if player.is_playing(): #or len(player.queue) > 0:
                     current_song = player.current
+                    if current_song is None: return
                     await ctx.send(embed=Embed(title=f"Skipping {current_song.title}"))
-                    await player.stop() # automatically forces next song to play if a next one exists
+                    await player.stop(force=True) # automatically forces next song to play if a next one exists
                 else:
                     await ctx.send(embed=Embed(title=f"There's no song playing right now, or the queue is empty."))
             else:
@@ -143,36 +167,25 @@ class StreamingCog(Cog):
         #         player = await user_channel.connect(cls = Player, timeout = None)
         #     return player
 
-    @commands.command()
-    async def autoplay(self, ctx, *args) -> None:
-        """Command used to check or set the status of a Player's autoplay flag."""
-        node = self.getNode()
+    @commands.command("showQ")
+    async def showQueue(self, ctx) -> None:
+        node = wavelink.NodePool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None: return
-        if args is None:
-            await ctx.send(embed=Embed(title=f"Autoplay is currently {player.autoplay}.", description=f"If you wish to set the value of autoplay, please type an argument after `autoplay`, such as `on`, or `off`."))
-            return
-        string = str(args[0])
-        if isinstance(string, str):
-            match string:
-                case "on" | "true" | "yes":
-                    new_bool = True
-                case "off" | "false" | "no":
-                    new_bool = False
-                case _:
-                    new_bool = player.autoplay
-            if player.autoplay != new_bool: # if autoplay is being changed, tell the users
-                await ctx.send(embed=Embed(title=f"Music autoplay set to {new_bool}."))
-            else:
-                await ctx.send(embed=Embed(title=f"Music autoplay is currently: {player.autoplay}."))
-            player.autoplay = new_bool
-        else:
-            await ctx.send(embed=Embed(title=f"Invalid Argument", description=f"Please try again, using something like `yes`, `on`, `off`, or `no`."))
 
-    @commands.command("stream")
-    async def play3(self, ctx, *args) -> None:
+        if len(player.queue) == 0:
+            message = Embed(title=f"The queue is currently empty.")
+        else:
+            pretty_string = ""
+            for i in range(len(player.queue)):
+                pretty_string += f"{i + 1}: {player.queue[i].title}\n"
+            message = Embed(title=f"Songs up Next: ", description=pretty_string)
+        await ctx.send(embed = message)
+
+    @commands.command("play")
+    async def stream(self, ctx, *args) -> None:
         node = wavelink.NodePool.get_node()
-        player:Player = node.get_player(ctx.guild.id)
+        player = node.get_player(ctx.guild.id)
 
         if ctx.author.voice is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
@@ -183,6 +196,7 @@ class StreamingCog(Cog):
                     await player.disconnect()
                     user_channel = ctx.author.voice.channel
                     player:Player = await user_channel.connect(cls = Player, timeout = None)
+                    
                 else:
                     pass
             elif (player is None):
@@ -196,14 +210,26 @@ class StreamingCog(Cog):
             else:
                 best_match = search_results[0]
                 player.queue.put(best_match)
-                await ctx.send(embed = Embed(title=f"Added {best_match.title} to the queue."))
+                message = Embed(title=f"Added {best_match.title} to the queue.")
+                message.set_thumbnail(url = best_match.thumbnail)
+                await ctx.send(embed = message)
 
             if not player.is_playing():
                 # search + play requested song
                 await player.play(player.queue.pop())
+            elif player.is_playing():
+                if len(player.queue) > 0:
+                    player.autoplay = True
         else:
             return
         # check if player is playing, add song to queue or start pla
+
+    # @commands.Cog.listener()
+    # async def on_wavelink_track_end(node:wavelink.Node):
+        # need to check if the normal queue is empty after a track is over, and if so then stop playing songs. ( before autoplay populates queue)
+
+
+
 
     # TODO on_ready event can be called multiple times in a discord session, so should implement
     # logic here for checking if a node already exists before trying to connect to a new one

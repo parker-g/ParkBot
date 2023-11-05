@@ -1,3 +1,4 @@
+#NOTE DEPRECATED
 from config.configuration import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 from cogs.controller import Controller
 from collections import deque
