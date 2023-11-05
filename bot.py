@@ -29,7 +29,7 @@ async def on_ready():
     await bot.load_extension("cogs.economy")
     await bot.load_extension("cogs.games")
     await bot.load_extension("cogs.rewards")
-    await bot.load_extension("cogs.music")
+    # await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.canvas")
     await bot.load_extension("cogs.streamingmusic")
     return print(f'I\'m logged in as {bot.user}')

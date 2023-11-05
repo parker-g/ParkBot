@@ -41,6 +41,14 @@ class StreamingCog(Cog):
     def getNode(self) -> wavelink.Node:
         node = wavelink.NodePool.get_node()
         return node
+
+    @commands.command("stop")
+    async def stop(self, ctx) -> None:
+        node = self.getNode()
+        player = node.get_player(ctx.guild.id)
+        if player is None: return
+        if player.is_playing():
+            await player.stop()
     
     @commands.command("skip2")
     async def skip(self, ctx) -> None:
@@ -135,10 +143,36 @@ class StreamingCog(Cog):
         #         player = await user_channel.connect(cls = Player, timeout = None)
         #     return player
 
+    @commands.command()
+    async def autoplay(self, ctx, *args) -> None:
+        """Command used to check or set the status of a Player's autoplay flag."""
+        node = self.getNode()
+        player = node.get_player(ctx.guild.id)
+        if player is None: return
+        if args is None:
+            await ctx.send(embed=Embed(title=f"Autoplay is currently {player.autoplay}.", description=f"If you wish to set the value of autoplay, please type an argument after `autoplay`, such as `on`, or `off`."))
+            return
+        string = str(args[0])
+        if isinstance(string, str):
+            match string:
+                case "on" | "true" | "yes":
+                    new_bool = True
+                case "off" | "false" | "no":
+                    new_bool = False
+                case _:
+                    new_bool = player.autoplay
+            if player.autoplay != new_bool: # if autoplay is being changed, tell the users
+                await ctx.send(embed=Embed(title=f"Music autoplay set to {new_bool}."))
+            else:
+                await ctx.send(embed=Embed(title=f"Music autoplay is currently: {player.autoplay}."))
+            player.autoplay = new_bool
+        else:
+            await ctx.send(embed=Embed(title=f"Invalid Argument", description=f"Please try again, using something like `yes`, `on`, `off`, or `no`."))
+
     @commands.command("stream")
     async def play3(self, ctx, *args) -> None:
         node = wavelink.NodePool.get_node()
-        player:Player = node.get_player(ctx.guild.id) 
+        player:Player = node.get_player(ctx.guild.id)
 
         if ctx.author.voice is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
@@ -167,39 +201,9 @@ class StreamingCog(Cog):
             if not player.is_playing():
                 # search + play requested song
                 await player.play(player.queue.pop())
-            elif player.is_playing():
-                player.autoplay = True
         else:
             return
-        # check if player is playing, add song to queue or start playing song
-            
-    # @commands.command("play2")
-    # async def play(self, ctx, *args) -> None:
-    #     """Adds a song onto the queue, and plays a song if none is playing."""
-    #     node = wavelink.NodePool.get_node()
-    #     player = node.get_player(ctx.guild.id) 
-    #     if player is not None:
-    #         if player.is_connected():
-    #             if not player.is_playing():
-    #                 pass
-    #             else:
-    #                 player = await self.connect(ctx)
-    #         else:
-    #             pass
-    #     elif player is None:               
-    #         print(f"Player doesn't exist, creating one.")       # create a Player if there isn't one associated with this channel.
-    #         player = await self.connect(ctx)
-        
-    #     if player is None:
-    #         await ctx.send(f"Failed to create player.")
-
-    #     tracks = await self._searchYoutube(args)
-    #     if tracks is None:
-    #         await ctx.send(f"Issue searching your query on youtube.")
-    #         return
-        
-    #     best_match = tracks[0]
-    #     player.queue.put(best_match)
+        # check if player is playing, add song to queue or start pla
 
     # TODO on_ready event can be called multiple times in a discord session, so should implement
     # logic here for checking if a node already exists before trying to connect to a new one
