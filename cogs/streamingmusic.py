@@ -9,15 +9,14 @@ import wavelink
 import logging
 import asyncio
 import discord
-import time
+
 
 music_log_path = Path(WORKING_DIRECTORY) / "music.log"
 music_handler = logging.FileHandler(music_log_path, encoding="utf-8", mode="w")
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+music_handler.setFormatter(formatter)
 logger = logging.Logger("music_logger")
 logger.addHandler(music_handler)
-
-def getTime() -> str:
-    return time.asctime(time.localtime())
 
 class StreamingCog(Cog):
 
