@@ -5,6 +5,7 @@ from discord.ext.commands import Cog
 from discord.ext import commands
 from discord import Embed
 from pathlib import Path
+import datetime
 import wavelink
 import logging
 import asyncio
@@ -29,7 +30,7 @@ class StreamingCog(Cog):
         """Called when the bot loads this cog - sets up a connection to the lavalink server. Only necessary to do so once; a single node can serve multiple guilds at once."""
         if self.node is None:
             try:
-                node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASS, retries=2)
+                node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASS, retries=10)
             except ExtensionFailed:
                 logger.error(f"Error connecting to lavalink server.")
                 return
@@ -43,25 +44,29 @@ class StreamingCog(Cog):
             logger.info(f"A node connection has already been established.")
 
 
+    # @commands.Cog.listener("on_voice_state_update")
+    # async def 
+
     @commands.Cog.listener("on_voice_state_update")
     async def leaveIfFinished(self, member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
         """This method call acts as an occasional check up on the bot's voice client, disconnecting the bot if its not playing."""
         if not member.id == self.bot.user.id:
             return
         elif before.channel is None:
-            if after.channel is not None:
-                voice:Player = after.channel.guild.voice_client
-                time = 0
-                while True:
-                    await asyncio.sleep(1)
-                    time = time + 1
-                    if voice.is_playing() and not voice.is_paused():
-                        time = 0
-                    if time == 600:
-                        await voice.disconnect()
-                        await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity."))
-                    if not voice.is_connected():
-                        break
+            # if after.channel is not None:
+            voice:Player = after.channel.guild.voice_client
+            time = 0
+            while True:
+                await asyncio.sleep(1)
+                time = time + 1
+                if voice.is_playing() and not voice.is_paused():
+                    time = 0
+                if time == 600:
+                    await voice.disconnect()
+                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity."))
+                if not voice.is_connected():
+                    break
+        
 
 
     @commands.command()
@@ -71,23 +76,6 @@ class StreamingCog(Cog):
             await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node."))
         else:
             await ctx.send(embed=Embed(title=f"Node connected!: {node.id}"))
-
-    async def leaveWhenDone(self, ctx):
-        print(f"sleeping for 600 seconds before checking if voice is playing")    
-        await asyncio.sleep(600.0)
-        # this didn't work last time, INVESTIGATE!
-        print(f"done sleeping, checking if voice client playing")
-        node = self.getNode()
-        player = node.get_player(ctx.guild.id)
-        if player is None: return
-        if player.autoplay:
-            if player.is_playing():
-                await player.disconnect()
-        else:
-            if not player.is_playing():
-                await self.leaveWhenDone(ctx)
-            else:
-                await player.disconnect()
 
     @commands.command()
     async def createNode(self, ctx) -> None:
@@ -108,13 +96,13 @@ class StreamingCog(Cog):
         node = wavelink.NodePool.get_node()
         return node
 
-    @commands.command("stop")
-    async def stop(self, ctx) -> None:
-        node = self.getNode()
-        player = node.get_player(ctx.guild.id)
-        if player is None: return
-        if player.is_playing():
-            await player.stop()
+    # @commands.command("stop")
+    # async def stop(self, ctx) -> None:
+    #     node = self.getNode()
+    #     player = node.get_player(ctx.guild.id)
+    #     if player is None: return
+    #     if player.is_playing():
+    #         await player.stop()
     
     @commands.command("skip")
     async def skip(self, ctx) -> None:
@@ -133,7 +121,20 @@ class StreamingCog(Cog):
                     await ctx.send(embed=Embed(title=f"There's no song playing right now, or the queue is empty."))
             else:
                 await ctx.send(embed=Embed(title="No voice channel connection right now.", description="Can't skip a song."))
-            
+    
+
+    @commands.command()
+    async def pause(self, ctx) -> None:
+        node = wavelink.NodePool.get_node()
+        player = node.get_player(ctx.guild.id)
+        if player is None: 
+            await ctx.send(embed=Embed(title=f"There is currently no active Player."))
+        else:
+            if player.is_connected():
+                if player.is_playing():
+                    await player.pause()
+                    await ctx.send(embed=Embed(title=f"{player.current.title} paused.", description=f"Use `resume` to resume."))
+
     @commands.command("resume")
     async def resume(self, ctx) -> None:
         node = wavelink.NodePool.get_node()
@@ -217,43 +218,80 @@ class StreamingCog(Cog):
         if ctx.author.voice is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
             return
+        # create a new Player or move the current one to user's voice channel
+        user_channel = ctx.author.voice.channel
+        if player is not None:
+            if not player.is_playing() and (ctx.author.voice.channel != player.channel):
+                await player.move_to(user_channel)
         else:
-            if player is not None:
-                if not player.is_playing():
-                    await player.disconnect()
-                    user_channel = ctx.author.voice.channel
-                    player:Player = await user_channel.connect(cls = Player, timeout = None)
-                    
-                else:
-                    pass
-            elif (player is None):
-                user_channel = ctx.author.voice.channel
-                player:Player = await user_channel.connect(cls = Player, timeout = None)
-        
-        if player is not None: # add track to queue, and play song if not playing
-            search_results = await self._searchYoutube(*args)
-            if search_results is None:
-                await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again."))
-            else:
-                best_match = search_results[0]
-                player.queue.put(best_match)
-                message = Embed(title=f"Added {best_match.title} to the queue.")
-                message.set_thumbnail(url = best_match.thumbnail)
-                await ctx.send(embed = message)
+            player:Player = await user_channel.connect(cls = Player, timeout = None)
+        if player is None: raise RuntimeError("Error while creating a wavelink 'Player' object.")
 
-            if not player.is_playing():
-                # search + play requested song
-                await player.play(player.queue.pop())
-            elif player.is_playing():
-                if len(player.queue) > 0:
-                    player.autoplay = True
-        else:
+        # add track to queue, and play song if not playing
+        search_results = await self._searchYoutube(*args)
+        if search_results is None:
+            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again."))
             return
-        # check if player is playing, add song to queue or start pla
+        else:
+            best_match = search_results[0]
+            player.queue.put(best_match)
+            message = Embed(title=f"Added {best_match.title} to the queue.")
+            message.set_thumbnail(url = best_match.thumbnail)
+            await ctx.send(embed = message)
 
-    # @commands.Cog.listener()
-    # async def on_wavelink_track_end(node:wavelink.Node):
-        #NOTE need to check if the normal queue is empty after a track is over, and if so then stop playing songs. ( before autoplay populates queue)
+        if not player.is_playing():
+            await player.play(player.queue.pop())
+        elif player.is_playing():
+            if len(player.queue) > 0:
+                player.autoplay = True
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_start(self, payload:wavelink.TrackEventPayload):
+        player = payload.player
+        song_title = player.current.title
+        channel = await self.get_bot_last_text_channel(player)
+        message = Embed(title=f"Playing: {song_title}")
+        message.set_thumbnail(url=player.current.thumbnail)
+        await channel.send(embed=message)
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload:wavelink.TrackEventPayload):
+        player = payload.player
+        queue = player.queue
+        # player_autoqueue = player.auto_queue
+        # logger.debug([f"autoqueued track: {track.title}" for track in player_autoqueue])
+        # logger.debug(f"autoqueue length: {len(player_autoqueue)}")
+
+        # logger.debug([f"queue track:{track.title}" for track in queue])
+        # logger.debug(f"queue length: {len(queue)}")
+        
+        if len(queue) == 0:
+            player.autoplay = False
+            #TODO does this prevent songs from auto populating ? I will test rn
+
+    async def get_most_recent_message(self, channel:discord.TextChannel):
+        "Returns the bot's most recent message in a given channel, searching up to 100 messages in history."
+        async for message in channel.history(limit=100):
+            if message.author == self.bot.user:
+                return message
+    
+    async def get_bot_last_text_channel(self, player:wavelink.Player) -> discord.TextChannel:
+        """Returns the discord.TextChannel where the bot most recently sent a message."""
+        tchannels = [channel for channel in player.guild.text_channels if channel.type != discord.ChannelType.private]
+        last_text_channel = None
+        tzinfo = datetime.datetime.now().astimezone().tzinfo
+        most_recent = datetime.datetime(1000, 1, 1, 1, 1, 1, tzinfo=tzinfo)
+        # greater = more recent
+        for channel in tchannels:
+            message = await self.get_most_recent_message(channel)
+            if message is None: continue
+            if message.created_at > most_recent:
+                most_recent = message.created_at
+                last_text_channel = message.channel
+        return last_text_channel
+            
+        
+        
 
 
     @commands.Cog.listener()
