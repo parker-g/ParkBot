@@ -47,25 +47,7 @@ class StreamingCog(Cog):
     # @commands.Cog.listener("on_voice_state_update")
     # async def 
 
-    @commands.Cog.listener("on_voice_state_update")
-    async def leaveIfFinished(self, member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
-        """This method call acts as an occasional check up on the bot's voice client, disconnecting the bot if its not playing."""
-        if not member.id == self.bot.user.id:
-            return
-        elif before.channel is None:
-            # if after.channel is not None:
-            voice:Player = after.channel.guild.voice_client
-            time = 0
-            while True:
-                await asyncio.sleep(1)
-                time = time + 1
-                if voice.is_playing() and not voice.is_paused():
-                    time = 0
-                if time == 600:
-                    await voice.disconnect()
-                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity."))
-                if not voice.is_connected():
-                    break
+    
         
 
 
@@ -245,6 +227,47 @@ class StreamingCog(Cog):
             if len(player.queue) > 0:
                 player.autoplay = True
 
+    async def get_most_recent_message(self, channel:discord.TextChannel):
+        "Returns the bot's most recent message in a given channel, searching up to 100 messages in history."
+        async for message in channel.history(limit=100):
+            if message.author == self.bot.user:
+                return message
+    
+    async def get_bot_last_text_channel(self, player:wavelink.Player) -> discord.TextChannel:
+        """Returns the discord.TextChannel where the bot most recently sent a message."""
+        tchannels = [channel for channel in player.guild.text_channels if channel.type != discord.ChannelType.private]
+        last_text_channel = None
+        tzinfo = datetime.datetime.now().astimezone().tzinfo
+        most_recent = datetime.datetime(1000, 1, 1, 1, 1, 1, tzinfo=tzinfo)
+        # greater = more recent
+        for channel in tchannels:
+            message = await self.get_most_recent_message(channel)
+            if message is None: continue
+            if message.created_at > most_recent:
+                most_recent = message.created_at
+                last_text_channel = message.channel
+        return last_text_channel
+
+    @commands.Cog.listener("on_voice_state_update")
+    async def leaveIfFinished(self, member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
+        """This method call acts as an occasional check up on the bot's voice client, disconnecting the bot if its not playing."""
+        if not member.id == self.bot.user.id:
+            return
+        elif before.channel is None:
+            # if after.channel is not None:
+            voice:Player = after.channel.guild.voice_client
+            time = 0
+            while True:
+                await asyncio.sleep(1)
+                time = time + 1
+                if voice.is_playing() and not voice.is_paused():
+                    time = 0
+                if time == 600:
+                    await voice.disconnect()
+                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity."))
+                if not voice.is_connected():
+                    break
+
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload:wavelink.TrackEventPayload):
         player = payload.player
@@ -268,32 +291,7 @@ class StreamingCog(Cog):
         if len(queue) == 0:
             player.autoplay = False
             #TODO does this prevent songs from auto populating ? I will test rn
-
-    async def get_most_recent_message(self, channel:discord.TextChannel):
-        "Returns the bot's most recent message in a given channel, searching up to 100 messages in history."
-        async for message in channel.history(limit=100):
-            if message.author == self.bot.user:
-                return message
-    
-    async def get_bot_last_text_channel(self, player:wavelink.Player) -> discord.TextChannel:
-        """Returns the discord.TextChannel where the bot most recently sent a message."""
-        tchannels = [channel for channel in player.guild.text_channels if channel.type != discord.ChannelType.private]
-        last_text_channel = None
-        tzinfo = datetime.datetime.now().astimezone().tzinfo
-        most_recent = datetime.datetime(1000, 1, 1, 1, 1, 1, tzinfo=tzinfo)
-        # greater = more recent
-        for channel in tchannels:
-            message = await self.get_most_recent_message(channel)
-            if message is None: continue
-            if message.created_at > most_recent:
-                most_recent = message.created_at
-                last_text_channel = message.channel
-        return last_text_channel
             
-        
-        
-
-
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node) -> None:
         print(f"Node {node.id} is ready!")
