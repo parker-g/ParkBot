@@ -1,24 +1,25 @@
-from config.configuration import WORKING_DIRECTORY, TOKEN, LAVALINK_PASS, LAVALINK_URI
-from discord.ext import commands
-from pathlib import Path
-import wavelink
 import logging
+from pathlib import Path
+
 import discord
-import helper
+from discord.ext import commands
+
+from helper import get_image
+from config.configuration import WORKING_DIRECTORY, TOKEN, LAVALINK_PASS, LAVALINK_URI
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
 log_path = Path(WORKING_DIRECTORY) / "discord.log"
 handler = logging.FileHandler(log_path, encoding='utf-8', mode='w')
 
 # 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
-# i make sure to specifically set the 'message_content_ intent to True
+# i make sure to specifically include message_content and voice_states as this bot references these events often
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
 
-# instantiate an instance of the Bot class (Bot is a subclass of Client - so it has all the functionality of Client with the addition of Bot functionality
+# instantiate an instance of the Bot class
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 # remove the default empty help command, so i can replace it with my own
@@ -160,7 +161,7 @@ async def resetGames(ctx):
 
 @bot.command()
 async def checkCogs(ctx):
-    cogs = ["GamesController", "CanvasClient", "Economy", "MusicController", "RewardsController"]
+    cogs = ["GamesController", "CanvasClient", "Economy", "StreamingCog", "RewardsController"]
     cog_string = ""
     for cog in cogs:
         if bot.get_cog(cog) is not None:
@@ -181,13 +182,8 @@ async def creator(ctx):
 async def dallE(ctx, args:str):
     em = discord.Embed(title=f"dallE", description=f"I\'m working on processing your prompt. This may take a minute.")
     await ctx.send(embed=em)
-    image = helper.get_image(args=args)
+    image = get_image(args=args)
     await ctx.send(embed=discord.Embed(title=f"Dall-E Generated Result"), file=discord.File(image))
-
-@bot.command()
-async def findFurry(ctx):
-    image = helper.get_furry_image()
-    await ctx.send(file=discord.File(image))
 
 @bot.command()
 async def resetGames(ctx):

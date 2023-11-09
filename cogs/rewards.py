@@ -1,10 +1,12 @@
+import asyncio
+
 import pyttsx3
 import discord
-import asyncio
-from cogs.controller import Controller
-from discord.ext.commands import Cog
 from discord.ext import commands
-from discord import Embed
+from discord.ext.commands import Cog
+from discord import Embed, FFmpegPCMAudio
+
+from cogs.controller import Controller
 from config.configuration import NAUGHTY_WORDS
 
 
@@ -53,7 +55,7 @@ class TTS(Cog):
         current_channel = ctx.author.voice.channel
         voice = await current_channel.connect()
         try:
-            audio = discord.FFmpegPCMAudio("data/say.mp3", executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
+            audio = FFmpegPCMAudio("data/say.mp3", executable="C:/Program Files/FFmpeg/bin/ffmpeg.exe")
             voice.play(source=audio)
             await asyncio.sleep(15.0)
             await voice.disconnect()

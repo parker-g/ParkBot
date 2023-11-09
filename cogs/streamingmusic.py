@@ -1,15 +1,17 @@
-from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
-from wavelink import Player, YouTubeTrack
-from discord.ext.commands.errors import ExtensionFailed
-from discord.ext.commands import Cog
-from discord.ext import commands
-from discord import Embed
-from pathlib import Path
-import datetime
-import wavelink
 import logging
 import asyncio
+import datetime
+from pathlib import Path
+
 import discord
+import wavelink
+from discord import Embed
+from discord.ext import commands
+from discord.ext.commands import Cog
+from wavelink import Player, YouTubeTrack
+from discord.ext.commands.errors import ExtensionFailed
+
+from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
 
 
 music_log_path = Path(WORKING_DIRECTORY) / "music.log"
@@ -43,14 +45,6 @@ class StreamingCog(Cog):
         elif self.node is not None:
             logger.info(f"A node connection has already been established.")
 
-
-    # @commands.Cog.listener("on_voice_state_update")
-    # async def 
-
-    
-        
-
-
     @commands.command()
     async def showNode(self, ctx) -> None:
         node = self.getNode()
@@ -58,6 +52,12 @@ class StreamingCog(Cog):
             await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node."))
         else:
             await ctx.send(embed=Embed(title=f"Node connected!: {node.id}"))
+        
+    @commands.command("nodePlayers")
+    async def getNodePlayers(self, ctx) -> dict[int, Player]:
+        node = wavelink.NodePool.get_node()
+        await ctx.send(f"Here are your node's players: {node.players}")
+        return node.players
 
     @commands.command()
     async def createNode(self, ctx) -> None:
@@ -104,7 +104,6 @@ class StreamingCog(Cog):
             else:
                 await ctx.send(embed=Embed(title="No voice channel connection right now.", description="Can't skip a song."))
     
-
     @commands.command()
     async def pause(self, ctx) -> None:
         node = wavelink.NodePool.get_node()
@@ -129,13 +128,6 @@ class StreamingCog(Cog):
                     await player.resume()
                 else:
                     await ctx.send(embed=Embed(title=f"Player is not paused."))
-    
-
-    @commands.command("nodePlayers")
-    async def getNodePlayers(self, ctx) -> dict[int, Player]:
-        node = wavelink.NodePool.get_node()
-        await ctx.send(f"Here are your node's players: {node.players}")
-        return node.players
     
     @commands.command("search")
     async def searchYouTube(self, ctx, *args) -> list[YouTubeTrack] | None:
@@ -253,8 +245,7 @@ class StreamingCog(Cog):
         """This method call acts as an occasional check up on the bot's voice client, disconnecting the bot if its not playing."""
         if not member.id == self.bot.user.id:
             return
-        elif before.channel is None:
-            # if after.channel is not None:
+        elif before.channel is None: # if before.channel is None, then after.channel must be not-None
             voice:Player = after.channel.guild.voice_client
             time = 0
             while True:
@@ -295,8 +286,6 @@ class StreamingCog(Cog):
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node) -> None:
         print(f"Node {node.id} is ready!")
-
-
 
 async def setup(bot):
     await bot.add_cog(StreamingCog(bot))

@@ -1,5 +1,5 @@
-from discord.ext.commands.cog import Cog
 from discord import Guild
+from discord.ext.commands.cog import Cog
 
 class Controller(Cog):
     """A base class that Cog Controllers derive from.

@@ -1,11 +1,13 @@
-from config.configuration import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
-import pandas as pd
-import replicate
-import requests
-import random
-import time
 import os
 import csv
+import time
+import random
+import requests
+
+import replicate
+import pandas as pd
+
+from config.configuration import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
 
 # copied from geeks for geeks website
 # modified to take Card objects

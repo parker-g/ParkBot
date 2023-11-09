@@ -1,24 +1,25 @@
 #NOTE DEPRECATED
-from config.configuration import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
-from cogs.controller import Controller
-from collections import deque
-from pathlib import Path
-import asyncio
-import helper
-import time
-import logging
 import html
+import time
+import asyncio
+import logging
+from pathlib import Path
+from collections import deque
 
-from spotipy import Spotify, SpotifyException
-from spotipy.oauth2 import SpotifyClientCredentials
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError # can be thrown when max amount of youtube searches has been met/exceeded
+import yt_dlp
 import discord
+from mutagen import mp3
 from discord import Embed
 from discord.ext import commands
-from mutagen import mp3
-import yt_dlp
-from youtube_dl import YoutubeDL
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError # can be thrown when max amount of youtube searches has been met/exceeded
+from spotipy import Spotify, SpotifyException
+from spotipy.oauth2 import SpotifyClientCredentials
+
+import helper
+from cogs.controller import Controller
+from config.configuration import GOOGLE_API_KEY, DATA_DIRECTORY, FFMPEG_PATH, WORKING_DIRECTORY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
+
 
 # new music specific log
 music_log_path = Path(WORKING_DIRECTORY) / "music.log"
