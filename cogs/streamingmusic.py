@@ -6,6 +6,7 @@ from pathlib import Path
 import discord
 import wavelink
 from discord import Embed
+from discord import Colour
 from discord.ext import commands
 from discord.ext.commands import Cog
 from wavelink import Player, YouTubeTrack
@@ -49,9 +50,9 @@ class StreamingCog(Cog):
     async def showNode(self, ctx) -> None:
         node = self.getNode()
         if node is None:
-            await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node."))
+            await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node.", color=Colour.light_embed()))
         else:
-            await ctx.send(embed=Embed(title=f"Node connected!: {node.id}"))
+            await ctx.send(embed=Embed(title=f"Node connected!: {node.id}", color=Colour.light_embed()))
         
     @commands.command("nodePlayers")
     async def getNodePlayers(self, ctx) -> dict[int, Player]:
@@ -91,30 +92,30 @@ class StreamingCog(Cog):
         node = wavelink.NodePool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None:
-            await ctx.send(embed=Embed(title=f"There is currently no active Player to play songs."))
+            await ctx.send(embed=Embed(title=f"There is currently no active Player to play songs.", color=Colour.brand_red()))
         else:
             if player.is_connected():
                 if player.is_playing(): #or len(player.queue) > 0:
                     current_song = player.current
                     if current_song is None: return
-                    await ctx.send(embed=Embed(title=f"Skipping {current_song.title}"))
+                    await ctx.send(embed=Embed(title=f"Skipping {current_song.title}", color=Colour.blue()))
                     await player.stop(force=True) # automatically forces next song to play if a next one exists
                 else:
-                    await ctx.send(embed=Embed(title=f"There's no song playing right now, or the queue is empty."))
+                    await ctx.send(embed=Embed(title=f"There's no song playing right now, or the queue is empty.", color=Colour.brand_red()))
             else:
-                await ctx.send(embed=Embed(title="No voice channel connection right now.", description="Can't skip a song."))
+                await ctx.send(embed=Embed(title="No voice channel connection right now.", description="Can't skip a song.", color=Colour.brand_red()))
     
     @commands.command()
     async def pause(self, ctx) -> None:
         node = wavelink.NodePool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None: 
-            await ctx.send(embed=Embed(title=f"There is currently no active Player."))
+            await ctx.send(embed=Embed(title=f"There is currently no active Player.", color=Colour.brand_red()))
         else:
             if player.is_connected():
                 if player.is_playing():
                     await player.pause()
-                    await ctx.send(embed=Embed(title=f"{player.current.title} paused.", description=f"Use `resume` to resume."))
+                    await ctx.send(embed=Embed(title=f"{player.current.title} paused.", description=f"Use `resume` to resume.", color=Colour.light_grey()))
 
     @commands.command("resume")
     async def resume(self, ctx) -> None:
@@ -127,7 +128,7 @@ class StreamingCog(Cog):
                 if player.is_paused():
                     await player.resume()
                 else:
-                    await ctx.send(embed=Embed(title=f"Player is not paused."))
+                    await ctx.send(embed=Embed(title=f"Player is not paused.", ))
     
     @commands.command("search")
     async def searchYouTube(self, ctx, *args) -> list[YouTubeTrack] | None:
@@ -181,7 +182,7 @@ class StreamingCog(Cog):
             pretty_string = ""
             for i in range(len(player.queue)):
                 pretty_string += f"{i + 1}: {player.queue[i].title}\n"
-            message = Embed(title=f"Songs up Next: ", description=pretty_string)
+            message = Embed(title=f"Songs up Next: ", description=pretty_string, color=Colour.light_embed())
         await ctx.send(embed = message)
 
     @commands.command("play")
@@ -190,7 +191,7 @@ class StreamingCog(Cog):
         player = node.get_player(ctx.guild.id)
 
         if ctx.author.voice is None:
-            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again."))
+            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again.", color=Colour.brand_red()))
             return
         # create a new Player or move the current one to user's voice channel
         user_channel = ctx.author.voice.channel
@@ -204,12 +205,12 @@ class StreamingCog(Cog):
         # add track to queue, and play song if not playing
         search_results = await self._searchYoutube(*args)
         if search_results is None:
-            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again."))
+            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()))
             return
         else:
             best_match = search_results[0]
             player.queue.put(best_match)
-            message = Embed(title=f"Added {best_match.title} to the queue.")
+            message = Embed(title=f"Added {best_match.title} to the queue.", color=Colour.light_embed())
             message.set_thumbnail(url = best_match.thumbnail)
             await ctx.send(embed = message)
 
@@ -255,7 +256,7 @@ class StreamingCog(Cog):
                     time = 0
                 if time == 600:
                     await voice.disconnect()
-                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity."))
+                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()))
                 if not voice.is_connected():
                     break
 
@@ -264,7 +265,7 @@ class StreamingCog(Cog):
         player = payload.player
         song_title = player.current.title
         channel = await self.get_bot_last_text_channel(player)
-        message = Embed(title=f"Playing: {song_title}")
+        message = Embed(title=f"Playing: {song_title}", color=Colour.brand_green())
         message.set_thumbnail(url=player.current.thumbnail)
         await channel.send(embed=message)
 

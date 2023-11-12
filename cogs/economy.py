@@ -8,7 +8,6 @@ import helper
 from config.configuration import BANK_PATH
 
 
-
 class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
