@@ -252,7 +252,7 @@ class YoutubeClient:
             "no_playlist": True,
             # "max_downloads": 1,
             'format': 'mp3/bestaudio/best',
-            "outtmpl": DATA_DIRECTORY + helper.slugify(title) + ".%(ext)s",  
+            "outtmpl": DATA_DIRECTORY + "/" + helper.slugify(title) + ".%(ext)s",  
             "ffmpeg_location": FFMPEG_PATH,
             # ℹ️ See help(yt_dlp.postprocessor) for a list of available Postprocessors and their arguments
             'postprocessors': [{  # Extract audio using ffmpeg
