@@ -1,7 +1,7 @@
-from venv import EnvBuilder
-from pathlib import Path
-import subprocess
 import os
+import subprocess
+from pathlib import Path
+from venv import EnvBuilder
 
 class VenvSetupWizard:
     

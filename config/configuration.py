@@ -1,6 +1,6 @@
-from configparser import ConfigParser
-from pathlib import Path
 import os
+from pathlib import Path
+from configparser import ConfigParser
 
 def read(config_filename) -> dict[str, dict[str, str]]:
     """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""

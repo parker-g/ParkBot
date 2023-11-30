@@ -1,8 +1,8 @@
-from tkinter import ttk
-from tkinter import *
-from configparser import ConfigParser
-from pathlib import Path
 import os
+from tkinter import *
+from tkinter import ttk
+from pathlib import Path
+from configparser import ConfigParser
 
 CONFIG_FILE = "bot.config"
 

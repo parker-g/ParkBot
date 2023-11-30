@@ -1,15 +1,15 @@
-import requests
-import bs4 
 import os
+import shutil
 import platform
-from pathlib import Path
+import subprocess
+import configparser
 from enum import Enum
+from pathlib import Path
 from zipfile import ZipFile
 from tarfile import TarFile
-import configparser
-import shutil
-import subprocess
-import time
+
+import bs4 
+import requests
 
 machines = {
     "x64": "AMD64",

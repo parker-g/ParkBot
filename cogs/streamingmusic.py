@@ -282,7 +282,6 @@ class StreamingCog(Cog):
         
         if len(queue) == 0:
             player.autoplay = False
-            #TODO does this prevent songs from auto populating ? I will test rn
             
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node) -> None:
