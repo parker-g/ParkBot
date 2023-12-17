@@ -209,6 +209,7 @@ class StreamingCog(Cog):
         query = StreamingCog.stringify_args(*args)
         if query.isspace() or query == "":
             await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()))
+            return
         search_results = await self._searchYoutube(query)
         if search_results is None:
             await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()))
