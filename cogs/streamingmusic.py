@@ -28,6 +28,13 @@ class StreamingCog(Cog):
         self.bot = bot
         self.node = None
 
+    @staticmethod
+    def stringify_args(*args) -> str:
+        query = ""
+        for arg in args:
+            query += f"{arg} "
+        return query
+
     #TODO need to find how to clean this up and handle it accordingly when it fails
     async def cog_load(self) -> None:
         """Called when the bot loads this cog - sets up a connection to the lavalink server. Only necessary to do so once; a single node can serve multiple guilds at once."""
@@ -148,12 +155,7 @@ class StreamingCog(Cog):
         await ctx.send(f"Here's the search results for your query, '{query}' : \n{tracks_string}")
         return tracks
     
-    async def _searchYoutube(self, *args) -> list[YouTubeTrack] | None:
-        query = ""
-        for arg in args:
-            query += f"{arg} "
-        logger.debug("Query: " + query + ".")
-
+    async def _searchYoutube(self, query:str) -> list[YouTubeTrack] | None:
         tracks = await wavelink.YouTubeTrack.search(str(query))
         if not tracks:
             return
@@ -204,9 +206,10 @@ class StreamingCog(Cog):
         if player is None: raise RuntimeError("Error while creating a wavelink 'Player' object.")
 
         #TODO sanitize args, return a sanitized arg string
-
-        # add track to queue, and play song if not playing
-        search_results = await self._searchYoutube(*args)
+        query = StreamingCog.stringify_args(*args)
+        if query.isspace() or query == "":
+            await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()))
+        search_results = await self._searchYoutube(query)
         if search_results is None:
             await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()))
             return
