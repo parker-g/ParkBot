@@ -152,6 +152,7 @@ class StreamingCog(Cog):
         query = ""
         for arg in args:
             query += f"{arg} "
+        logger.debug("Query: " + query + ".")
 
         tracks = await wavelink.YouTubeTrack.search(str(query))
         if not tracks:
@@ -201,6 +202,8 @@ class StreamingCog(Cog):
         else:
             player:Player = await user_channel.connect(cls = Player, timeout = None)
         if player is None: raise RuntimeError("Error while creating a wavelink 'Player' object.")
+
+        #TODO sanitize args, return a sanitized arg string
 
         # add track to queue, and play song if not playing
         search_results = await self._searchYoutube(*args)
