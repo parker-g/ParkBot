@@ -279,6 +279,33 @@ class FFMPEGDownloader(Downloader):
         self.moveFFMPEG(ffmpeg_exe_location, ffmpeg_parent_directory, parkbot_dir)
 
 
+class JavaDownloader(Downloader):
+    def __init__(self, os:str, machine:str):
+        super().__init__(os, machine)
+        match self.operating_sys:
+            case "linux":
+                self.java = "java"
+            case "windows":
+                self.java = "java.exe"
+        
+
+class LavalinkDownloader(Downloader):
+    def __init__(self, os:str, machine:str):
+        super().__init__(os, machine)
+        self.lavalink = "Lavalink.jar"
+
+    def _findLavalink(self) -> Path | None:
+        """Searches ParkBot directory for `Lavalink.java`, returns the path to it."""
+        desired_file = self.lavalink
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for filename in files:
+                if (desired_file == filename):
+                    return Path(dirpath) / desired_file
+        return None
+
+
+
 class ExternalDependencyHandler:
     """Super class to model DependencyHandler behaviors and provide basic operations."""
     def __init__(self):

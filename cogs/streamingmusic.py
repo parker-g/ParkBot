@@ -9,7 +9,7 @@ from discord import Embed
 from discord import Colour
 from discord.ext import commands
 from discord.ext.commands import Cog
-from wavelink import Player, YouTubeTrack
+from wavelink import Player, AutoPlayMode
 from discord.ext.commands.errors import ExtensionFailed
 
 from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
@@ -32,6 +32,7 @@ class StreamingCog(Cog):
     def stringify_args(*args) -> str:
         query = ""
         for arg in args:
+            #NOTE consider html escaping each character in the query
             query += f"{arg} "
         return query
 
@@ -44,7 +45,8 @@ class StreamingCog(Cog):
             except ExtensionFailed:
                 logger.error(f"Error connecting to lavalink server.")
                 return
-            nodes = await wavelink.NodePool.connect(client=self.bot, nodes=[node])
+            nodes = await wavelink.Pool.connect(client=self.bot, nodes=[node])
+            await asyncio.sleep(3.0)
             if nodes:
                 self.node = self.getNode()
                 logger.info(f"Node created + connected to lavalink server.")
@@ -57,14 +59,14 @@ class StreamingCog(Cog):
     async def showNode(self, ctx) -> None:
         node = self.getNode()
         if node is None:
-            await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node.", color=Colour.light_embed()))
+            await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node.", color=Colour.light_embed()), silent=True)
         else:
-            await ctx.send(embed=Embed(title=f"Node connected!: {node.id}", color=Colour.light_embed()))
+            await ctx.send(embed=Embed(title=f"Node connected!: {node.identifier}", color=Colour.light_embed()), silent=True)
         
     @commands.command("nodePlayers")
     async def getNodePlayers(self, ctx) -> dict[int, Player]:
-        node = wavelink.NodePool.get_node()
-        await ctx.send(f"Here are your node's players: {node.players}")
+        node = wavelink.Pool.get_node()
+        await ctx.send(f"Here are your node's players: {node.players}", silent=True)
         return node.players
 
     @commands.command()
@@ -72,18 +74,18 @@ class StreamingCog(Cog):
         logger.info("Connecting to lavalink node.")
         if self.node is None:
             node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASS)
-            nodes = await wavelink.NodePool.connect(client=self.bot, nodes=[node])
+            nodes = await wavelink.Pool.connect(nodes=[node], client=self.bot)
             if nodes:
                 self.node = self.getNode()
             else:
                 logger.error(f"Error connecting to Lavalink Node")
         elif self.node is not None:
-            logger.info(f"A node is already established and connected with ID: {self.node.id}")
+            logger.info(f"A node is already established and connected with ID: {self.node.identifier}")
         return
 
-    #NOTE dont even need to explicitly get a node really, it seems the methods that require a node automatically grab one from the NodePool
+    #NOTE dont even need to explicitly get a node really, it seems the methods that require a node automatically grab one from the Pool
     def getNode(self) -> wavelink.Node:
-        node = wavelink.NodePool.get_node()
+        node = wavelink.Pool.get_node()
         return node
 
     # @commands.command("stop")
@@ -91,72 +93,72 @@ class StreamingCog(Cog):
     #     node = self.getNode()
     #     player = node.get_player(ctx.guild.id)
     #     if player is None: return
-    #     if player.is_playing():
+    #     if player.playing:
     #         await player.stop()
     
     @commands.command("skip")
     async def skip(self, ctx) -> None:
-        node = wavelink.NodePool.get_node()
+        node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None:
             await ctx.send(embed=Embed(title=f"There is currently no active Player to play songs.", color=Colour.brand_red()))
         else:
-            if player.is_connected():
-                if player.is_playing(): #or len(player.queue) > 0:
+            if player.connected:
+                if player.playing: #or len(player.queue) > 0:
                     current_song = player.current
                     if current_song is None: return
-                    await ctx.send(embed=Embed(title=f"Skipping {current_song.title}", color=Colour.blue()))
+                    await ctx.send(embed=Embed(title=f"Skipping {current_song.title}", color=Colour.blue()), silent=True)
                     await player.stop(force=True) # automatically forces next song to play if a next one exists
                 else:
-                    await ctx.send(embed=Embed(title=f"There's no song playing right now, or the queue is empty.", color=Colour.brand_red()))
+                    await ctx.send(embed=Embed(title=f"There's no song playing right now, or the queue is empty.", color=Colour.brand_red()), silent=True)
             else:
-                await ctx.send(embed=Embed(title="No voice channel connection right now.", description="Can't skip a song.", color=Colour.brand_red()))
+                await ctx.send(embed=Embed(title="No voice channel connection right now.", description="Can't skip a song.", color=Colour.brand_red()), silent=True)
     
     @commands.command()
     async def pause(self, ctx) -> None:
-        node = wavelink.NodePool.get_node()
+        node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None: 
-            await ctx.send(embed=Embed(title=f"There is currently no active Player.", color=Colour.brand_red()))
+            await ctx.send(embed=Embed(title=f"There is currently no active Player.", color=Colour.brand_red()), silent=True)
         else:
-            if player.is_connected():
-                if player.is_playing():
-                    await player.pause()
-                    await ctx.send(embed=Embed(title=f"{player.current.title} paused.", description=f"Use `resume` to resume.", color=Colour.light_grey()))
+            if player.connected:
+                if player.playing:
+                    await player.pause(True)
+                    await ctx.send(embed=Embed(title=f"{player.current.title} paused.", description=f"Use `resume` to resume.", color=Colour.light_grey()), silent=True)
 
     @commands.command("resume")
     async def resume(self, ctx) -> None:
-        node = wavelink.NodePool.get_node()
+        node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None:
-            await ctx.send(embed=Embed(title=f"There is currently no active Player."))
+            await ctx.send(embed=Embed(title=f"There is currently no active Player."), silent=True)
         else:
-            if player.is_connected():
-                if player.is_paused():
-                    await player.resume()
+            if player.connected:
+                if player.paused:
+                    await player.pause(False)
                 else:
-                    await ctx.send(embed=Embed(title=f"Player is not paused.", ))
+                    await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
     
-    @commands.command("search")
-    async def searchYouTube(self, ctx, *args) -> list[YouTubeTrack] | None:
-        query = ""
-        for arg in args:
-            query += f"{arg} "
+    # @commands.command("search")
+    # async def searchYouTube(self, ctx, *args) -> Search | None:
+    #     query = ""
+    #     for arg in args:
+    #         query += f"{arg} "
 
-        tracks = await wavelink.YouTubeTrack.search(str(query))
-        if not tracks:
-            await ctx.send(f"Sorry, not tracks were returned.")
-            return
+    #     tracks = await wavelink.Playable.search(str(query))
+    #     if not tracks:
+    #         await ctx.send(f"Sorry, not tracks were returned.")
+    #         return
         
-        tracks_string = ""
-        for track in tracks[:4]:
-            tracks_string += f"{track.title}\n"
+    #     tracks_string = ""
+    #     for track in tracks[:4]:
+    #         tracks_string += f"{track.title}\n"
 
-        await ctx.send(f"Here's the search results for your query, '{query}' : \n{tracks_string}")
-        return tracks
+    #     await ctx.send(f"Here's the search results for your query, '{query}' : \n{tracks_string}")
+    #     return tracks
     
-    async def _searchYoutube(self, query:str) -> list[YouTubeTrack] | None:
-        tracks = await wavelink.YouTubeTrack.search(str(query))
+    async def _searchYoutube(self, query:str):
+        tracks = await wavelink.Playable.search(str(query))
         if not tracks:
             return
         return tracks
@@ -167,7 +169,7 @@ class StreamingCog(Cog):
         try:
             channel = ctx.author.voice.channel
         except AttributeError:
-            await ctx.send(f"Please join a voice channel before trying to play a song.")
+            await ctx.send(f"Please join a voice channel before trying to play a song.", silent=True)
         
         if channel is not None:
             player = await channel.connect(cls= Player, timeout = 0)
@@ -175,7 +177,7 @@ class StreamingCog(Cog):
 
     @commands.command("showQ")
     async def showQueue(self, ctx) -> None:
-        node = wavelink.NodePool.get_node()
+        node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
         if player is None: return
 
@@ -186,28 +188,29 @@ class StreamingCog(Cog):
             for i in range(len(player.queue)):
                 pretty_string += f"{i + 1}: {player.queue[i].title}\n"
             message = Embed(title=f"Songs up Next: ", description=pretty_string, color=Colour.light_embed())
-        await ctx.send(embed = message)
+        await ctx.send(embed = message, silent=True)
 
     @commands.command("play")
     async def stream(self, ctx, *args) -> None:
-        node = wavelink.NodePool.get_node()
+        node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
 
         query = StreamingCog.stringify_args(*args)
+        logger.debug(query)
         if query.isspace() or query == "":
-            await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()))
+            await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()), silent=True)
             return
         
         if ctx.author.voice is None:
-            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again.", color=Colour.brand_red()))
+            await ctx.send(embed=Embed(title=f"Please join a voice channel and try again.", color=Colour.brand_red()), silent=True)
             return
         # create a new Player or move the current one to user's voice channel
         user_channel = ctx.author.voice.channel
         if player is not None:
-            if not player.is_playing() and (ctx.author.voice.channel != player.channel):
+            if not player.playing and (ctx.author.voice.channel != player.channel):
                 await player.move_to(user_channel)
         else:
-            player:Player = await user_channel.connect(cls = Player, timeout = None)
+            player = await user_channel.connect(cls = Player, timeout = None)
         if player is None: raise RuntimeError("Error while creating a wavelink 'Player' object.")
 
         search_results = await self._searchYoutube(query)
@@ -216,16 +219,16 @@ class StreamingCog(Cog):
             return
         else:
             best_match = search_results[0]
-            player.queue.put(best_match)
+            num_tracks_added = player.queue.put(best_match) # should be 1 track
             message = Embed(title=f"Added {best_match.title} to the queue.", color=Colour.light_embed())
-            message.set_thumbnail(url = best_match.thumbnail)
-            await ctx.send(embed = message)
+            message.set_thumbnail(url = best_match.artwork)
+            await ctx.send(embed = message, silent=True)
 
-        if not player.is_playing():
-            await player.play(player.queue.pop())
-        elif player.is_playing():
+        if not player.playing:
+            await player.play(player.queue.get())
+        elif player.playing:
             if len(player.queue) > 0:
-                player.autoplay = True
+                player.autoplay = AutoPlayMode.partial
 
     async def get_most_recent_message(self, channel:discord.TextChannel):
         "Returns the bot's most recent message in a given channel, searching up to 100 messages in history."
@@ -259,26 +262,32 @@ class StreamingCog(Cog):
             while True:
                 await asyncio.sleep(1)
                 time = time + 1
-                if voice.is_playing() and not voice.is_paused():
+                if voice.playing and not voice.paused:
                     time = 0
                 if time == 600:
+                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()), silent=True)
                     await voice.disconnect()
-                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()))
-                if not voice.is_connected():
+                if not voice.connected:
                     break
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload:wavelink.TrackEventPayload):
+    async def on_wavelink_track_start(self, payload:wavelink.TrackStartEventPayload):
         player = payload.player
+        if player is None:
+            logger.error("ERROR: No 'wavelink.Player' object was found associated with your 'wavelink.TrackStartEventPayload'.")
+            return
         song_title = player.current.title
         channel = await self.get_bot_last_text_channel(player)
         message = Embed(title=f"Playing: {song_title}", color=Colour.brand_green())
-        message.set_thumbnail(url=player.current.thumbnail)
-        await channel.send(embed=message)
+        message.set_thumbnail(url=player.current.artwork)
+        await channel.send(embed=message, silent=True)
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload:wavelink.TrackEventPayload):
+    async def on_wavelink_track_end(self, payload:wavelink.TrackEndEventPayload):
         player = payload.player
+        if player is None:
+            logger.error("ERROR: No 'wavelink.Player' object was found in your wavelink.TrackEndEventPayload.")
+            return
         queue = player.queue
         # player_autoqueue = player.auto_queue
         # logger.debug([f"autoqueued track: {track.title}" for track in player_autoqueue])
@@ -288,11 +297,11 @@ class StreamingCog(Cog):
         # logger.debug(f"queue length: {len(queue)}")
         
         if len(queue) == 0:
-            player.autoplay = False
+            player.autoplay = AutoPlayMode.disabled
             
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node) -> None:
-        print(f"Node {node.id} is ready!")
+        print(f"Node {node.identifier} is ready!")
 
 async def setup(bot):
     await bot.add_cog(StreamingCog(bot))
