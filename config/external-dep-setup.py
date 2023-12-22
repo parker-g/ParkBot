@@ -34,6 +34,9 @@ class FFMPEG(Enum):
     windows = "ffmpeg.exe"
     linux = "ffmpeg"    
 
+class JAVA(Enum):
+    windows = "java.exe"
+    linux = "java"
 
 class Downloader:
 
@@ -282,12 +285,63 @@ class FFMPEGDownloader(Downloader):
 class JavaDownloader(Downloader):
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
+        #self.machine can only be AMD64 or arm64
         match self.operating_sys:
             case "linux":
                 self.java = "java"
             case "windows":
                 self.java = "java.exe"
-        
+
+    def moveJava(self, java_location:Path, java_parent_dir:Path, final_exe_destination:Path) -> None:
+        """Pulls the java executable out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
+        os.rename(java_location, final_exe_destination / self.java)
+        shutil.rmtree(str(java_parent_dir))
+
+    def _findJava(self) -> Path | None:
+        desired_file = self.java
+        parkbot_dir = Path(os.getcwd())
+        match self.operating_sys:
+            case "linux":
+                dir_to_search = "~/../../../../usr/"
+            case "windows":
+                dir_to_search = parkbot_dir / "../../../../../../../../../C://Program Files"       
+            case _:
+                raise OSError("The ParkBot setup script is incompatible with this operating system.") 
+            
+        os.chdir(Path(os.getcwd()))
+        for dirpath, dirs, files in os.walk(dir_to_search):
+            for filename in files:
+                if (desired_file == filename):
+                    return Path(dirpath) / desired_file
+        return None
+    
+    def getBestLink(self) -> str | None:
+        """Returns the JRE 17 download link for the users' respective operating system."""
+        if self.machine != "AMD64":
+            print("The Java downloader only supports 64 bit, non-ARM architectures.")
+            return
+        match self.operating_sys:
+            case "windows":
+                return "https://builds.openlogic.com/downloadJDK/openlogic-openjdk-jre/17.0.9+9/openlogic-openjdk-jre-17.0.9+9-windows-x64.zip"
+            case "linux":
+                return "https://builds.openlogic.com/downloadJDK/openlogic-openjdk-jre/17.0.9+9/openlogic-openjdk-jre-17.0.9+9-linux-x64.tar.gz"
+
+    def downloadJava(self, download_dir:Path, extract_destination):
+        """Downloads JRE 17 to the 'Program Files' directory on Windows machines, or to the '/usr/lib/jvm/' directory on Linux machines."""
+        file_ext = None
+        match self.operating_sys:
+            case "windows":
+                file_ext = ".zip"
+            case "linux":
+                file_ext = ".tar.gz"
+            case _:
+                print("ParkBot's setup script is incompatible with your operating system.")
+        jre_name_with_ext = f"openjdk-jre-17{file_ext}"
+        request_url = self.getBestLink()
+        download_destination = Path(download_dir) / jre_name_with_ext
+        self.downloadURL(request_url, download_destination)
+        self.extractZip(download_destination, extract_destination)
+
 
 class LavalinkDownloader(Downloader):
     def __init__(self, os:str, machine:str):
@@ -295,7 +349,7 @@ class LavalinkDownloader(Downloader):
         self.lavalink = "Lavalink.jar"
 
     def _findLavalink(self) -> Path | None:
-        """Searches ParkBot directory for `Lavalink.java`, returns the path to it."""
+        """Searches ParkBot directory for `Lavalink.jar`, returns the path to it."""
         desired_file = self.lavalink
         parkbot_dir = Path(os.getcwd())
         for dirpath, dirs, files in os.walk(parkbot_dir):
@@ -310,7 +364,7 @@ class ExternalDependencyHandler:
     """Super class to model DependencyHandler behaviors and provide basic operations."""
     def __init__(self):
         self.operating_sys = platform.system().lower()
-        self.machine = machines[platform.machine()]
+        self.machine = machines[platform.machine()] # can only be AMD64 or arm64
 
     def read(self, config_filename:str | Path) -> dict[str, dict[str, str]] | None:
         """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""
@@ -351,6 +405,10 @@ class ExternalDependencyHandler:
 
     def findFFMPEG(self) -> Path | None:
         """Returns a Path to the first found instance of the ffmpeg executable."""
+        pass
+
+    def findJava(self) -> Path | None:
+        """Returns a Path to the first found instance of the java executable."""
         pass
 
     def downloadExtractFFMPEG(self, download_dir = None, extract_destination = None) -> Path:
@@ -415,6 +473,28 @@ class ExternalDependencyHandler:
         with open(config_path, "w") as configfile:
             new_config.write(configfile)
         return
+    
+    def downloadExtractJRE17(self, download_dir = None) -> Path:
+        """Downloads and extracts the java 17 runtime. Returns the path to the java executable."""
+        java = self.findJava()
+        # check if java is already downloaded
+        here = Path(os.getcwd())
+        if not java:
+            download_dir = "."
+            match self.operating_sys:
+                case "windows":
+                    download_dir = Path("C://Program Files")
+                case "linux":
+                    download = Path("/usr/lib/jvm")
+            if download_dir is None:
+                download_dir = here
+            if extract_destination is None:
+                extract_destination = here
+            downloader = JavaDownloader(self.operating_sys, self.machine)
+            downloader.downloadJava(download_dir, extract_destination)
+        java = self._findJava()
+        return java
+
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Windows."""
@@ -441,6 +521,12 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
 
         return self.findFile("nssm.exe", dirs_to_search)
     
+    def findJava(self) -> Path | None:
+        """Returns the first found instance of java.exe in Program Files."""
+        program_files = Path("C://Program Files/")
+        dirs_to_search = [program_files]
+        return self.findFile(JAVA.windows.value, dirs_to_search)
+    
     
 
     def downloadExtractNSSM(self, download_dir = None, extract_destination = None) -> Path:
@@ -462,7 +548,11 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         results = {}
         results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
+        #NOTE
+        results['java'] = self.downloadExtractJRE17(extract_destination)
+        #results['lavalink'] = self.downloadExtractLavalink(download_dir, extract_destination)
         configurator.installBotService()
+        #configurator.installLavalinkService()
         return results
     
 
@@ -482,7 +572,14 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         usr_local = Path("/usr/local/")
         opt = Path("/opt/")
         dirs_to_search = [parkbot, self.user_home, usr_local, opt]
-        return self.findFile(FFMPEG.linux.value, dirs_to_search)    
+        return self.findFile(FFMPEG.linux.value, dirs_to_search)
+    
+    def findJava(self) -> Path | None:
+        """Returns the first found instance of the java executable in either the `/usr/lib/` or `/usr/share/` directories."""
+        usr_lib = Path("/usr/lib/")
+        usr_share = Path("/usr/share/")
+        dirs_to_search = [usr_lib, usr_share]
+        return self.findFile(JAVA.linux.value, dirs_to_search)
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
         results = {}
