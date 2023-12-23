@@ -9,7 +9,7 @@ from discord import Embed
 from discord import Colour
 from discord.ext import commands
 from discord.ext.commands import Cog
-from wavelink import Player, AutoPlayMode
+from wavelink import Player, AutoPlayMode, TrackSource
 from discord.ext.commands.errors import ExtensionFailed
 
 from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
@@ -139,26 +139,8 @@ class StreamingCog(Cog):
                 else:
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
     
-    # @commands.command("search")
-    # async def searchYouTube(self, ctx, *args) -> Search | None:
-    #     query = ""
-    #     for arg in args:
-    #         query += f"{arg} "
-
-    #     tracks = await wavelink.Playable.search(str(query))
-    #     if not tracks:
-    #         await ctx.send(f"Sorry, not tracks were returned.")
-    #         return
-        
-    #     tracks_string = ""
-    #     for track in tracks[:4]:
-    #         tracks_string += f"{track.title}\n"
-
-    #     await ctx.send(f"Here's the search results for your query, '{query}' : \n{tracks_string}")
-    #     return tracks
-    
     async def _searchYoutube(self, query:str):
-        tracks = await wavelink.Playable.search(str(query))
+        tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
         if not tracks:
             return
         return tracks
