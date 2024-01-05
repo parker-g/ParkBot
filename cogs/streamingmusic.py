@@ -140,22 +140,23 @@ class StreamingCog(Cog):
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
     
     async def _searchYoutube(self, query:str):
-        tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
+        tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube) # TODO default the 'source' parameter to YouTubeMusic + implement a way to see if the track returned matches the query to a certain degree of accuracy. if the degree of accuracy is too low, re-search the query with source= YouTube.
+        # TODO alternatively, add a command to the bot to change the track source or 
         if not tracks:
             return
         return tracks
 
-    @commands.command("connect")
-    async def connect(self, ctx) -> Player | None:
-        channel = None
-        try:
-            channel = ctx.author.voice.channel
-        except AttributeError:
-            await ctx.send(f"Please join a voice channel before trying to play a song.", silent=True)
+    # @commands.command("connect")
+    # async def connect(self, ctx) -> Player | None:
+    #     channel = None
+    #     try:
+    #         channel = ctx.author.voice.channel
+    #     except AttributeError:
+    #         await ctx.send(f"Please join a voice channel before trying to play a song.", silent=True)
         
-        if channel is not None:
-            player = await channel.connect(cls= Player, timeout = 0)
-            return player
+    #     if channel is not None:
+    #         player = await channel.connect(cls= Player, timeout = 0)
+    #         return player
 
     @commands.command("showQ")
     async def showQueue(self, ctx) -> None:
@@ -197,7 +198,7 @@ class StreamingCog(Cog):
 
         search_results = await self._searchYoutube(query)
         if search_results is None:
-            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()))
+            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()), silent=True)
             return
         else:
             best_match = search_results[0]
@@ -205,10 +206,11 @@ class StreamingCog(Cog):
             message = Embed(title=f"Added {best_match.title} to the queue.", color=Colour.light_embed())
             message.set_thumbnail(url = best_match.artwork)
             await ctx.send(embed = message, silent=True)
-
-        if not player.playing:
+        if player.playing and player.paused:
+            await ctx.send(embed=Embed(title=f"The Player is paused.", description="Please use `resume` to continue playing music.", color=Colour.gold()))
+        elif not player.playing:
             await player.play(player.queue.get())
-        elif player.playing:
+        if player.playing:
             if len(player.queue) > 0:
                 player.autoplay = AutoPlayMode.partial
 
@@ -247,8 +249,11 @@ class StreamingCog(Cog):
                 if voice.playing and not voice.paused:
                     time = 0
                 if time == 600:
-                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()), silent=True)
-                    await voice.disconnect()
+                    if voice.paused:
+                        time = 0
+                    else:
+                        await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()), silent=True)
+                        await voice.disconnect()
                 if not voice.connected:
                     break
 
