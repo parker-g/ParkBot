@@ -1,3 +1,4 @@
+# this cog replaces the music.py cog. if you desire, one could configure the bot.py file to load the old music cog in place of this streaming cog, however I will say that the old music cog will present issues if you plan to serve your bot to multiple discord guilds.
 import logging
 import asyncio
 import datetime

@@ -2,9 +2,9 @@ import logging
 from pathlib import Path
 
 import discord
+from discord import Colour
 from discord.ext import commands
 
-from helper import get_image
 from config.configuration import WORKING_DIRECTORY, TOKEN, LAVALINK_PASS, LAVALINK_URI
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
@@ -33,6 +33,7 @@ async def on_ready():
     # await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.canvas")
     await bot.load_extension("cogs.streamingmusic")
+    await bot.load_extension("cogs.replikate")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
@@ -179,25 +180,11 @@ async def creator(ctx):
     await ctx.send(file=discord.File('data/images/gigachad.jpg'))
 
 @bot.command()
-async def dallE(ctx, args:str):
-    em = discord.Embed(title=f"dallE", description=f"I\'m working on processing your prompt. This may take a minute.")
-    await ctx.send(embed=em)
-    image = get_image(args=args)
-    await ctx.send(embed=discord.Embed(title=f"Dall-E Generated Result"), file=discord.File(image))
-
-@bot.command()
 async def resetGames(ctx):
     await bot.reload_extension("cogs.games")
     await bot.reload_extension("cogs.economy")
     em = discord.Embed(title="Reset games and economy cogs")
     await ctx.send(embed = em)
-
-# @bot.command()
-# async def imgTest(ctx):
-#     em = discord.Embed()
-#     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
-#     image = test.img_test0()
-#     await ctx.send(embed = em, file=discord.File(image))
 
 bot.run(TOKEN, log_handler=handler)
 
