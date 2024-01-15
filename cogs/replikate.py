@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from pathlib import Path
 
 import discord
@@ -11,6 +12,11 @@ from discord.ext.commands.cog import Cog
 
 from helper import slugify
 from cogs.controller import Controller
+
+
+class Model(Enum):
+    stable_diff = "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478"
+    dall_e = "kuprel/min-dalle:2af375da21c5b824a84e1c459f45b69a117ec8649c2aa974112d7cf1840fc0ce"
 
 class ReplicateClient(Cog):
     def __init__(self, bot):
@@ -28,7 +34,7 @@ class ReplicateClient(Cog):
     #BUG the way this works now, it blocks while waiting for the request to finish, which throws error messages in the main log. it hasn't been a breaking issue so far but I would rather fix it than leave it
     def request_image_generation(self, prompt:str) -> str:
         """Sanitizes input prompt and runs it against stable-diffusion model. Returns a URL linking to the generated image hosted on replicate's domain."""
-        output = replicate.run("stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478",
+        output = replicate.run(Model.dall_e.value,
                             input = {"prompt": prompt,
                                     "num_outputs": 1,
                                     "width": 768,
