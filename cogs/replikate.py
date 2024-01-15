@@ -36,9 +36,12 @@ class ReplicateClient(Cog):
         """Sanitizes input prompt and runs it against stable-diffusion model. Returns a URL linking to the generated image hosted on replicate's domain."""
         output = replicate.run(Model.dall_e.value,
                             input = {"prompt": prompt,
-                                    "num_outputs": 1,
+                                    # "num_outputs": 1,
                                     "width": 768,
-                                    "height": 768,}
+                                    "height": 768,
+                                    "progressive_outputs": False,
+                                    "grid_size": 1,
+                                    }
                             )
         url = output[0]
         return url
