@@ -77,6 +77,15 @@ class Downloader:
             case "windows":
                 self.extractZip(archive, extract_destination)
 
+    def create_directories(self, path:Path) -> None:
+        """Creates the path given if it doesn't already exist."""
+        try:
+            os.makedirs(path)
+        except FileExistsError:
+            print("The directory you are trying to create already exists.")
+        except PermissionError:
+            print("You don't have the permissions to create the Path you provided. Try again with elevated privileges.")
+
 class NSSMConfigurator:
 
     # def _findNSSM(self) -> Path | None:
@@ -303,7 +312,6 @@ class JavaDownloader(Downloader):
 
     def _findJava(self) -> Path | None:
         desired_file = self.java
-        parkbot_dir = Path(os.getcwd())
         user = os.getlogin()
         print("You may be met with a prompt to elevate to admin privileges. This bump in privileges is necessary to search your 'Program Files' directory for an existing java executable.")
         match self.operating_sys:
@@ -311,9 +319,9 @@ class JavaDownloader(Downloader):
                 #NOTE just search user's home since we're assuming user doesn't have admin privileges
                 dirs_to_search = [Path("~/")]
             case "windows":
-                dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]     
+                dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]
             case _:
-                raise OSError("The ParkBot setup script is incompatible with this operating system.") 
+                raise OSError("The ParkBot setup script is incompatible with this operating system.")
         for directory in dirs_to_search:
             try:
                 for dirpath, dirs, files in os.walk(directory):
@@ -338,8 +346,8 @@ class JavaDownloader(Downloader):
             case "linux":
                 return "https://builds.openlogic.com/downloadJDK/openlogic-openjdk-jre/17.0.9+9/openlogic-openjdk-jre-17.0.9+9-linux-x64.tar.gz"
 
-    def downloadJava(self, download_dir, extract_destination = None):
-        """Downloads JRE 17 to the Program Files directory on Windows machines, or to the '/usr/lib/jvm/' directory on Linux machines."""
+    def downloadJava17(self, download_dir:Path | str) -> None:
+        """Downloads JRE 17 to the Program Files directory on Windows machines, or to the '/home/<user>/java/jdk-17/' directory on Linux machines."""
         match self.operating_sys:
             case "windows":
                 file_ext = ".zip"
@@ -349,6 +357,7 @@ class JavaDownloader(Downloader):
                 extract_destination = Path("~/java/jdk-17")
             case _:
                 raise OSError("ParkBot's setup script is incompatible with your operating system.")
+        self.create_directories(extract_destination) # create destination directories if they don't exist
         jre_name_with_ext = f"openjdk-jdk-17{file_ext}"
         request_url = self.getBestLink()
         download_destination = Path(download_dir) / jre_name_with_ext
@@ -361,15 +370,35 @@ class LavalinkDownloader(Downloader):
         super().__init__(os, machine)
         self.lavalink = "Lavalink.jar"
 
-    def _findLavalink(self) -> Path | None:
-        """Searches ParkBot directory for `Lavalink.jar`, returns the path to it."""
-        desired_file = self.lavalink
-        parkbot_dir = Path(os.getcwd())
-        for dirpath, dirs, files in os.walk(parkbot_dir):
-            for filename in files:
-                if (desired_file == filename):
-                    return Path(dirpath) / desired_file
+    def findLavalink(self) -> Path | None:
+        desired_file = "lavalink.jar"
+        user = os.getlogin()
+        print("You may be met with a prompt to elevate to admin privileges. This bump in privileges is necessary to search your 'Program Files' directory for the 'lavalink.jar' file.")
+        match self.operating_sys:
+            case "linux":
+                dirs_to_search = [Path("~/")]
+            case "windows":
+                dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]     
+            case _:
+                raise OSError("The ParkBot setup script is incompatible with this operating system.")
+        for directory in dirs_to_search:
+            try:
+                for dirpath, dirs, files in os.walk(directory):
+                    for filename in files:
+                        if (desired_file == filename):
+                            return Path(dirpath) / desired_file
+            except PermissionError:
+                print(f"---------------------------\nUnable to search Program Files directory. Searching {user}'s home directory.\n---------------------------")
+                continue
         return None
+
+    def downloadLavalink(self) -> str:
+        """Downloads Lavalink to the current user's "Documents" directory. Returns the path to 'lavalink.jar'."""
+        if self.f
+        link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
+        user = os.getlogin()
+        download_dest = Path(f"C://Users") / user / "Documents" / "lavalink"
+        self.downloadURL(link, download_dest)
 
 
 #TODO finish implementing the WindowsDepednecyHandler and LinuxDependencyHandler abilities to download/install openjdk-17 and lavalink - then configure lavalink and create a service for it (in the case of windows)
@@ -439,6 +468,16 @@ class ExternalDependencyHandler:
         ffmpeg = self.findFFMPEG()
         return ffmpeg
     
+    def downloadExtractJRE17(self) -> Path:
+        """Downloads and extracts the java 17 development kit to 'C://Program Files/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable."""
+        here = Path(os.getcwd())
+        downloader = JavaDownloader(self.operating_sys, self.machine)
+        java = downloader._findJava()
+        if java is None:
+            downloader.downloadJava17(here)
+        java = downloader._findJava()
+        return java
+    
     def downloadExtractAllDeps(self, download_dir = None, extract_destination = None) -> dict[str, Path]:
         """Downloads and extracts all external depedencies required for the ParkBot depending on a user's OS/Machine."""
         pass
@@ -487,18 +526,6 @@ class ExternalDependencyHandler:
         with open(config_path, "w") as configfile:
             new_config.write(configfile)
         return
-    
-    def downloadExtractJRE17(self, download_dir = None) -> Path:
-        """Downloads and extracts the java 17 development kit. Returns the path to the java executable."""
-        java = self.findJava()
-        # check if java is already downloaded
-        here = Path(os.getcwd())
-        if not java:
-            #NOTE download java first before going through extraction
-            downloader = JavaDownloader(self.operating_sys, self.machine)
-            downloader.downloadJava(download_dir)
-        java = self.findJava()
-        return java
 
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
@@ -523,16 +550,7 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         parkbot = Path(os.getcwd())
         # dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
         dirs_to_search = [parkbot]
-
         return self.findFile("nssm.exe", dirs_to_search)
-    
-    # def findJava(self) -> Path | None:
-    #     """Returns the first found instance of java.exe in Program Files."""
-    #     program_files = Path("C://Program Files/")
-    #     dirs_to_search = [program_files]
-    #     return self.findFile(JAVA.windows.value, dirs_to_search)
-    
-    
 
     def downloadExtractNSSM(self, download_dir = None, extract_destination = None) -> Path:
         """Downloads and extracts the FFMPEG archive. Returns the path to the extracted FFMPEG executable."""
@@ -553,13 +571,12 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         results = {}
         results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
-        results['java'] = self.downloadExtractJRE17(extract_destination)
+        results['java'] = self.downloadExtractJRE17()
         #results['lavalink'] = self.downloadExtractLavalink(download_dir, extract_destination)
         configurator.installBotService()
         #configurator.installLavalinkService()
         return results
     
-
 
 class LinuxDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Linux."""
