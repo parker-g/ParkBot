@@ -11,8 +11,14 @@ from tarfile import TarFile
 import bs4 
 import requests
 
+class ErrorMessage(Enum):
+    OS = "The ParkBot setup script is incompatible with this operating system."
+    ARCH = "The ParkBot setup script does not include full support for this architecture."
+
+
 acceptable_javas = {
-    "jdk-17"
+    "jdk-17",
+    "openlogic-openjdk-jre-17",
 }
 
 machines = {
@@ -85,6 +91,10 @@ class Downloader:
             print("The directory you are trying to create already exists.")
         except PermissionError:
             print("You don't have the permissions to create the Path you provided. Try again with elevated privileges.")
+
+    def move(self, target_current_dir:Path, target_destination_dir:Path) -> None:
+        """Moves the target dir to target destination dir. Input absolute paths."""
+        os.rename(target_current_dir, target_destination_dir)
 
 class NSSMConfigurator:
 
@@ -259,7 +269,7 @@ class FFMPEGDownloader(Downloader):
             case "arm64":
                 return builds["linuxarm64-lgpl-tar"]
             case _:
-                raise OSError(f"This computer's architecture is not currently supported for easy setup.")
+                raise OSError(ErrorMessage.ARCH.value)
 
     def getDownloadLink(self, builds):
         """Returns the appropriate FFMPEG download link for a user's operating system."""
@@ -269,7 +279,7 @@ class FFMPEGDownloader(Downloader):
             case "linux":
                 return self.getBestLinuxBuildLink(builds)
             case _:
-                raise OSError("This computer's architecture is not currently supported for easy setup.")
+                raise OSError(ErrorMessage.OS.value)
     
     def moveFFMPEG(self, ffmpeg_location:Path, ffmpeg_parent_dir:Path, final_exe_destination:Path) -> None:
         """Pulls the ffmpeg.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
@@ -285,7 +295,7 @@ class FFMPEGDownloader(Downloader):
             case "linux":
                 file_ext = ".tar.xz"
             case _:
-                raise OSError()
+                raise OSError(ErrorMessage.OS.value)
         download_destination = download_dir / f"ffmpeg{file_ext}"
         link = self.getDownloadLink(self.builds)
         self.downloadURL(link, download_destination)
@@ -321,7 +331,7 @@ class JavaDownloader(Downloader):
             case "windows":
                 dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]
             case _:
-                raise OSError("The ParkBot setup script is incompatible with this operating system.")
+                raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
             try:
                 for dirpath, dirs, files in os.walk(directory):
@@ -335,34 +345,45 @@ class JavaDownloader(Downloader):
                 continue
         return None
     
-    def getBestLink(self) -> str | None:
+    def getBestLink(self) -> str:
         """Returns the JRE 17 download link for the users' respective operating system."""
         if self.machine != "AMD64":
-            print("The Java downloader only supports 64 bit, non-ARM architectures.")
-            return
+            raise OSError("The Java downloader only supports 64 bit, non-ARM architectures.")
         match self.operating_sys:
             case "windows":
                 return "https://builds.openlogic.com/downloadJDK/openlogic-openjdk-jre/17.0.9+9/openlogic-openjdk-jre-17.0.9+9-windows-x64.zip"
             case "linux":
                 return "https://builds.openlogic.com/downloadJDK/openlogic-openjdk-jre/17.0.9+9/openlogic-openjdk-jre-17.0.9+9-linux-x64.tar.gz"
-
+            case _:
+                raise OSError(ErrorMessage.OS.value)
+    
     def downloadJava17(self, download_dir:Path | str) -> None:
-        """Downloads JRE 17 to the Program Files directory on Windows machines, or to the '/home/<user>/java/jdk-17/' directory on Linux machines."""
+        """Downloads JRE 17 to `C://Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
+        download_dir = Path(os.getcwd())
+        user = os.getlogin()
+        request_url = self.getBestLink()
         match self.operating_sys:
             case "windows":
-                file_ext = ".zip"
-                extract_destination = Path("C://Program Files/Java/jdk-17")
+                final_destination = Path(f"C://Users/{user}/Java/jdk-17")
             case "linux":
-                file_ext = ".tar.gz"
-                extract_destination = Path("~/java/jdk-17")
+                final_destination = Path("~/java/jdk-17")
             case _:
-                raise OSError("ParkBot's setup script is incompatible with your operating system.")
-        self.create_directories(extract_destination) # create destination directories if they don't exist
-        jre_name_with_ext = f"openjdk-jdk-17{file_ext}"
-        request_url = self.getBestLink()
+                raise OSError(ErrorMessage.OS.value)
+        self.create_directories(final_destination.parent)
+        
+        jre_name_with_ext = request_url.split("/")[-1]
+        jre_name = ".".join(jre_name_with_ext.split(".")[:-1])
         download_destination = Path(download_dir) / jre_name_with_ext
+        temp_dest = Path(download_dir) / "temp"
+
+        self.create_directories(temp_dest)
         self.downloadURL(request_url, download_destination)
-        self.extract(download_destination, extract_destination)
+        # rename the zip directory to jdk-17.zip
+        self.extract(download_destination, temp_dest)
+        # extract the zip to a temporary directory, then rename the temp-directory / unzipped folder (old_name) -> extract destination / unzipped folder (new_name)
+        self.move(temp_dest / jre_name, final_destination)
+        temp_dest.rmdir()
+        print(f"Java 17 installation complete. Java 17 installed to `{final_destination}`.")
 
 
 class LavalinkDownloader(Downloader):
@@ -380,7 +401,7 @@ class LavalinkDownloader(Downloader):
             case "windows":
                 dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]     
             case _:
-                raise OSError("The ParkBot setup script is incompatible with this operating system.")
+                raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
             try:
                 for dirpath, dirs, files in os.walk(directory):
@@ -394,7 +415,7 @@ class LavalinkDownloader(Downloader):
 
     def downloadLavalink(self) -> str:
         """Downloads Lavalink to the current user's "Documents" directory. Returns the path to 'lavalink.jar'."""
-        if self.f
+        # if self.f
         link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
         user = os.getlogin()
         download_dest = Path(f"C://Users") / user / "Documents" / "lavalink"
