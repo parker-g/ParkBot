@@ -198,7 +198,7 @@ class NSSMDownloader(Downloader):
         else:
             raise IOError(f"Attempted to download `nssm.exe`, but cannot find it in file system.")
 
-class FFMPEGDownloader(Downloader):
+class FFMPEGManager(Downloader):
     """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
 
     def _findFFMPEG(self) -> Path | None:
@@ -305,7 +305,7 @@ class FFMPEGDownloader(Downloader):
         self.moveFFMPEG(ffmpeg_exe_location, ffmpeg_parent_directory, parkbot_dir)
 
 
-class JavaDownloader(Downloader):
+class JavaManager(Downloader):
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
         #self.machine can only be AMD64 or arm64
@@ -315,12 +315,8 @@ class JavaDownloader(Downloader):
             case "windows":
                 self.java = "java.exe"
 
-    def moveJava(self, java_location:Path, java_parent_dir:Path, final_exe_destination:Path) -> None:
-        """Pulls the java executable out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
-        os.rename(java_location, final_exe_destination / self.java)
-        shutil.rmtree(str(java_parent_dir))
-
     def _findJava(self) -> Path | None:
+        """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = self.java
         user = os.getlogin()
         print("You may be met with a prompt to elevate to admin privileges. This bump in privileges is necessary to search your 'Program Files' directory for an existing java executable.")
@@ -386,42 +382,33 @@ class JavaDownloader(Downloader):
         print(f"Java 17 installation complete. Java 17 installed to `{final_destination}`.")
 
 
-class LavalinkDownloader(Downloader):
+class LavalinkManager(Downloader):
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
-        self.lavalink = "Lavalink.jar"
 
     def findLavalink(self) -> Path | None:
         desired_file = "lavalink.jar"
         user = os.getlogin()
-        print("You may be met with a prompt to elevate to admin privileges. This bump in privileges is necessary to search your 'Program Files' directory for the 'lavalink.jar' file.")
         match self.operating_sys:
             case "linux":
                 dirs_to_search = [Path("~/")]
             case "windows":
-                dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]     
+                dirs_to_search = [Path(f"C://Users/{user}")]
             case _:
                 raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
-            try:
-                for dirpath, dirs, files in os.walk(directory):
-                    for filename in files:
-                        if (desired_file == filename):
-                            return Path(dirpath) / desired_file
-            except PermissionError:
-                print(f"---------------------------\nUnable to search Program Files directory. Searching {user}'s home directory.\n---------------------------")
-                continue
+            for dirpath, dirs, files in os.walk(directory):
+                for filename in files:
+                    if (desired_file == filename):
+                        return Path(dirpath) / desired_file
         return None
 
-    def downloadLavalink(self, download_dir:Path | str) -> str:
-        """Downloads Lavalink to the current user's "Documents" directory. Returns the path to 'lavalink.jar'."""
-        # if self.f
+    def downloadLavalink(self) -> None:
+        """Downloads Lavalink to the Parkbot project's root directory. Returns the path to 'lavalink.jar'."""
         link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
-        user = os.getlogin()
-        download_dest = Path(f"C://Users") / user / "Documents" / "lavalink"
+        download_dest = Path(os.getcwd())
         self.downloadURL(link, download_dest)
 
-    
 
 #TODO finish implementing the WindowsDepednecyHandler and LinuxDependencyHandler abilities to download/install openjdk-17 and lavalink - then configure lavalink and create a service for it (in the case of windows)
 
@@ -485,14 +472,14 @@ class ExternalDependencyHandler:
                 download_dir = here
             if extract_destination is None:
                 extract_destination = here
-            downloader = FFMPEGDownloader(self.operating_sys, self.machine)
+            downloader = FFMPEGManager(self.operating_sys, self.machine)
             downloader._downloadFFMPEG(download_dir, extract_destination)
         ffmpeg = self.findFFMPEG()
         return ffmpeg
     
     def downloadExtractJRE17(self) -> Path:
         """Downloads and extracts the java 17 development kit to 'C://Program Files/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
-        downloader = JavaDownloader(self.operating_sys, self.machine)
+        downloader = JavaManager(self.operating_sys, self.machine)
         java = downloader._findJava()
         if java is None:
             downloader.downloadJava17()
@@ -618,10 +605,8 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
     
     def findJava(self) -> Path | None:
         """Returns the first found instance of the java executable in either the `/usr/lib/` or `/usr/share/` directories."""
-        usr_lib = Path("/usr/lib/")
-        usr_share = Path("/usr/share/")
-        dirs_to_search = [usr_lib, usr_share]
-        return self.findFile(JAVA.linux.value, dirs_to_search)
+        java_downloader = JavaManager(self.operating_sys, self.machine)
+        return java_downloader._findJava()
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
         results = {}
