@@ -357,7 +357,7 @@ class JavaDownloader(Downloader):
             case _:
                 raise OSError(ErrorMessage.OS.value)
     
-    def downloadJava17(self, download_dir:Path | str) -> None:
+    def downloadJava17(self) -> None:
         """Downloads JRE 17 to `C://Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
         download_dir = Path(os.getcwd())
         user = os.getlogin()
@@ -413,7 +413,7 @@ class LavalinkDownloader(Downloader):
                 continue
         return None
 
-    def downloadLavalink(self) -> str:
+    def downloadLavalink(self, download_dir:Path | str) -> str:
         """Downloads Lavalink to the current user's "Documents" directory. Returns the path to 'lavalink.jar'."""
         # if self.f
         link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
@@ -421,6 +421,7 @@ class LavalinkDownloader(Downloader):
         download_dest = Path(f"C://Users") / user / "Documents" / "lavalink"
         self.downloadURL(link, download_dest)
 
+    
 
 #TODO finish implementing the WindowsDepednecyHandler and LinuxDependencyHandler abilities to download/install openjdk-17 and lavalink - then configure lavalink and create a service for it (in the case of windows)
 
@@ -490,12 +491,11 @@ class ExternalDependencyHandler:
         return ffmpeg
     
     def downloadExtractJRE17(self) -> Path:
-        """Downloads and extracts the java 17 development kit to 'C://Program Files/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable."""
-        here = Path(os.getcwd())
+        """Downloads and extracts the java 17 development kit to 'C://Program Files/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
         downloader = JavaDownloader(self.operating_sys, self.machine)
         java = downloader._findJava()
         if java is None:
-            downloader.downloadJava17(here)
+            downloader.downloadJava17()
         java = downloader._findJava()
         return java
     
