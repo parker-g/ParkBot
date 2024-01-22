@@ -1,9 +1,11 @@
 import os
+import json
 import shutil
 import platform
 import subprocess
 import configparser
 from enum import Enum
+from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 from tarfile import TarFile
@@ -161,9 +163,42 @@ class NSSMManager(Downloader):
                 if (desired_file == filename):
                     return Path(dirpath).absolute() / desired_file
         return None
-
+    
+    def set_service_dependency(self, service_name:str, dependency_service:str) -> bool:
+        # nssm set UT2003 DependOnService MpsSvc
+        command_string = f"nssm set \"{service_name}\" \"DependOnService\" \"{dependency_service}\""
+        completed_process = subprocess.call(command_string, text=True)
+        match completed_process:
+            case 0:
+                print(f"Successfully set {dependency_service} as a dependency of {service_name}.")
+                return True #success
+            case 1:
+                print(f"Failed to set {dependency_service} as a dependency of {service_name}.")
+                return False
+            case _:
+                print("Failure, unhandled process exit code.")
+                return False
+        
+    def installLavalinkService(self) -> bool:
+        """Only to be called after both 'lavalink.jar' and Java 17 have been installed on this system."""
+        java_manager = JavaManager(self.operating_sys, self.machine)
+        lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
+        java_exe = java_manager._findJava()
+        lavalink_jar = lavalink_manager.findLavalink()
+        service_name = "LavalinkService"
+        command_string = command_string = f"nssm install \"{service_name}\" \"{java_exe}\" \"{lavalink_jar}\""
+        completed_process = subprocess.call(command_string, text=True)
+        #NOTE I dont think the working directory needs to be changed on this service
+        if completed_process == 0:
+            print("-"*50 + f"\n{service_name} was installed as a service!")
+            return True
+        else:
+            print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
+            return False
+        
     def installBotService(self, service_name:str = "ParkBotService") -> bool:
         """Uses the 'nssm.exe' executable to create a windows service. All the 'nssm' service does is link a python executable to a '.py' file, so that whenever the service is started, the python file is executed with the given executable."""
+        self.parkbot_service = service_name
         python_venv_exe = self._findPython()
         bot_py_path = self._findBotPy()
         command_string = f"nssm install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
@@ -179,22 +214,6 @@ class NSSMManager(Downloader):
             print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return True
         return False
-    
-    def installLavalinkService(self) -> bool:
-        java_manager = JavaManager(self.operating_sys, self.machine)
-        lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
-        java_exe = java_manager._findJava()
-        lavalink_jar = lavalink_manager.findLavalink()
-        service_name = "LavalinkService"
-        command_string = command_string = f"nssm install \"{service_name}\" \"{java_exe}\" \"{lavalink_jar}\""
-        completed_process = subprocess.call(command_string, text=True)
-        #NOTE I dont think the working directory needs to be changed on this service
-        if completed_process == 0:
-            print("-"*50 + f"\n{service_name} was installed as a service!")
-            return True
-        else:
-            print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
-            return False
 
     
 class FFMPEGManager(Downloader):
@@ -384,6 +403,7 @@ class JavaManager(Downloader):
 
 
 class LavalinkManager(Downloader):
+    #NOTE tested this class's functionality jan 21, 2024 - pass
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
 
@@ -403,13 +423,28 @@ class LavalinkManager(Downloader):
                     if (desired_file == filename):
                         return Path(dirpath) / desired_file
         return None
+    
+    def generate_lavalink_config(self, lavalink_parent_dir:Path) -> None:
+        """Takes as input the directory where lavalink.jar is stored, and writes a default 'application.yml' config file in that directory."""
+        lavalink_config_path = lavalink_parent_dir / "application.yml"
+        if lavalink_config_path.exists():
+            print(f"You already have a lavalink application.yml file. Aborting new file generation.")
+            return
+        response = requests.get("https://github.com/lavalink-devs/Lavalink/blob/c2431ce1b1aab088aff29033b2e44bb840fd5cd1/LavalinkServer/application.yml.example")
+        json_response = json.load(BytesIO(response.content))
+        lines = json_response["payload"]["blob"]["rawLines"]
+        with open(lavalink_config_path, "w") as file:
+            for line in lines:
+                file.write(line + "\n")
 
     def downloadLavalink(self) -> None:
-        """Downloads Lavalink to the Parkbot project's root directory. Returns the path to 'lavalink.jar'."""
+        """Downloads Lavalink to the "<parkbot-root>/lavalink" directory. Returns the path to 'lavalink.jar'."""
         link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
-        download_dest = Path(os.getcwd())
-        self.downloadURL(link, download_dest)
-
+        lavalink_dir = Path(os.getcwd()) / "lavalink"
+        self.create_directories(lavalink_dir)
+        self.generate_lavalink_config(lavalink_dir)
+        final_dest = lavalink_dir / "lavalink.jar"
+        self.downloadURL(link, final_dest)
 
 #TODO finish implementing the WindowsDepednecyHandler and LinuxDependencyHandler abilities to download/install openjdk-17 and lavalink - then configure lavalink and create a service for it (in the case of windows)
 
@@ -491,6 +526,7 @@ class ExternalDependencyHandler:
     
     def downloadExtractLavalink(self) -> Path:
         """Downloads `lavalink.jar` to the ParkBot root directory if it doesn't already exist there. Returns the path to the jar."""
+        #TODO need to provide a default lavalink config, 'application.yml', and perhaps allow user to set their lavalink password and port
         manager = LavalinkManager(self.operating_sys, self.machine)
         lavalink_path = manager.findLavalink()
         if lavalink_path is None:
@@ -588,8 +624,10 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
         results['java'] = self.downloadExtractJRE17()
         results['lavalink'] = self.downloadExtractLavalink()
-        nssm_manager.installLavalinkService()
-        nssm_manager.installBotService()
+        lavalink_serv_install = nssm_manager.installLavalinkService()
+        parkbot_serv_install = nssm_manager.installBotService()
+        if parkbot_serv_install is True and lavalink_serv_install is True:
+            nssm_manager.set_service_dependency(nssm_manager.parkbot_service, "LavalinkService")
         return results
     
     #TODO create lavalink service and cite it as a dependency for ParkBotService
