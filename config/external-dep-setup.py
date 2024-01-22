@@ -36,10 +36,6 @@ machines_to_github_versions = {
     "arm64": "arm64",
 }
 
-class OSHome(Enum):
-    windows = Path("C:/Users/")
-    linux = Path("/home/")
-
 class FFMPEG(Enum):
     windows = "ffmpeg.exe"
     linux = "ffmpeg"    
@@ -96,20 +92,54 @@ class Downloader:
         """Moves the target dir to target destination dir. Input absolute paths."""
         os.rename(target_current_dir, target_destination_dir)
 
-class NSSMConfigurator:
+class NSSMManager(Downloader):
+    """Class responsible for downloading and configuring NSSM, as well as working with Windows services programatically."""
 
-    # def _findNSSM(self) -> Path | None:
-    # # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
-    # # should really only accept win64 for now, as the rest of setup doesnt support 32
-    #     """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
-    #     desired_file = "nssm.exe"
-    #     parkbot_dir = Path(os.getcwd())
-    #     for dirpath, dirs, files in os.walk(parkbot_dir):
-    #         for filename in files:
-    #             if (desired_file == filename):
-    #                 return Path(dirpath) / desired_file
-    #     return None
+        # https://www.devdungeon.com/content/run-python-script-windows-service - instructions for using nssm after installation
+    """Downloads the most recent stable version of NSSM.exe (the non-sucking-service-manager)."""
+    def __init__(self, os:str, machine:str):
+        super().__init__(os, machine)
+        if self.operating_sys != 'windows':
+            raise OSError(f"No need to download NSSM on an operating system besides windows.")
+
+    def _findNSSM(self, nssm_version:str) -> Path | None:
+        # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
+        # should really only accept win64 for now, as the rest of setup doesnt support 32
+        """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
+        desired_file = "nssm.exe"
+        parkbot_dir = Path(os.getcwd())
+        for dirpath, dirs, files in os.walk(parkbot_dir):
+            for filename in files:
+                if (desired_file == filename) and (dirpath[-5:] == nssm_version):
+                    return Path(dirpath) / desired_file
+        return None
     
+    def findNSSM64(self) -> Path | None:
+        """Returns path to the unzipped 64-bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
+        return self._findNSSM("win64")
+    
+    def findNSSM32(self) -> Path | None:
+        """Returns path to the unzipped 32-bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
+        return self._findNSSM("win32")
+
+    def moveNSSM(self, nssm_location:Path, final_exe_destination:Path) -> None:
+        """Pulls the nssm.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
+        nssm_parent_dir = Path(os.getcwd()) / "nssm-2.24"
+        os.rename(nssm_location, final_exe_destination / "nssm.exe")
+        shutil.rmtree(str(nssm_parent_dir))
+
+    def downloadNSSM(self, download_dir:Path, extract_destination):
+        parkbot_dir = Path(os.getcwd())
+        download_url = "https://www.nssm.cc/release/nssm-2.24.zip"
+        nssm_destination = download_dir / "nssm.zip"
+        self.downloadURL(download_url, nssm_destination)
+        self.extractZip(nssm_destination, extract_destination)
+        nssm_path = self.findNSSM64()
+        if nssm_path is not None:
+            self.moveNSSM(nssm_path, parkbot_dir)
+        else:
+            raise IOError(f"Attempted to download `nssm.exe`, but cannot find it in file system.")
+
     def _findPython(self) -> Path | None:
         """Searches ParkBot's directory for a virtual environment and returns the path to its python executable."""
         desired_file = "python.exe"
@@ -139,7 +169,7 @@ class NSSMConfigurator:
         command_string = f"nssm install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
         completed_process = subprocess.call(command_string, text=True)
         if completed_process == 0:
-            # set the services' working directory to the ParkBot working directory
+            # set the services' working directory to the ParkBot working directory (one reason is for logging to work; or any other action which accesses the file system that assumes the working directory is ParkBot's root)
             change_service_directory = subprocess.call(f"nssm set {service_name} AppDirectory {os.getcwd()}")
             if change_service_directory == 0:
                 print("-"*50 + f"\n{service_name} was installed as a service!")
@@ -149,57 +179,54 @@ class NSSMConfigurator:
             print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return True
         return False
-
-
-class NSSMDownloader(Downloader):
-
-    def _findNSSM(self, nssm_version:str) -> Path | None:
-        # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
-        # should really only accept win64 for now, as the rest of setup doesnt support 32
-        """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
-        desired_file = "nssm.exe"
-        parkbot_dir = Path(os.getcwd())
-        for dirpath, dirs, files in os.walk(parkbot_dir):
-            for filename in files:
-                if (desired_file == filename) and (dirpath[-5:] == nssm_version):
-                    return Path(dirpath) / desired_file
-        return None
     
-    # https://www.devdungeon.com/content/run-python-script-windows-service - instructions for using nssm after installation
-    """Downloads the most recent stable version of NSSM.exe (the non-sucking-service-manager)."""
-    def __init__(self, os:str, machine:str):
-        super().__init__(os, machine)
-        if self.operating_sys != 'windows':
-            raise OSError(f"No need to download NSSM on an operating system besides windows.")
-
-    def findNSSM64(self) -> Path | None:
-        """Returns path to 64 bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
-        return self._findNSSM("win64")
-    
-    def findNSSM32(self) -> Path | None:
-        """Returns path to 32 bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
-        return self._findNSSM("win32")
-
-    def moveNSSM(self, nssm_location:Path, final_exe_destination:Path) -> None:
-        """Pulls the nssm.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
-        nssm_parent_dir = Path(os.getcwd()) / "nssm-2.24"
-        os.rename(nssm_location, final_exe_destination / "nssm.exe")
-        shutil.rmtree(str(nssm_parent_dir))
-
-    def downloadNSSM(self, download_dir:Path, extract_destination):
-        parkbot_dir = Path(os.getcwd())
-        download_url = "https://www.nssm.cc/release/nssm-2.24.zip"
-        nssm_destination = download_dir / "nssm.zip"
-        self.downloadURL(download_url, nssm_destination)
-        self.extractZip(nssm_destination, extract_destination)
-        nssm_path = self.findNSSM64()
-        if nssm_path is not None:
-            self.moveNSSM(nssm_path, parkbot_dir)
+    def installLavalinkService(self) -> bool:
+        java_manager = JavaManager(self.operating_sys, self.machine)
+        lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
+        java_exe = java_manager._findJava()
+        lavalink_jar = lavalink_manager.findLavalink()
+        service_name = "LavalinkService"
+        command_string = command_string = f"nssm install \"{service_name}\" \"{java_exe}\" \"{lavalink_jar}\""
+        completed_process = subprocess.call(command_string, text=True)
+        #NOTE I dont think the working directory needs to be changed on this service
+        if completed_process == 0:
+            print("-"*50 + f"\n{service_name} was installed as a service!")
+            return True
         else:
-            raise IOError(f"Attempted to download `nssm.exe`, but cannot find it in file system.")
+            print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
+            return False
 
+    
 class FFMPEGManager(Downloader):
     """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
+
+    def __init__(self, os:str, machine:str):
+        super().__init__(os, machine)
+        #self.operating_sys
+        #self.machine
+        self.builds = self.getBuilds()
+        match self.operating_sys:
+            case "windows":
+                self.ffmpeg = 'ffmpeg.exe'
+            case "linux":
+                self.ffmpeg = 'ffmpeg'
+            case _:
+                raise OSError(ErrorMessage.OS.value)
+
+        # {
+        # linux64-gpl-shared-tar
+        # linux64-gpl-tar
+        # linux64-lgpl-shared-tar
+        # linux64-lgpl-tar
+        # linuxarm64-gpl-shared-tar
+        # linuxarm64-gpl-tar
+        # linuxarm64-lgpl-shared-tar
+        # linuxarm64-lgpl-tar
+        # win64-gpl-shared-zip
+        # win64-gpl-zip 
+        # }
+
+        self.best_match = None
 
     def _findFFMPEG(self) -> Path | None:
         # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
@@ -235,32 +262,6 @@ class FFMPEGManager(Downloader):
                 results[tit] = host + link
         return results
     
-    def __init__(self, os:str, machine:str):
-        super().__init__(os, machine)
-        #self.operating_sys
-        #self.machine
-        self.builds = self.getBuilds()
-        match self.operating_sys:
-            case "windows":
-                self.ffmpeg = 'ffmpeg.exe'
-            case "linux":
-                self.ffmpeg = 'ffmpeg'
-
-        # {
-        # linux64-gpl-shared-tar
-        # linux64-gpl-tar
-        # linux64-lgpl-shared-tar
-        # linux64-lgpl-tar
-        # linuxarm64-gpl-shared-tar
-        # linuxarm64-gpl-tar
-        # linuxarm64-lgpl-shared-tar
-        # linuxarm64-lgpl-tar
-        # win64-gpl-shared-zip
-        # win64-gpl-zip 
-        # }
-
-        self.best_match = None
-
     def getBestLinuxBuildLink(self, builds) -> str:
         "Gets download link for Linux depending on user's CPU instruction set."
         match self.machine:
@@ -413,7 +414,7 @@ class LavalinkManager(Downloader):
 #TODO finish implementing the WindowsDepednecyHandler and LinuxDependencyHandler abilities to download/install openjdk-17 and lavalink - then configure lavalink and create a service for it (in the case of windows)
 
 class ExternalDependencyHandler:
-    """Super class to model DependencyHandler behaviors and provide basic operations."""
+    """Class to model DependencyHandler behaviors and provide access to platform agnostic dependencies."""
     def __init__(self):
         self.operating_sys = platform.system().lower()
         self.machine = machines[platform.machine()] # can only be AMD64 or arm64
@@ -457,11 +458,13 @@ class ExternalDependencyHandler:
 
     def findFFMPEG(self) -> Path | None:
         """Returns a Path to the first found instance of the ffmpeg executable."""
-        pass
+        manager = FFMPEGManager(self.operating_sys, self.machine)
+        return manager._findFFMPEG()
 
     def findJava(self) -> Path | None:
-        """Returns a Path to the first found instance of the java executable."""
-        pass
+        """Returns the path to the first instance of `java.exe` which exists in this user's home directory and whose grandparent directory is 'jdk-17' or 'openlogic-openjdk-jre-17'."""
+        manager = JavaManager(self.operating_sys, self.machine)
+        return manager._findJava()
 
     def downloadExtractFFMPEG(self, download_dir = None, extract_destination = None) -> Path:
         """Downloads and extracts the FFMPEG archive. Returns the path to the extracted FFMPEG executable."""
@@ -478,13 +481,22 @@ class ExternalDependencyHandler:
         return ffmpeg
     
     def downloadExtractJRE17(self) -> Path:
-        """Downloads and extracts the java 17 development kit to 'C://Program Files/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
+        """Downloads and extracts the Java 17 to 'C://Users/<user>/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
         downloader = JavaManager(self.operating_sys, self.machine)
         java = downloader._findJava()
         if java is None:
             downloader.downloadJava17()
         java = downloader._findJava()
         return java
+    
+    def downloadExtractLavalink(self) -> Path:
+        """Downloads `lavalink.jar` to the ParkBot root directory if it doesn't already exist there. Returns the path to the jar."""
+        manager = LavalinkManager(self.operating_sys, self.machine)
+        lavalink_path = manager.findLavalink()
+        if lavalink_path is None:
+            manager.downloadLavalink()
+        lavalink_path = manager.findLavalink()
+        return lavalink_path
     
     def downloadExtractAllDeps(self, download_dir = None, extract_destination = None) -> dict[str, Path]:
         """Downloads and extracts all external depedencies required for the ParkBot depending on a user's OS/Machine."""
@@ -511,6 +523,8 @@ class ExternalDependencyHandler:
         new_config["MUSIC"] = {
             "FFMPEG_PATH" : str(ffmpeg_path),
             "GOOGLE_API_KEY" : "",
+            "LAVALINK_URI": "127.0.0.1:2333",
+            "LAVALINK_PASS": "",
         }
         new_config["FOR-AUTOPLAY"] = {
             "SPOTIFY_CLIENT_ID" : "",
@@ -537,7 +551,7 @@ class ExternalDependencyHandler:
 
 
 class WindowsDependencyHandler(ExternalDependencyHandler):
-    """Searches for and downloads depedencies specific to Windows."""
+    """Responsible for adding Windows specific dependency handling on top of the ExternalDependencyHandler."""
 
     def __init__(self):
         super().__init__()
@@ -545,13 +559,6 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
             raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
         username = os.getlogin()
         self.user_home = Path("C:/Users") / username
-
-    def findFFMPEG(self) -> Path | None:
-        """Returns the path to 'ffmpeg.exe' if it exists in ParkBot directory, `C:\\Users\\<user>\\`, or `C:\\Program Files\\`"""
-        parkbot = Path(os.getcwd())
-        # dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
-        dirs_to_search = [parkbot]
-        return self.findFile(FFMPEG.windows.value, dirs_to_search)
     
     def findNSSM(self) -> Path | None:
         """Returns path to "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
@@ -569,22 +576,23 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
                 download_dir = here
             if extract_destination is None:
                 extract_destination = here
-            downloader = NSSMDownloader(self.operating_sys, self.machine)
+            downloader = NSSMManager(self.operating_sys, self.machine)
             downloader.downloadNSSM(download_dir, extract_destination)
         nssm_path = self.findNSSM()
         return nssm_path
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
-        configurator = NSSMConfigurator()
+        nssm_manager = NSSMManager(self.operating_sys, self.machine)
         results = {}
         results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
         results['java'] = self.downloadExtractJRE17()
-        #results['lavalink'] = self.downloadExtractLavalink(download_dir, extract_destination)
-        configurator.installBotService()
-        #configurator.installLavalinkService()
+        results['lavalink'] = self.downloadExtractLavalink()
+        nssm_manager.installLavalinkService()
+        nssm_manager.installBotService()
         return results
     
+    #TODO create lavalink service and cite it as a dependency for ParkBotService
 
 class LinuxDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Linux."""
@@ -603,14 +611,13 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         dirs_to_search = [parkbot, self.user_home, usr_local, opt]
         return self.findFile(FFMPEG.linux.value, dirs_to_search)
     
-    def findJava(self) -> Path | None:
-        """Returns the first found instance of the java executable in either the `/usr/lib/` or `/usr/share/` directories."""
-        java_downloader = JavaManager(self.operating_sys, self.machine)
-        return java_downloader._findJava()
-    
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
         results = {}
         results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
+        results['java'] = self.downloadExtractJRE17()
+        results['lavalink'] = self.downloadExtractLavalink()
+        #TODO use systemd to create lavalink service
+        #TODO use systemd to create ParkBotService, with lavalink service as a dependency
         return results
 
 class HandlerFactory:
