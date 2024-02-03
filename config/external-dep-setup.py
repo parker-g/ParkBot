@@ -10,7 +10,8 @@ from pathlib import Path
 from zipfile import ZipFile
 from tarfile import TarFile
 
-import bs4 
+import bs4
+import yaml
 import requests
 
 class ErrorMessage(Enum):
@@ -215,6 +216,17 @@ class NSSMManager(Downloader):
             return True
         return False
 
+class LinuxServiceManager:
+    def __init__(self, os:str, machine:str):
+        self.operating_sys = os
+        self.machine = machine
+
+    def create_parkbot_service(self) -> None:
+        pass
+
+    def create_lavalink_service(self) -> None:
+        pass
+
     
 class FFMPEGManager(Downloader):
     """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
@@ -406,6 +418,42 @@ class LavalinkManager(Downloader):
     #NOTE tested this class's functionality jan 21, 2024 - pass
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
+        self.configuration = {}
+
+    @staticmethod
+    def write_yaml(yaml_contents, yaml_path:Path) -> None:
+        with open(yaml_path, 'w') as file:
+            yaml.dump(yaml_contents, file, Dumper = yaml.Dumper)
+
+    @staticmethod
+    def read_yaml(yaml_path:Path) -> dict:
+        """Reads a lavalink `application.yml` file into a Python dictionary."""
+        stuff = {}
+        with open(yaml_path, "r") as file:
+            stuff = yaml.load(file, Loader=yaml.Loader)
+        return stuff
+    
+    @staticmethod
+    def port_is_valid(port:int) -> bool:
+        port = int(port)
+        if isinstance(port, int) and port > 0 and port < 65536:
+            return True
+        return False
+    
+    @staticmethod
+    def string_is_valid(string:str) -> bool:
+        if isinstance(string, str) and not string.isspace():
+            return True
+        return False
+    
+    @staticmethod
+    def safe_get_input(condition_function, message:str):
+        """Takes input until the input causes 'condition_function' to return True."""
+        passing = False
+        while passing is False:
+            test_output = input(message)
+            passing = condition_function(test_output)
+        return test_output
 
     def findLavalink(self) -> Path | None:
         desired_file = "lavalink.jar"
@@ -436,9 +484,18 @@ class LavalinkManager(Downloader):
         with open(lavalink_config_path, "w") as file:
             for line in lines:
                 file.write(line + "\n")
+        
+        configuration = LavalinkManager.read_yaml(lavalink_config_path)
+        new_pass = LavalinkManager.safe_get_input(LavalinkManager.string_is_valid, "Enter the password you would like to assign to your Lavalink server:\n")
+        lavalink_port = int(LavalinkManager.safe_get_input(LavalinkManager.port_is_valid, "Enter the port you would like Lavalink to serve on address 127.0.0.1:\n"))
+        configuration['server']['address'] = "127.0.0.1"
+        configuration['lavalink']['server']['password'] = new_pass
+        configuration['server']['port'] = lavalink_port
+        self.configuration = configuration
+        LavalinkManager.write_yaml(configuration, lavalink_config_path)
 
     def downloadLavalink(self) -> None:
-        """Downloads Lavalink to the "<parkbot-root>/lavalink" directory. Returns the path to 'lavalink.jar'."""
+        """Downloads Lavalink to the "<parkbot-root>/lavalink" directory."""
         link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
         lavalink_dir = Path(os.getcwd()) / "lavalink"
         self.create_directories(lavalink_dir)
@@ -559,7 +616,7 @@ class ExternalDependencyHandler:
         new_config["MUSIC"] = {
             "FFMPEG_PATH" : str(ffmpeg_path),
             "GOOGLE_API_KEY" : "",
-            "LAVALINK_URI": "127.0.0.1:2333",
+            "LAVALINK_URI": "http://127.0.0.1:2333",
             "LAVALINK_PASS": "",
         }
         new_config["FOR-AUTOPLAY"] = {
@@ -618,12 +675,18 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         return nssm_path
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
-        nssm_manager = NSSMManager(self.operating_sys, self.machine)
         results = {}
-        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
+        nssm_manager = NSSMManager(self.operating_sys, self.machine)
+        lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
+        
+        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination) #NOTE deprecate this asap
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
         results['java'] = self.downloadExtractJRE17()
-        results['lavalink'] = self.downloadExtractLavalink()
+        if lavalink_manager.findLavalink() is None:
+            lavalink_manager.downloadLavalink()
+        results['lavalink'] = lavalink_manager.findLavalink()
+        results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
+        results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
         lavalink_serv_install = nssm_manager.installLavalinkService()
         parkbot_serv_install = nssm_manager.installBotService()
         if parkbot_serv_install is True and lavalink_serv_install is True:
@@ -651,9 +714,14 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
     
     def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
         results = {}
-        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination)
+        lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
+        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination) #NOTE deprecate this
         results['java'] = self.downloadExtractJRE17()
-        results['lavalink'] = self.downloadExtractLavalink()
+        if lavalink_manager.findLavalink() is None:
+            lavalink_manager.downloadLavalink()
+        results['lavalink'] = lavalink_manager.findLavalink()
+        results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
+        results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
         #TODO use systemd to create lavalink service
         #TODO use systemd to create ParkBotService, with lavalink service as a dependency
         return results

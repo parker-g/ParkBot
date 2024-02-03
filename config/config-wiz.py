@@ -25,6 +25,14 @@ def read(config_filename) -> dict[str, dict[str, str]] | None:
     result["CANVAS"] = dict(config.items(section="CANVAS"))
     return result
 
+class LavalinkConfigurator:
+    # goal I want to achieve:
+
+    # modify the lavalink default host to 127.0.0.1 so its not accepting connections from all ports 
+
+    # give end user the ability to easily input their desired lavalink password in the config GUI + change the password in the lavalink application file as well
+
+
 class ConfigWizard:
     
     REQUIRED = {
@@ -39,6 +47,8 @@ class ConfigWizard:
     MUSIC_FIELDS = {
         "FFMPEG_PATH" : "",
         "GOOGLE_API_KEY" : "",
+        "LAVALINK_URI" : "",
+        "LAVALINK_PASS" : "",
     }
 
     AUTOPLAY_FIELDS = {
@@ -76,6 +86,8 @@ class ConfigWizard:
         new_config["MUSIC"] = {
             "FFMPEG_PATH" : "",
             "GOOGLE_API_KEY" : "",
+            "LAVALINK_URI": "",
+            "LAVALINK_PASS" : "",
         }
         new_config["FOR-AUTOPLAY"] = {
             "SPOTIFY_CLIENT_ID" : "",
@@ -85,7 +97,7 @@ class ConfigWizard:
             "CANVAS_API_KEY": "",
             "CANVAS_BASE_URL": "",
             "CANVAS_COURSE_NUM": "",
-            "DATETIME_FILE": str(Path(os.getcwd())  / "data" / "last_time.txt")
+            "DATETIME_FILE": str(here / "data" / "last_time.txt")
         }
 
         if current_config is not None:
@@ -136,12 +148,15 @@ class ConfigWizard:
 
 
     def writeConfig(self, overwriteBool:bool, entries:dict):
-        if overwriteBool is True:
-            write_function = self.overwriteConfigValues
-            print("-"*50 + f"\nNon-empty config inputs were written to '{CONFIG_FILE}'.")
-        else:
-            write_function = self.writeConfigValues
-            print("-"*50 + f"\nConfig values which were empty in '{CONFIG_FILE}' have been populated with your inputs :)")
+        match overwriteBool:
+            case True:
+                write_function = self.overwriteConfigValues
+                print("-"*50 + f"\nNon-empty config inputs were written to '{CONFIG_FILE}'.")
+            case False:
+                write_function = self.writeConfigValues
+                print("-"*50 + f"\nConfig values which were empty in '{CONFIG_FILE}' have been populated with your inputs :)")
+            case _:
+                raise ValueError()
         write_function(entries)
         
     
