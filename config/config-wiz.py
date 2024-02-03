@@ -25,14 +25,6 @@ def read(config_filename) -> dict[str, dict[str, str]] | None:
     result["CANVAS"] = dict(config.items(section="CANVAS"))
     return result
 
-class LavalinkConfigurator:
-    # goal I want to achieve:
-
-    # modify the lavalink default host to 127.0.0.1 so its not accepting connections from all ports 
-
-    # give end user the ability to easily input their desired lavalink password in the config GUI + change the password in the lavalink application file as well
-
-
 class ConfigWizard:
     
     REQUIRED = {
