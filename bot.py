@@ -29,7 +29,7 @@ bot.remove_command('help')
 async def on_ready():
     await bot.load_extension("cogs.economy")
     await bot.load_extension("cogs.games")
-    await bot.load_extension("cogs.rewards")
+    # await bot.load_extension("cogs.rewards") # pyttsx3 installs a pywin32 which I can't have as a dependency
     # await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.canvas")
     await bot.load_extension("cogs.streamingmusic")
