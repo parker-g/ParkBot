@@ -1,5 +1,6 @@
 import os
 import platform
+import subprocess
 from pathlib import Path
 from configparser import ConfigParser
 
@@ -14,16 +15,23 @@ acceptable_javas = {
 
 #NOTE this class requries elevated privileges to work
 class LinuxServiceManager:
-    # ~/.config/systemd/user.control/* - one user directory where systemd 'unit files' are stored
-    #NOTE this means we don't have to use admin privileges to access the non-user filesystem
 
+    def isInProjectRoot(self) -> bool:
+        """Checks if the terminal is in the ParkBot root directory."""
+        here = Path(os.getcwd())
+        root_components = {"cogs", "data"}
+        sub_dirs = set([x.name for x in here.iterdir() if x.is_dir()])
+        intersection = sub_dirs.intersection(root_components)
+        if root_components == intersection:
+            return True
+        return False
+    
     def __init__(self):
         self.operating_sys = platform.system().lower()
         if self.operating_sys != "linux":
             raise OSError("This manager is only compatible with Linux systems.")
         if not self.isInProjectRoot():
             raise FileNotFoundError("This script was not executed in the Parkbot root directory.")
-
 
     def findJava(self) -> Path | None:
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
@@ -43,16 +51,6 @@ class LinuxServiceManager:
                 continue
         return None
 
-    def _findBotPy(self) -> Path | None:
-        """Searches ParkBot's directory for the 'bot.py' file, and returns its path as a Path object."""
-        desired_file = "bot.py"
-        parkbot_dir = Path(os.getcwd())
-        for dirpath, dirs, files in os.walk(parkbot_dir):
-            for filename in files:
-                if (desired_file == filename):
-                    return Path(dirpath).absolute() / desired_file
-        return None
-    
     def findLavalinkJar(self) -> Path | None:
         desired_file = "lavalink.jar"
         dirs_to_search = [Path("~/")]
@@ -62,17 +60,7 @@ class LinuxServiceManager:
                     if (desired_file == filename):
                         return Path(dirpath) / desired_file
         return None
-    
-    def isInProjectRoot(self) -> bool:
-        """Checks if the terminal is in the ParkBot root directory."""
-        here = Path(os.getcwd())
-        root_components = {"cogs", "data"}
-        sub_dirs = set([x.name for x in here.iterdir() if x.is_dir()])
-        intersection = sub_dirs.intersection(root_components)
-        if root_components == intersection:
-            return True
-        return False
-    
+
     def generate_parkbot_service_file(self) -> None:
         parkbot_root = Path(os.getcwd())
         config = ConfigParser()
@@ -92,10 +80,8 @@ class LinuxServiceManager:
         parkbot_service_path = "/etc/systemd/system/parkbot.service"
         with open(parkbot_service_path, "w") as file:
             config.write(file)
-        
 
     def generate_lavalink_service_file(self) -> None:
-        parkbot_root = Path(os.getcwd())
         lavalink_jar = self.findLavalinkJar() # both of these should 
         java = self.findJava()
         if not lavalink_jar or not java:
@@ -115,9 +101,35 @@ class LinuxServiceManager:
         with open(lavalink_service_path, "w") as file:
             config.write(file)
 
+    def enable_parkbot_service(self) -> None:
+        return_code = subprocess.call(["systemctl", "enable", "parkbot.service"])
+        match return_code:
+            case 0: # success
+                print("Enabled parkbot.service.")
+            case 1:
+                print("Failed to enable parkbot.service.")
+            case _:
+                print("Failed to enable parkbot.service; unhandled return code.")
+
+    def enable_lavalink_service(self) -> None:
+        return_code = subprocess.call(["systemctl", "enable", "lavalink.service"])
+        match return_code:
+            case 0: # success
+                print("Enabled lavalink.service.")
+            case 1:
+                print("Failed to enable lavalink.service.")
+            case _:
+                print("Failed to enable lavalink.service; unhandled return code.")
+
+    def generate_all_services(self) -> None:
+        self.generate_lavalink_service_file()
+        self.generate_parkbot_service_file()
     
+    def enable_all_services(self) -> None:
+        self.enable_lavalink_service()
+        self.enable_parkbot_service()
 
 if __name__ == "__main__":
     service_manager = LinuxServiceManager()
-    service_manager.generate_lavalink_service_file()
-    service_manager.generate_parkbot_service_file()    
+    service_manager.generate_all_services()
+    service_manager.enable_all_services()
