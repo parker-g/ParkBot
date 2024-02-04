@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import getpass
 import platform
 import subprocess
 import configparser
@@ -345,7 +346,7 @@ class JavaManager(Downloader):
     def _findJava(self) -> Path | None:
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = self.java
-        user = os.getlogin()
+        user = getpass.getuser()
         print("You may be met with a prompt to elevate to admin privileges. This bump in privileges is necessary to search your 'Program Files' directory for an existing java executable.")
         match self.operating_sys:
             case "linux":
@@ -383,7 +384,7 @@ class JavaManager(Downloader):
     def downloadJava17(self) -> None:
         """Downloads JRE 17 to `C://Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
         download_dir = Path(os.getcwd())
-        user = os.getlogin()
+        user = getpass.getuser()
         request_url = self.getBestLink()
         match self.operating_sys:
             case "windows":
@@ -452,7 +453,7 @@ class LavalinkManager(Downloader):
 
     def findLavalink(self) -> Path | None:
         desired_file = "lavalink.jar"
-        user = os.getlogin()
+        user = getpass.getuser()
         match self.operating_sys:
             case "linux":
                 dirs_to_search = [Path("~/")]
@@ -645,7 +646,7 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         super().__init__()
         if not self.isInProjectRoot():
             raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
-        username = os.getlogin()
+        username = getpass.getuser()
         self.user_home = Path("C:/Users") / username
     
     def findNSSM(self) -> Path | None:
@@ -696,7 +697,7 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         super().__init__()
         if not self.isInProjectRoot():
             raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
-        username = os.getlogin()
+        username = getpass.getuser()
         self.user_home = Path("/home") / username
 
     def findFFMPEG(self) -> Path | None:

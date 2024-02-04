@@ -1,4 +1,5 @@
 import os
+import getpass
 import platform
 import subprocess
 from pathlib import Path
@@ -36,7 +37,7 @@ class LinuxServiceManager:
     def findJava(self) -> Path | None:
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = "java"
-        user = os.getlogin()
+        user = getpass.getuser()
         dirs_to_search = [Path("~/")] # the external dep setup downloads java to the home directory, and we check 
         for directory in dirs_to_search:
             try:
