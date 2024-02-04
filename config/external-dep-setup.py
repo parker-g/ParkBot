@@ -22,6 +22,10 @@ class ErrorMessage(Enum):
 acceptable_javas = {
     "jdk-17",
     "openlogic-openjdk-jre-17",
+    "openjdk-jre-17",
+    "openjdk-jdk-17",
+    "openjdk-17-jdk",
+    "openjdk-17-jre",
 }
 
 machines = {
@@ -216,16 +220,7 @@ class NSSMManager(Downloader):
             return True
         return False
 
-class LinuxServiceManager:
-    def __init__(self, os:str, machine:str):
-        self.operating_sys = os
-        self.machine = machine
 
-    def create_parkbot_service(self) -> None:
-        pass
-
-    def create_lavalink_service(self) -> None:
-        pass
 
     
 class FFMPEGManager(Downloader):
