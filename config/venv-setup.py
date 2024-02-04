@@ -1,4 +1,5 @@
 import os
+import platform
 import subprocess
 from pathlib import Path
 from venv import EnvBuilder
@@ -14,6 +15,23 @@ class VenvSetupWizard:
         if root_components == intersection:
             return True
         return False
+
+    def findPython(self) -> Path | None:
+        """Returns the path to the python executable in the `.venv` directory. Assumes it's being executed in the ParkBot root directory."""
+        dir_to_search = Path(os.getcwd()) / ".venv"
+        match platform.system().lower():
+            case "windows":
+                desired_file = "python.exe"
+            case "linux":
+                desired_file = "python"
+            case _:
+                raise OSError("Unsupported operating system.")
+        for dirpath, dirs, files in os.walk(dir_to_search):
+            for filename in files:
+                if (desired_file == filename):
+                    python_exe = Path(dirpath) / desired_file
+                    if os.access(python_exe, os.X_OK):
+                        return Path(dirpath) / desired_file
     
     def createVenv(self, project_root:Path) -> None:
         """Creates a virtual environment and saves the location of it's python executable."""
@@ -21,7 +39,8 @@ class VenvSetupWizard:
         if venv_exists is False:
             builder = EnvBuilder(with_pip=True)
             builder.create(project_root)
-        os.environ["PARKBOT_PYTHON"] = str(project_root / "Scripts" / "python.exe")
+        #BUG need to make this python executable platform agnostic instead of hard coding it
+        os.environ["PARKBOT_PYTHON"] = str(self.findPython())
 
     def isEnvCreated(self) -> bool:
         """Checks if a virtual environment subdirectory exists at the root level of ParkBot."""
