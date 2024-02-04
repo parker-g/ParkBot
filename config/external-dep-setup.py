@@ -700,6 +700,7 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         username = getpass.getuser()
         self.user_home = Path("/home") / username
 
+    #NOTE DEPRECATED
     def findFFMPEG(self) -> Path | None:
         """Checks a user's home directory, opt, and usr/local directories for ffmpeg.exe. Returns path of the first instance it finds."""
         parkbot = Path(os.getcwd())
@@ -708,10 +709,9 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         dirs_to_search = [parkbot, self.user_home, usr_local, opt]
         return self.findFile(FFMPEG.linux.value, dirs_to_search)
     
-    def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
+    def downloadExtractAllDeps(self) -> dict[str, Path]:
         results = {}
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
-        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination) #NOTE deprecate this
         results['java'] = self.downloadExtractJRE17()
         if lavalink_manager.findLavalink() is None:
             lavalink_manager.downloadLavalink()
