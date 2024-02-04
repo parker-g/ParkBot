@@ -44,10 +44,6 @@ machines_to_github_versions = {
     "arm64": "arm64",
 }
 
-class FFMPEG(Enum):
-    windows = "ffmpeg.exe"
-    linux = "ffmpeg"    
-
 class JAVA(Enum):
     windows = "java.exe"
     linux = "java"
@@ -57,6 +53,11 @@ class Downloader:
     def __init__(self, os:str, machine:str):
         self.operating_sys = os
         self.machine = machine
+
+    def remove_extensions(self, path:Path):
+        while path.suffix != "":
+            path = path.with_suffix("")
+        return path
 
     #thanks stackoverflow
     def downloadURL(self, url, download_destination, chunk_size=128) -> None:
@@ -75,17 +76,29 @@ class Downloader:
     def extractTar(self, tar_file:Path, extract_destination:Path) -> None:
         """Extracts and deletes the specified tar archive."""
         tar = TarFile(tar_file, "r")
-        tar.extractall(extract_destination)
+        tar.extractall(extract_destination, filter="tar")
+        tar.close()
+        os.remove(tar_file)
+
+    def extractGzip(self, tar_file:Path, extract_destination:Path) -> None:
+        """Extracts and deletes the specified gzip archive."""
+        tar = TarFile.open(tar_file, "r:gz")
+        tar.extractall(extract_destination, filter="tar")
         tar.close()
         os.remove(tar_file)
 
     def extract(self, archive:Path, extract_destination:Path) -> None:
         """Extracts `archive` into `extract_destination`, and deletes `archive`."""
-        match self.operating_sys:
-            case "linux":
-                self.extractTar(archive, extract_destination)
-            case "windows":
+        #BUG stupid ahh design. should be checking the archive file extension
+        file_extension = str(archive).split(".")[-1]
+        match file_extension:
+            case "gz":
+                self.extractGzip(archive, extract_destination)
+            case "zip":
                 self.extractZip(archive, extract_destination)
+            case "tar":
+                self.extractTar(archive, extract_destination)
+                
 
     def create_directories(self, path:Path) -> None:
         """Creates the path given if it doesn't already exist."""
@@ -171,6 +184,7 @@ class NSSMManager(Downloader):
         return None
     
     def set_service_dependency(self, service_name:str, dependency_service:str) -> bool:
+        """Sets 'dependency_service' as a dependency of 'service_name' using the non-sucking-service-manager (nssm)."""
         # nssm set UT2003 DependOnService MpsSvc
         command_string = f"nssm set \"{service_name}\" \"DependOnService\" \"{dependency_service}\""
         completed_process = subprocess.call(command_string, text=True)
@@ -221,118 +235,6 @@ class NSSMManager(Downloader):
             return True
         return False
 
-
-
-    
-class FFMPEGManager(Downloader):
-    """Downloads + extracts FFMPEG archive based on user OS and CPU architecture."""
-
-    def __init__(self, os:str, machine:str):
-        super().__init__(os, machine)
-        #self.operating_sys
-        #self.machine
-        self.builds = self.getBuilds()
-        match self.operating_sys:
-            case "windows":
-                self.ffmpeg = 'ffmpeg.exe'
-            case "linux":
-                self.ffmpeg = 'ffmpeg'
-            case _:
-                raise OSError(ErrorMessage.OS.value)
-
-        # {
-        # linux64-gpl-shared-tar
-        # linux64-gpl-tar
-        # linux64-lgpl-shared-tar
-        # linux64-lgpl-tar
-        # linuxarm64-gpl-shared-tar
-        # linuxarm64-gpl-tar
-        # linuxarm64-lgpl-shared-tar
-        # linuxarm64-lgpl-tar
-        # win64-gpl-shared-zip
-        # win64-gpl-zip 
-        # }
-
-        self.best_match = None
-
-    def _findFFMPEG(self) -> Path | None:
-        # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
-        # should really only accept win64 for now, as the rest of setup doesnt support 32
-        """Searches ParkBot directory for `ffmpeg.exe`, returns the path to it."""
-        desired_file = self.ffmpeg
-        parkbot_dir = Path(os.getcwd())
-        for dirpath, dirs, files in os.walk(parkbot_dir):
-            for filename in files:
-                if (desired_file == filename):
-                    return Path(dirpath) / desired_file
-        return None
-
-    # linux64-gpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl-shared.tar.xz
-    # linux64-gpl-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
-    # linux64-lgpl-shared-tar, https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl-shared.tar.xz
-    def getBuilds(self) -> dict[str, str]:
-        host = "https://github.com"
-        """GET requests a github repo that hosts FFMPEG builds, and parses response's contents to return a dictionary of {'build_name':'build_download_link'}"""
-        response = requests.get("https://github.com/BtbN/FFmpeg-Builds/releases")
-        soup = bs4.BeautifulSoup(response.content, "html.parser")
-        list_items = soup.find_all("li", attrs={"class":"Box-row d-flex flex-column flex-md-row"})
-        results = {}
-        for item in list_items:
-            title = item.find("span", attrs={"class":"Truncate-text text-bold"})
-            if (title is not None) and (title.text != "Source code") and (title.text != ""):
-                # print(title.text)
-                words = title.text.split("-")
-                words = words[:-1] + words[-1].split(".")[:2]
-                tit = ("-".join(words[3:]))
-                link = item.find("a", attrs={"class":"Truncate"})
-                link = link["href"]
-                results[tit] = host + link
-        return results
-    
-    def getBestLinuxBuildLink(self, builds) -> str:
-        "Gets download link for Linux depending on user's CPU instruction set."
-        match self.machine:
-            case "AMD64":
-                return builds["linux64-lgpl-tar"]
-            case "arm64":
-                return builds["linuxarm64-lgpl-tar"]
-            case _:
-                raise OSError(ErrorMessage.ARCH.value)
-
-    def getDownloadLink(self, builds):
-        """Returns the appropriate FFMPEG download link for a user's operating system."""
-        match self.operating_sys:
-            case "windows":
-                return builds["win64-gpl-zip"]
-            case "linux":
-                return self.getBestLinuxBuildLink(builds)
-            case _:
-                raise OSError(ErrorMessage.OS.value)
-    
-    def moveFFMPEG(self, ffmpeg_location:Path, ffmpeg_parent_dir:Path, final_exe_destination:Path) -> None:
-        """Pulls the ffmpeg.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
-        os.rename(ffmpeg_location, final_exe_destination / self.ffmpeg)
-        shutil.rmtree(str(ffmpeg_parent_dir))
-
-    def _downloadFFMPEG(self, download_dir:Path, extract_destination) -> None:
-        """Downloads FFMPEG archive, extracts the archive to `extract_destination` and deletes the archive."""
-        parkbot_dir = Path(os.getcwd())
-        match self.operating_sys:
-            case "windows":
-                file_ext = ".zip"
-            case "linux":
-                file_ext = ".tar.xz"
-            case _:
-                raise OSError(ErrorMessage.OS.value)
-        download_destination = download_dir / f"ffmpeg{file_ext}"
-        link = self.getDownloadLink(self.builds)
-        self.downloadURL(link, download_destination)
-        self.extract(download_destination, extract_destination)
-        ffmpeg_exe_location = self._findFFMPEG()
-        ffmpeg_parent_directory = ffmpeg_exe_location.parent.parent 
-        self.moveFFMPEG(ffmpeg_exe_location, ffmpeg_parent_directory, parkbot_dir)
-
-
 class JavaManager(Downloader):
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
@@ -347,11 +249,11 @@ class JavaManager(Downloader):
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = self.java
         user = getpass.getuser()
-        print("You may be met with a prompt to elevate to admin privileges. This bump in privileges is necessary to search your 'Program Files' directory for an existing java executable.")
+        #print("You may be met with a prompt to elevate to admin privileges, in order to search the 'Program Files' directory on Windows machines.")
         match self.operating_sys:
             case "linux":
                 #NOTE just search user's home since we're assuming user doesn't have admin privileges
-                dirs_to_search = [Path("~/")]
+                dirs_to_search = [Path(f"/home/{user}")]
             case "windows":
                 dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]
             case _:
@@ -383,27 +285,33 @@ class JavaManager(Downloader):
     
     def downloadJava17(self) -> None:
         """Downloads JRE 17 to `C://Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
-        download_dir = Path(os.getcwd())
+        parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
         request_url = self.getBestLink()
         match self.operating_sys:
             case "windows":
                 final_destination = Path(f"C://Users/{user}/Java/jdk-17")
             case "linux":
-                final_destination = Path("~/java/jdk-17")
+                final_destination = Path(f"/home/{user}/java/jdk-17")
             case _:
                 raise OSError(ErrorMessage.OS.value)
         self.create_directories(final_destination.parent)
-        
+
         jre_name_with_ext = request_url.split("/")[-1]
-        jre_name = ".".join(jre_name_with_ext.split(".")[:-1])
-        download_destination = Path(download_dir) / jre_name_with_ext
-        temp_dest = Path(download_dir) / "temp"
+        ext = jre_name_with_ext.split(".")[-1]
+        match ext:
+            case "gz":
+                jre_name = ".".join(jre_name_with_ext.split(".")[:-2])
+            case _:
+                jre_name = ".".join(jre_name_with_ext.split(".")[:-1])
+
+        download_destination = Path(parkbot_root) / jre_name_with_ext
+        temp_dest = Path(parkbot_root) / "temp"
 
         self.create_directories(temp_dest)
         self.downloadURL(request_url, download_destination)
         # rename the zip directory to jdk-17.zip
-        self.extract(download_destination, temp_dest)
+        self.extract(download_destination, temp_dest) # extraction removes the .tar.gz file extension
         # extract the zip to a temporary directory, then rename the temp-directory / unzipped folder (old_name) -> extract destination / unzipped folder (new_name)
         self.move(temp_dest / jre_name, final_destination)
         temp_dest.rmdir()
@@ -456,7 +364,7 @@ class LavalinkManager(Downloader):
         user = getpass.getuser()
         match self.operating_sys:
             case "linux":
-                dirs_to_search = [Path("~/")]
+                dirs_to_search = [Path(f"/home/{user}/")]
             case "windows":
                 dirs_to_search = [Path(f"C://Users/{user}")]
             case _:
@@ -467,6 +375,33 @@ class LavalinkManager(Downloader):
                     if (desired_file == filename):
                         return Path(dirpath) / desired_file
         return None
+    
+    def findLavalinkConfig(self) -> Path | None:
+        desired_file = "application.yml"
+        desired_parent = "lavalink"
+        user = getpass.getuser()
+        match self.operating_sys:
+            case "linux":
+                dirs_to_search = [Path(f"/home/{user}")]
+            case "windows":
+                dirs_to_search = [Path(f"C://Users/{user}")]
+            case _:
+                raise OSError(ErrorMessage.OS.value)
+        for directory in dirs_to_search:
+            for dirpath, dirs, files in os.walk(directory):
+                for filename in files:
+                    if (desired_file == filename):
+                        abs_path = Path(dirpath) / filename
+                        if abs_path.parent == desired_parent:
+                            return abs_path
+        return None
+    
+    def load_config(self) -> None:
+        """Reads the existing 'application.yml' file into this class' configuration attribute."""
+        config = self.findLavalinkConfig()
+        if config is None:
+            raise FileNotFoundError("Failed to find 'lavalink/application.yml'.")
+        self.configuration = self.read_yaml(config)
     
     def generate_lavalink_config(self, lavalink_parent_dir:Path) -> None:
         """Takes as input the directory where lavalink.jar is stored, and writes a default 'application.yml' config file in that directory."""
@@ -544,29 +479,10 @@ class ExternalDependencyHandler:
                     return Path(root) / desired_file
         return None
 
-    def findFFMPEG(self) -> Path | None:
-        """Returns a Path to the first found instance of the ffmpeg executable."""
-        manager = FFMPEGManager(self.operating_sys, self.machine)
-        return manager._findFFMPEG()
-
     def findJava(self) -> Path | None:
         """Returns the path to the first instance of `java.exe` which exists in this user's home directory and whose grandparent directory is 'jdk-17' or 'openlogic-openjdk-jre-17'."""
         manager = JavaManager(self.operating_sys, self.machine)
         return manager._findJava()
-
-    def downloadExtractFFMPEG(self, download_dir = None, extract_destination = None) -> Path:
-        """Downloads and extracts the FFMPEG archive. Returns the path to the extracted FFMPEG executable."""
-        ffmpeg = self.findFFMPEG()
-        here = Path(os.getcwd())
-        if not ffmpeg:
-            if download_dir is None:
-                download_dir = here
-            if extract_destination is None:
-                extract_destination = here
-            downloader = FFMPEGManager(self.operating_sys, self.machine)
-            downloader._downloadFFMPEG(download_dir, extract_destination)
-        ffmpeg = self.findFFMPEG()
-        return ffmpeg
     
     def downloadExtractJRE17(self) -> Path:
         """Downloads and extracts the Java 17 to 'C://Users/<user>/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
@@ -594,7 +510,6 @@ class ExternalDependencyHandler:
     def writeConfig(self, exe_paths:dict[str, Path]) -> None:
         """This method reads the existing 'bot.config' file if one exists, and creates a 'bot.config' file if one doesn't exist."""
         # attempt to read a config if one exists
-        ffmpeg_path = exe_paths["ffmpeg"]
         config_path:Path = Path(os.getcwd()) / "bot.config"
 
         current_config = self.read(config_path)
@@ -610,7 +525,6 @@ class ExternalDependencyHandler:
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
         }
         new_config["MUSIC"] = {
-            "FFMPEG_PATH" : str(ffmpeg_path),
             "GOOGLE_API_KEY" : "",
             "LAVALINK_URI": "http://127.0.0.1:2333",
             "LAVALINK_PASS": "",
@@ -657,7 +571,7 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         return self.findFile("nssm.exe", dirs_to_search)
 
     def downloadExtractNSSM(self, download_dir = None, extract_destination = None) -> Path:
-        """Downloads and extracts the FFMPEG archive. Returns the path to the extracted FFMPEG executable."""
+        """Downloads and extracts the NSSM archive. Returns the path to the extracted NSSM executable."""
         nssm = self.findNSSM()
         here = Path(os.getcwd())
         if not nssm:
@@ -675,11 +589,13 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         nssm_manager = NSSMManager(self.operating_sys, self.machine)
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
         
-        results['ffmpeg'] = self.downloadExtractFFMPEG(download_dir, extract_destination) #NOTE deprecate this asap
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
         results['java'] = self.downloadExtractJRE17()
         if lavalink_manager.findLavalink() is None:
             lavalink_manager.downloadLavalink()
+        else:
+            lavalink_manager.load_config()
+
         results['lavalink'] = lavalink_manager.findLavalink()
         results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
         results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
@@ -699,29 +615,45 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
             raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
         username = getpass.getuser()
         self.user_home = Path("/home") / username
-
-    #NOTE DEPRECATED
-    def findFFMPEG(self) -> Path | None:
-        """Checks a user's home directory, opt, and usr/local directories for ffmpeg.exe. Returns path of the first instance it finds."""
-        parkbot = Path(os.getcwd())
-        usr_local = Path("/usr/local/")
-        opt = Path("/opt/")
-        dirs_to_search = [parkbot, self.user_home, usr_local, opt]
-        return self.findFile(FFMPEG.linux.value, dirs_to_search)
     
     def downloadExtractAllDeps(self) -> dict[str, Path]:
+        """Downloads and extracts all dependencies for a Linux machine."""
         results = {}
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
         results['java'] = self.downloadExtractJRE17()
         if lavalink_manager.findLavalink() is None:
             lavalink_manager.downloadLavalink()
+        else:
+            lavalink_manager.load_config()
         results['lavalink'] = lavalink_manager.findLavalink()
         results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
         results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
-        #TODO use systemd to create lavalink service
-        #TODO use systemd to create ParkBotService, with lavalink service as a dependency
+        #TODO add a recursive chown call to the parkbot root directory after downloading all these deps. otherwise if user uses sudo, all these downloads are set to root.root ownership
+        self.give_user_directory_ownership()
         return results
+    
+    def give_user_file_ownership(self, file:Path) -> bool:
+        """Changes 'file' ownership to 'user:user'. Assumes sudo permissions."""
+        user = getpass.getuser()
+        exit_code = subprocess.call(["chown", f"{user}.{user}", str(file)])
+        match exit_code:
+            case 0:
+                return True
+            case _: 
+                return False
 
+    def give_user_directory_ownership(self) -> bool:
+        """Called after downloading all deps onto a Linux system. Ensures the downloaded dependencies are under user ownership. Assumes sudo permissions."""
+        user = getpass.getuser()
+        if not self.isInProjectRoot():
+            raise FileNotFoundError()
+        exit_code = subprocess.call(["chown", "-R", f"{user}.{user}", "."])
+        match exit_code:
+            case 0:
+                return True
+            case _: 
+                return False
+    
 class HandlerFactory:
     @classmethod
     def getHandler(cls):

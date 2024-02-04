@@ -1,6 +1,4 @@
 #!/usr/bin/env sh
-# on linux, run this script with root permissions: `sudo bash setup.sh`, otherwise use 'bash setup.sh'
-
 # provides a setup which can be used from an ssh context without x-11 forwarding
 
 # Function to compare Python versions

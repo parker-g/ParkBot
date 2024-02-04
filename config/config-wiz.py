@@ -37,7 +37,6 @@ class ConfigWizard:
     }
 
     MUSIC_FIELDS = {
-        "FFMPEG_PATH" : "",
         "GOOGLE_API_KEY" : "",
         "LAVALINK_URI" : "",
         "LAVALINK_PASS" : "",
@@ -76,7 +75,6 @@ class ConfigWizard:
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
         }
         new_config["MUSIC"] = {
-            "FFMPEG_PATH" : "",
             "GOOGLE_API_KEY" : "",
             "LAVALINK_URI": "",
             "LAVALINK_PASS" : "",

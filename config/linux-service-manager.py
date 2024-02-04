@@ -38,7 +38,7 @@ class LinuxServiceManager:
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = "java"
         user = getpass.getuser()
-        dirs_to_search = [Path("~/")] # the external dep setup downloads java to the home directory, and we check 
+        dirs_to_search = [Path(f"/home/{user}")] # the external dep setup downloads java to the home directory, and we check 
         for directory in dirs_to_search:
             try:
                 for dirpath, dirs, files in os.walk(directory):
@@ -54,7 +54,9 @@ class LinuxServiceManager:
 
     def findLavalinkJar(self) -> Path | None:
         desired_file = "lavalink.jar"
-        dirs_to_search = [Path("~/")]
+        user = getpass.getuser()
+        dirs_to_search = [Path(f"/home/{user}")]
+        print(f"DEBUG - SEARCHING THIS DIR FOR LAVALINK JAR - {dirs_to_search[0]}")
         for directory in dirs_to_search:
             for dirpath, dirs, files in os.walk(directory):
                 for filename in files:
