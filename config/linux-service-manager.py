@@ -83,7 +83,7 @@ class LinuxServiceManager:
             "RestartSec": "10",
         }
 
-        temp_dir = parkbot_root / "temp" / "parkbot.service"
+        temp_dir = parkbot_root / "parkbot.service"
         parkbot_service_path = Path("/etc/systemd/system/parkbot.service")
         with open(temp_dir, "w") as file:
             config.write(file)
@@ -108,7 +108,7 @@ class LinuxServiceManager:
             "RestartSec": "10",
         }
         
-        temp_dir = parkbot_root / "temp" / "lavalink.service"
+        temp_dir = parkbot_root / "lavalink.service"
         lavalink_service_path = Path("/etc/systemd/system/lavalink.service")
         with open(temp_dir, "w") as file:
             config.write(file)

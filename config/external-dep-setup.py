@@ -392,7 +392,7 @@ class LavalinkManager(Downloader):
                 for filename in files:
                     if (desired_file == filename):
                         abs_path = Path(dirpath) / filename
-                        if abs_path.parent == desired_parent:
+                        if abs_path.parent.stem == desired_parent:
                             return abs_path
         return None
     
