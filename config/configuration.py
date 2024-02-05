@@ -50,8 +50,6 @@ THREADS_PATH = required["threads_path"]
 NAUGHTY_WORDS = toList(required["naughty_words"])
 
 music = config["MUSIC"]
-FFMPEG_PATH = music["ffmpeg_path"]
-GOOGLE_API_KEY = music["google_api_key"]
 LAVALINK_URI = music["lavalink_uri"]
 LAVALINK_PASS = music["lavalink_pass"]
 

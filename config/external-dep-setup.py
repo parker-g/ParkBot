@@ -650,7 +650,6 @@ class ExternalDependencyHandler:
         config_path:Path = Path(os.getcwd()) / "bot.config"
 
         current_config = self.read(config_path)
-
         new_config = configparser.ConfigParser()
         here = Path(os.getcwd())
         new_config['REQUIRED'] = {
@@ -662,7 +661,6 @@ class ExternalDependencyHandler:
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
         }
         new_config["MUSIC"] = {
-            "GOOGLE_API_KEY" : "",
             "LAVALINK_URI": str(exe_paths["lavalink_uri"]),
             "LAVALINK_PASS": str(exe_paths["lavalink_pass"]),
         }
@@ -681,10 +679,8 @@ class ExternalDependencyHandler:
             for section in new_config:
                 if section in current_config:
                     for key in new_config[section]:
-                        if key in current_config[section]:
+                        if key in current_config[section]:  # retain existing config values
                             new_config[section][key] = current_config[section][key]
-                            # retain values that already exist, rather than overwriting them
-
         with open(config_path, "w") as configfile:
             new_config.write(configfile)
         return
@@ -742,7 +738,6 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
             nssm_manager.set_service_dependency(nssm_manager.parkbot_service, "LavalinkService")
         return results
     
-    #TODO create lavalink service and cite it as a dependency for ParkBotService
 
 class LinuxDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Linux."""
@@ -769,28 +764,6 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         service_manager.generate_all_services()
         service_manager.enable_all_services()
         return results
-    
-    # def give_user_file_ownership(self, file:Path) -> bool:
-    #     """Changes 'file' ownership to 'user:user'. Assumes sudo permissions."""
-    #     user = getpass.getuser()
-    #     exit_code = subprocess.call(["chown", f"{user}.{user}", str(file)])
-    #     match exit_code:
-    #         case 0:
-    #             return True
-    #         case _: 
-    #             return False
-
-    # def give_user_directory_ownership(self) -> bool:
-    #     """Called after downloading all deps onto a Linux system. Ensures the downloaded dependencies are under user ownership. Assumes sudo permissions."""
-    #     user = getpass.getuser()
-    #     if not self.isInProjectRoot():
-    #         raise FileNotFoundError()
-    #     exit_code = subprocess.call(["chown", "-R", f"{user}.{user}", "."])
-    #     match exit_code:
-    #         case 0:
-    #             return True
-    #         case _: 
-    #             return False
     
 class HandlerFactory:
     @classmethod
