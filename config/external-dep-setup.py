@@ -117,7 +117,7 @@ class Downloader:
 class NSSMManager(Downloader):
     """Class responsible for downloading and configuring NSSM, as well as working with Windows services programatically."""
 
-        # https://www.devdungeon.com/content/run-python-script-windows-service - instructions for using nssm after installation
+    # https://www.devdungeon.com/content/run-python-script-windows-service - instructions for using nssm after installation
     """Downloads the most recent stable version of NSSM.exe (the non-sucking-service-manager)."""
     def __init__(self, os:str, machine:str):
         super().__init__(os, machine)
@@ -250,26 +250,19 @@ class JavaManager(Downloader):
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = self.java
         user = getpass.getuser()
-        #print("You may be met with a prompt to elevate to admin privileges, in order to search the 'Program Files' directory on Windows machines.")
         match self.operating_sys:
             case "linux":
-                #NOTE just search user's home since we're assuming user doesn't have admin privileges
-                dirs_to_search = [Path(f"/home/{user}")]
+                dir_to_search = Path(f"/home/{user}")
             case "windows":
-                dirs_to_search = [Path("C://Program Files/"), Path(f"C://Users/{user}")]
+                dir_to_search = Path(f"C://Users/{user}")
             case _:
                 raise OSError(ErrorMessage.OS.value)
-        for directory in dirs_to_search:
-            try:
-                for dirpath, dirs, files in os.walk(directory):
-                    for filename in files:
-                        if (desired_file == filename):
-                            this_java = Path(dirpath) / desired_file
-                            if os.access(this_java, os.X_OK) and this_java.parent.parent.name in acceptable_javas:
-                                return Path(dirpath) / desired_file
-            except PermissionError:
-                print(f"---------------------------\nUnable to search Program Files directory. Searching {user}'s home directory.\n---------------------------")
-                continue
+        for dirpath, dirs, files in os.walk(dir_to_search):
+            for filename in files:
+                if (desired_file == filename):
+                    this_java = Path(dirpath) / desired_file
+                    if os.access(this_java, os.X_OK) and this_java.parent.parent.name in acceptable_javas:
+                        return Path(dirpath) / desired_file
         return None
     
     def getBestLink(self) -> str:
@@ -721,14 +714,12 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         results = {}
         nssm_manager = NSSMManager(self.operating_sys, self.machine)
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
-        
         results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
         results['java'] = self.downloadExtractJRE17()
         if lavalink_manager.findLavalink() is None:
             lavalink_manager.downloadLavalink()
         else:
             lavalink_manager.load_config()
-
         results['lavalink'] = lavalink_manager.findLavalink()
         results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
         results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
