@@ -18,7 +18,7 @@ acceptable_javas = {
 #NOTE this class requries elevated privileges to work
 class LinuxServiceManager:
 
-    def isInProjectRoot(self) -> bool:
+    def is_in_project_root(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
         here = Path(os.getcwd())
         root_components = {"cogs", "data"}
@@ -28,15 +28,26 @@ class LinuxServiceManager:
             return True
         return False
     
+    def find_python(self) -> Path | None:
+        """Returns the path to the python executable in a virtual environment, on linux machines."""
+        parkbot_root = Path(os.getcwd())
+        desired_file = "python"
+        for dirpath, dirs, files in os.walk(parkbot_root):
+            for filename in files:
+                if (filename == desired_file):
+                    if os.access(Path(dirpath) / filename, os.X_OK):
+                        return Path(dirpath) / desired_file
+        return None    
+    
     def __init__(self):
         self.password = getpass.getpass("Please enter your linux user password:")
         self.operating_sys = platform.system().lower()
         if self.operating_sys != "linux":
             raise OSError("This manager is only compatible with Linux systems.")
-        if not self.isInProjectRoot():
+        if not self.is_in_project_root():
             raise FileNotFoundError("This script was not executed in the Parkbot root directory.")
 
-    def findJava(self) -> Path | None:
+    def find_java(self) -> Path | None:
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
         desired_file = "java"
         user = getpass.getuser()
@@ -54,11 +65,10 @@ class LinuxServiceManager:
                 continue
         return None
 
-    def findLavalinkJar(self) -> Path | None:
+    def find_lavalink_jar(self) -> Path | None:
         desired_file = "lavalink.jar"
         user = getpass.getuser()
         dirs_to_search = [Path(f"/home/{user}")]
-        print(f"DEBUG - SEARCHING THIS DIR FOR LAVALINK JAR - {dirs_to_search[0]}")
         for directory in dirs_to_search:
             for dirpath, dirs, files in os.walk(directory):
                 for filename in files:
@@ -68,6 +78,7 @@ class LinuxServiceManager:
 
     def generate_parkbot_service_file(self) -> None:
         parkbot_root = Path(os.getcwd())
+        parkbot_python = self.find_python()
         config = ConfigParser()
         config.optionxform = str # preserve case
         config["Unit"] = {
@@ -78,7 +89,7 @@ class LinuxServiceManager:
         config["Service"] = {
             "Type": "exec",
             "WorkingDirectory": f"{parkbot_root}",
-            "ExecStart": f"/usr/bin/python3 {parkbot_root}/bot.py",
+            "ExecStart": f"{parkbot_python} {parkbot_root}/bot.py",
             "Restart": "on-failure",
             "RestartSec": "10",
         }
@@ -89,11 +100,12 @@ class LinuxServiceManager:
             config.write(file)
         process = subprocess.Popen(["sudo", "mv", str(temp_dir), str(parkbot_service_path)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         process.communicate(self.password.encode())
+        process.wait()
 
     def generate_lavalink_service_file(self) -> None:
         parkbot_root = Path(os.getcwd())
-        lavalink_jar = self.findLavalinkJar() # both of these should 
-        java = self.findJava()
+        lavalink_jar = self.find_lavalink_jar() # both of these should 
+        java = self.find_java()
         if not lavalink_jar or not java:
             raise FileNotFoundError("Failed to create lavalink.service file. Could not find either `lavalink.jar` or the java 17 executable in this user's home directory.")
         config = ConfigParser()
@@ -114,6 +126,7 @@ class LinuxServiceManager:
             config.write(file)
         process = subprocess.Popen(["sudo", "mv", str(temp_dir), str(lavalink_service_path)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         process.communicate(self.password.encode())
+        process.wait()
 
     def enable_parkbot_service(self) -> None:
         process = subprocess.Popen(["sudo", "systemctl", "enable", "parkbot.service"], stdin=PIPE, stdout=PIPE, stderr=PIPE)
