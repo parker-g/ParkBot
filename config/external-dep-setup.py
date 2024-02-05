@@ -525,7 +525,7 @@ class LinuxServiceManager:
         java = self.find_java()
         if not lavalink_jar or not java:
             raise FileNotFoundError("Failed to create lavalink.service file. Could not find either `lavalink.jar` or the java 17 executable in this user's home directory.")
-        config = ConfigParser()
+        config = configparser.ConfigParser()
         config.optionxform = str # preserve case
         config["Unit"] = {
             "Description": "Node for serving music to Discord",

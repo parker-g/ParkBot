@@ -38,7 +38,4 @@ system=$(uname)
 # BUG - need to dynamically acquire the .venv activation script instead of hard coding it
 activate_script=$(find .venv -name activate)
 source "${activate_script}"
-"$python_keyword" config/external-dep-setup.py # determines OS, checks for installation of FFMPEG, downloads FFMPEG. downloads NSSM and installs ParkBot as a Windows service if OS is Windows
-if [ ${system} = "Linux" ]; then
-    "$python_keyword" config/linux-service-manager.py
-fi 
+"$python_keyword" config/external-dep-setup.py
