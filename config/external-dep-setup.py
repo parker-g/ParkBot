@@ -458,7 +458,7 @@ class LinuxServiceManager:
         return None    
     
     def __init__(self):
-        self.password = getpass.getpass("Please enter your linux user password:")
+        # self.password = getpass.getpass("Please enter your linux user password:")
         self.operating_sys = platform.system().lower()
         if self.operating_sys != "linux":
             raise OSError("This manager is only compatible with Linux systems.")
@@ -515,9 +515,9 @@ class LinuxServiceManager:
         parkbot_service_path = Path("/etc/systemd/system/parkbot.service")
         with open(temp_dir, "w") as file:
             config.write(file)
-        process = subprocess.Popen(["sudo", "mv", str(temp_dir), str(parkbot_service_path)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        process.communicate(self.password.encode())
-        process.wait()
+        process = subprocess.call(["sudo", "mv", str(temp_dir), str(parkbot_service_path)])
+        # process.communicate(self.password.encode())
+        # process.wait()
 
     def generate_lavalink_service_file(self) -> None:
         parkbot_root = Path(os.getcwd())
@@ -544,14 +544,12 @@ class LinuxServiceManager:
         lavalink_service_path = Path("/etc/systemd/system/lavalink.service")
         with open(temp_dir, "w") as file:
             config.write(file)
-        process = subprocess.Popen(["sudo", "mv", str(temp_dir), str(lavalink_service_path)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        process.communicate(self.password.encode())
-        process.wait()
+        return_code = subprocess.call(["sudo", "mv", str(temp_dir), str(lavalink_service_path)])
 
     def enable_parkbot_service(self) -> None:
-        process = subprocess.Popen(["sudo", "systemctl", "enable", "parkbot.service"], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        process.communicate(self.password.encode())
-        return_code = process.wait()
+        return_code = subprocess.call(["sudo", "systemctl", "enable", "parkbot.service"])
+        # process.communicate(self.password.encode())
+        # return_code = process.wait()
         match return_code:
             case 0: # success
                 print("Enabled parkbot.service.")
@@ -561,9 +559,9 @@ class LinuxServiceManager:
                 print("Failed to enable parkbot.service; unhandled return code.")
 
     def enable_lavalink_service(self) -> None:
-        process = subprocess.Popen(["sudo", "systemctl", "enable", "lavalink.service"], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        process.communicate(self.password.encode())
-        return_code = process.wait()
+        return_code = subprocess.call(["sudo", "systemctl", "enable", "lavalink.service"])
+        # process.communicate(self.password.encode())
+        # return_code = process.wait()
         match return_code:
             case 0: # success
                 print("Enabled lavalink.service.")
