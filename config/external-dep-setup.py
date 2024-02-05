@@ -254,9 +254,10 @@ class JavaManager(Downloader):
             case "linux":
                 dir_to_search = Path(f"/home/{user}")
             case "windows":
-                dir_to_search = Path(f"C://Users/{user}")
+                dir_to_search = Path(f"C:/Users/{user}")
             case _:
                 raise OSError(ErrorMessage.OS.value)
+            
         for dirpath, dirs, files in os.walk(dir_to_search):
             for filename in files:
                 if (desired_file == filename):
@@ -278,13 +279,13 @@ class JavaManager(Downloader):
                 raise OSError(ErrorMessage.OS.value)
     
     def downloadJava17(self) -> None:
-        """Downloads JRE 17 to `C://Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
+        """Downloads JRE 17 to `C:/Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
         parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
         request_url = self.getBestLink()
         match self.operating_sys:
             case "windows":
-                final_destination = Path(f"C://Users/{user}/Java/jdk-17")
+                final_destination = Path(f"C:/Users/{user}/Java/jdk-17")
             case "linux":
                 final_destination = Path(f"/home/{user}/java/jdk-17")
             case _:
@@ -360,7 +361,7 @@ class LavalinkManager(Downloader):
             case "linux":
                 dirs_to_search = [Path(f"/home/{user}/")]
             case "windows":
-                dirs_to_search = [Path(f"C://Users/{user}")]
+                dirs_to_search = [Path(f"C:/Users/{user}")]
             case _:
                 raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
@@ -378,7 +379,7 @@ class LavalinkManager(Downloader):
             case "linux":
                 dirs_to_search = [Path(f"/home/{user}")]
             case "windows":
-                dirs_to_search = [Path(f"C://Users/{user}")]
+                dirs_to_search = [Path(f"C:/Users/{user}")]
             case _:
                 raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
@@ -615,7 +616,7 @@ class ExternalDependencyHandler:
         return manager._findJava()
     
     def downloadExtractJRE17(self) -> Path:
-        """Downloads and extracts the Java 17 to 'C://Users/<user>/Java/jdk-17' or to 'C://User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
+        """Downloads and extracts the Java 17 to 'C:/Users/<user>/Java/jdk-17' or to 'C:/User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
         downloader = JavaManager(self.operating_sys, self.machine)
         java = downloader._findJava()
         if java is None:
