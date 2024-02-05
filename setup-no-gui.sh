@@ -33,9 +33,7 @@ else
 fi
 # now we have acquired a working python keyword, and confirmed it's above version 3.10, in the variable $python_keyword
 
-system=$(uname)
 "$python_keyword" config/venv-setup.py # creates venv, installs pip dependencies
-# BUG - need to dynamically acquire the .venv activation script instead of hard coding it
 activate_script=$(find .venv -name activate)
 source "${activate_script}"
-"$python_keyword" config/external-dep-setup.py
+"$python_keyword" config/external-dep-setup.py # installs external dependencies (lavalink, nssm for windows, java) and installs lavalink + parkbot as services

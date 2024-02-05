@@ -493,31 +493,29 @@ class LinuxServiceManager:
     def generate_parkbot_service_file(self) -> None:
         parkbot_root = Path(os.getcwd())
         parkbot_python = self.find_python()
-        config = configparser.ConfigParser()
-        config.optionxform = str # preserve case
-        config["Unit"] = {
+        service_file = configparser.ConfigParser()
+        service_file.optionxform = str # preserve case
+        service_file["Unit"] = {
             "Description": "Discord bot service",
             "Before": "lavalink.service",
             "Requires": "lavalink.service",
         }
-        config["Service"] = {
+        service_file["Service"] = {
             "Type": "exec",
             "WorkingDirectory": f"{parkbot_root}",
             "ExecStart": f"{parkbot_python} {parkbot_root}/bot.py",
             "Restart": "on-failure",
             "RestartSec": "10",
         }
-        config["Install"] ={
+        service_file["Install"] ={
             "WantedBy": "multi-user.target",
         }
 
         temp_dir = parkbot_root / "parkbot.service"
         parkbot_service_path = Path("/etc/systemd/system/parkbot.service")
         with open(temp_dir, "w") as file:
-            config.write(file)
+            service_file.write(file)
         process = subprocess.call(["sudo", "mv", str(temp_dir), str(parkbot_service_path)])
-        # process.communicate(self.password.encode())
-        # process.wait()
 
     def generate_lavalink_service_file(self) -> None:
         parkbot_root = Path(os.getcwd())
@@ -525,31 +523,29 @@ class LinuxServiceManager:
         java = self.find_java()
         if not lavalink_jar or not java:
             raise FileNotFoundError("Failed to create lavalink.service file. Could not find either `lavalink.jar` or the java 17 executable in this user's home directory.")
-        config = configparser.ConfigParser()
-        config.optionxform = str # preserve case
-        config["Unit"] = {
+        service_file = configparser.ConfigParser()
+        service_file.optionxform = str # preserve case
+        service_file["Unit"] = {
             "Description": "Lavalink node for serving music to Discord service",
         }
-        config["Service"] = {
+        service_file["Service"] = {
             "Type": "exec",
             "ExecStart": f"{java} -jar {lavalink_jar}",
             "Restart": "on-failure",
             "RestartSec": "10",
         }
-        config["Install"] ={
+        service_file["Install"] ={
             "WantedBy": "multi-user.target",
         }
         
         temp_dir = parkbot_root / "lavalink.service"
         lavalink_service_path = Path("/etc/systemd/system/lavalink.service")
         with open(temp_dir, "w") as file:
-            config.write(file)
+            service_file.write(file)
         return_code = subprocess.call(["sudo", "mv", str(temp_dir), str(lavalink_service_path)])
 
     def enable_parkbot_service(self) -> None:
         return_code = subprocess.call(["sudo", "systemctl", "enable", "parkbot.service"])
-        # process.communicate(self.password.encode())
-        # return_code = process.wait()
         match return_code:
             case 0: # success
                 print("Enabled parkbot.service.")
@@ -560,8 +556,6 @@ class LinuxServiceManager:
 
     def enable_lavalink_service(self) -> None:
         return_code = subprocess.call(["sudo", "systemctl", "enable", "lavalink.service"])
-        # process.communicate(self.password.encode())
-        # return_code = process.wait()
         match return_code:
             case 0: # success
                 print("Enabled lavalink.service.")
@@ -669,8 +663,8 @@ class ExternalDependencyHandler:
         }
         new_config["MUSIC"] = {
             "GOOGLE_API_KEY" : "",
-            "LAVALINK_URI": "http://127.0.0.1:2333",
-            "LAVALINK_PASS": "",
+            "LAVALINK_URI": str(exe_paths["lavalink_uri"]),
+            "LAVALINK_PASS": str(exe_paths["lavalink_pass"]),
         }
         new_config["FOR-AUTOPLAY"] = {
             "SPOTIFY_CLIENT_ID" : "",
