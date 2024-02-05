@@ -496,7 +496,7 @@ class LinuxServiceManager:
         config = configparser.ConfigParser()
         config.optionxform = str # preserve case
         config["Unit"] = {
-            "Description": "A Discord bot service, bringing music and games to guilds it serves.",
+            "Description": "Discord bot service",
             "Before": "lavalink.service",
             "Requires": "lavalink.service",
         }
@@ -528,7 +528,7 @@ class LinuxServiceManager:
         config = configparser.ConfigParser()
         config.optionxform = str # preserve case
         config["Unit"] = {
-            "Description": "Node for serving music to Discord",
+            "Description": "Lavalink node for serving music to Discord service",
         }
         config["Service"] = {
             "Type": "exec",
