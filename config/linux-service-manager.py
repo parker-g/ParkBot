@@ -3,6 +3,7 @@ import getpass
 import platform
 import subprocess
 from pathlib import Path
+from subprocess import PIPE
 from configparser import ConfigParser
 
 acceptable_javas = {
@@ -28,6 +29,7 @@ class LinuxServiceManager:
         return False
     
     def __init__(self):
+        self.password = getpass.getpass("Please enter your linux user password:")
         self.operating_sys = platform.system().lower()
         if self.operating_sys != "linux":
             raise OSError("This manager is only compatible with Linux systems.")
@@ -80,11 +82,16 @@ class LinuxServiceManager:
             "Restart": "on-failure",
             "RestartSec": "10",
         }
-        parkbot_service_path = "/etc/systemd/system/parkbot.service"
-        with open(parkbot_service_path, "w") as file:
+
+        temp_dir = parkbot_root / "temp" / "parkbot.service"
+        parkbot_service_path = Path("/etc/systemd/system/parkbot.service")
+        with open(temp_dir, "w") as file:
             config.write(file)
+        process = subprocess.Popen(["sudo", "mv", str(temp_dir), str(parkbot_service_path)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        process.communicate(self.password.encode())
 
     def generate_lavalink_service_file(self) -> None:
+        parkbot_root = Path(os.getcwd())
         lavalink_jar = self.findLavalinkJar() # both of these should 
         java = self.findJava()
         if not lavalink_jar or not java:
@@ -100,12 +107,18 @@ class LinuxServiceManager:
             "Restart": "on-failure",
             "RestartSec": "10",
         }
-        lavalink_service_path = "/etc/systemd/system/lavalink.service"
-        with open(lavalink_service_path, "w") as file:
+        
+        temp_dir = parkbot_root / "temp" / "lavalink.service"
+        lavalink_service_path = Path("/etc/systemd/system/lavalink.service")
+        with open(temp_dir, "w") as file:
             config.write(file)
+        process = subprocess.Popen(["sudo", "mv", str(temp_dir), str(lavalink_service_path)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        process.communicate(self.password.encode())
 
     def enable_parkbot_service(self) -> None:
-        return_code = subprocess.call(["systemctl", "enable", "parkbot.service"])
+        process = subprocess.Popen(["sudo", "systemctl", "enable", "parkbot.service"], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        process.communicate(self.password.encode())
+        return_code = process.wait()
         match return_code:
             case 0: # success
                 print("Enabled parkbot.service.")
@@ -115,7 +128,9 @@ class LinuxServiceManager:
                 print("Failed to enable parkbot.service; unhandled return code.")
 
     def enable_lavalink_service(self) -> None:
-        return_code = subprocess.call(["systemctl", "enable", "lavalink.service"])
+        process = subprocess.Popen(["sudo", "systemctl", "enable", "lavalink.service"], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        process.communicate(self.password.encode())
+        return_code = process.wait()
         match return_code:
             case 0: # success
                 print("Enabled lavalink.service.")

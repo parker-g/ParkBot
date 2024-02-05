@@ -628,31 +628,29 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
         results['lavalink'] = lavalink_manager.findLavalink()
         results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
         results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
-        #TODO add a recursive chown call to the parkbot root directory after downloading all these deps. otherwise if user uses sudo, all these downloads are set to root.root ownership
-        self.give_user_directory_ownership()
         return results
     
-    def give_user_file_ownership(self, file:Path) -> bool:
-        """Changes 'file' ownership to 'user:user'. Assumes sudo permissions."""
-        user = getpass.getuser()
-        exit_code = subprocess.call(["chown", f"{user}.{user}", str(file)])
-        match exit_code:
-            case 0:
-                return True
-            case _: 
-                return False
+    # def give_user_file_ownership(self, file:Path) -> bool:
+    #     """Changes 'file' ownership to 'user:user'. Assumes sudo permissions."""
+    #     user = getpass.getuser()
+    #     exit_code = subprocess.call(["chown", f"{user}.{user}", str(file)])
+    #     match exit_code:
+    #         case 0:
+    #             return True
+    #         case _: 
+    #             return False
 
-    def give_user_directory_ownership(self) -> bool:
-        """Called after downloading all deps onto a Linux system. Ensures the downloaded dependencies are under user ownership. Assumes sudo permissions."""
-        user = getpass.getuser()
-        if not self.isInProjectRoot():
-            raise FileNotFoundError()
-        exit_code = subprocess.call(["chown", "-R", f"{user}.{user}", "."])
-        match exit_code:
-            case 0:
-                return True
-            case _: 
-                return False
+    # def give_user_directory_ownership(self) -> bool:
+    #     """Called after downloading all deps onto a Linux system. Ensures the downloaded dependencies are under user ownership. Assumes sudo permissions."""
+    #     user = getpass.getuser()
+    #     if not self.isInProjectRoot():
+    #         raise FileNotFoundError()
+    #     exit_code = subprocess.call(["chown", "-R", f"{user}.{user}", "."])
+    #     match exit_code:
+    #         case 0:
+    #             return True
+    #         case _: 
+    #             return False
     
 class HandlerFactory:
     @classmethod
