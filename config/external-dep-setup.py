@@ -10,7 +10,6 @@ from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 from tarfile import TarFile
-from subprocess import PIPE
 
 import bs4
 import yaml
