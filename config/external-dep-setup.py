@@ -78,27 +78,27 @@ class Downloader(FileManager):
         return path
 
     #thanks stackoverflow
-    def downloadURL(self, url, download_destination, chunk_size=128) -> None:
+    def download_url(self, url, download_destination, chunk_size=128) -> None:
         r = requests.get(url, stream=True)
         with open(download_destination, 'wb') as fd:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 fd.write(chunk)
 
-    def extractZip(self, zip_file:Path, unzip_destination:Path) -> None:
+    def extract_zip(self, zip_file:Path, unzip_destination:Path) -> None:
         """Extracts and deletes the specified zip archive."""
         zip = ZipFile(zip_file, "r")
         zip.extractall(unzip_destination)
         zip.close()
         os.remove(zip_file)
 
-    def extractTar(self, tar_file:Path, extract_destination:Path) -> None:
+    def extract_tar(self, tar_file:Path, extract_destination:Path) -> None:
         """Extracts and deletes the specified tar archive."""
         tar = TarFile(tar_file, "r")
         tar.extractall(extract_destination, filter="tar")
         tar.close()
         os.remove(tar_file)
 
-    def extractGzip(self, tar_file:Path, extract_destination:Path) -> None:
+    def extract_gzip(self, tar_file:Path, extract_destination:Path) -> None:
         """Extracts and deletes the specified gzip archive."""
         tar = TarFile.open(tar_file, "r:gz")
         tar.extractall(extract_destination, filter="tar")
@@ -111,11 +111,11 @@ class Downloader(FileManager):
         file_extension = str(archive).split(".")[-1]
         match file_extension:
             case "gz":
-                self.extractGzip(archive, extract_destination)
+                self.extract_gzip(archive, extract_destination)
             case "zip":
-                self.extractZip(archive, extract_destination)
+                self.extract_zip(archive, extract_destination)
             case "tar":
-                self.extractTar(archive, extract_destination)
+                self.extract_tar(archive, extract_destination)
 
     def create_directories(self, path:Path) -> None:
         """Creates the path given if it doesn't already exist."""
@@ -139,46 +139,39 @@ class NSSMManager(Downloader):
         super().__init__(os, machine)
         if self.operating_sys != 'windows':
             raise OSError(f"No need to download NSSM on an operating system besides windows.")
-
-    def _findNSSM(self, nssm_version:str) -> Path | None:
-        # nssm_version accepted values : "win32" or "win64" (should probably use an enum here)
-        # should really only accept win64 for now, as the rest of setup doesnt support 32
-        """Searches ParkBot directory for `nssm.exe`, returns the path to the specified instance of nssm.\n\nImportant note: `nssm.exe` must exist within the ParkBot directory to successfully create a windows service using later instructions."""
+    
+    def find_nssm(self) -> Path | None:
+        """Returns path to "nssm.exe" if it exists in ParkBot directory or user's home directory."""
+        user = getpass.getuser()
+        parkbot_root = Path(os.getcwd())
         desired_file = "nssm.exe"
-        parkbot_dir = Path(os.getcwd())
-        for dirpath, dirs, files in os.walk(parkbot_dir):
-            for filename in files:
-                if (desired_file == filename) and (dirpath[-5:] == nssm_version):
-                    return Path(dirpath) / desired_file
+        dirs_to_search = [parkbot_root, Path(f"C:/Users/{user}")]
+        for dir in dirs_to_search:
+            for root, dirs, files in self.walk_to_depth(dir, 5):
+                for filename in files:
+                    if filename == desired_file and (os.access(Path(root) / filename, os.X_OK)):
+                        return Path(root) / filename    
         return None
-    
-    def findNSSM64(self) -> Path | None:
-        """Returns path to the unzipped 64-bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
-        return self._findNSSM("win64")
-    
-    def findNSSM32(self) -> Path | None:
-        """Returns path to the unzipped 32-bit "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
-        return self._findNSSM("win32")
 
-    def moveNSSM(self, nssm_location:Path, final_exe_destination:Path) -> None:
+    def move_nssm(self, nssm_location:Path, final_exe_destination:Path) -> None:
         """Pulls the nssm.exe out from its parent directory + places it in `final_exe_destination`, and deletes all unused source code/ unused exes."""
         nssm_parent_dir = Path(os.getcwd()) / "nssm-2.24"
         os.rename(nssm_location, final_exe_destination / "nssm.exe")
         shutil.rmtree(str(nssm_parent_dir))
 
-    def downloadNSSM(self, download_dir:Path, extract_destination):
+    def download_nssm(self, download_dir:Path, extract_destination):
         parkbot_dir = Path(os.getcwd())
         download_url = "https://www.nssm.cc/release/nssm-2.24.zip"
         nssm_destination = download_dir / "nssm.zip"
-        self.downloadURL(download_url, nssm_destination)
-        self.extractZip(nssm_destination, extract_destination)
-        nssm_path = self.findNSSM64()
+        self.download_url(download_url, nssm_destination)
+        self.extract_zip(nssm_destination, extract_destination)
+        nssm_path = self.find_nssm()
         if nssm_path is not None:
-            self.moveNSSM(nssm_path, parkbot_dir)
+            self.move_nssm(nssm_path, parkbot_dir)
         else:
             raise IOError(f"Attempted to download `nssm.exe`, but cannot find it in file system.")
 
-    def _findPython(self) -> Path | None:
+    def _find_python(self) -> Path | None:
         """Searches ParkBot's directory for a python executable and returns the path to it."""
         # since nssm is only used on windows, we can hard code the desired file to have an .exe extension
         desired_file = "python.exe"
@@ -189,7 +182,7 @@ class NSSMManager(Downloader):
                     return Path(dirpath) / desired_file
         return None
     
-    def _findBotPy(self) -> Path | None:
+    def _find_bot_py(self) -> Path | None:
         """Searches ParkBot's directory for the 'bot.py' file, and returns its path as a Path object."""
         desired_file = "bot.py"
         parkbot_dir = Path(os.getcwd())
@@ -201,8 +194,9 @@ class NSSMManager(Downloader):
     
     def set_service_dependency(self, service_name:str, dependency_service:str) -> bool:
         """Sets 'dependency_service' as a dependency of 'service_name' using the non-sucking-service-manager (nssm)."""
-        # nssm set UT2003 DependOnService MpsSvc
-        command_string = f"nssm set \"{service_name}\" \"DependOnService\" \"{dependency_service}\""
+        # nssm set UT2003 DependOnService MpsSvc <= example usage 
+        nssm_exe = self.find_nssm()
+        command_string = f"{nssm_exe} set \"{service_name}\" \"DependOnService\" \"{dependency_service}\""
         completed_process = subprocess.call(command_string, text=True)
         match completed_process:
             case 0:
@@ -215,14 +209,15 @@ class NSSMManager(Downloader):
                 print("Failure, unhandled process exit code.")
                 return False
         
-    def installLavalinkService(self) -> bool:
+    def install_lavalink_service(self) -> bool:
         """Only to be called after both 'lavalink.jar' and Java 17 have been installed on this system."""
         java_manager = JavaManager(self.operating_sys, self.machine)
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
-        java_exe = java_manager._findJava()
-        lavalink_jar = lavalink_manager.findLavalink()
+        java_exe = java_manager._find_java()
+        lavalink_jar = lavalink_manager.find_lavalink()
+        nssm_exe = self.find_nssm()
         service_name = "LavalinkService"
-        command_string = command_string = f"nssm install \"{service_name}\" \"{java_exe}\" \"{lavalink_jar}\""
+        command_string = command_string = f"{nssm_exe} install \"{service_name}\" \"{java_exe}\" \"{lavalink_jar}\""
         completed_process = subprocess.call(command_string, text=True)
         #NOTE I dont think the working directory needs to be changed on this service
         if completed_process == 0:
@@ -232,16 +227,17 @@ class NSSMManager(Downloader):
             print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return False
         
-    def installBotService(self, service_name:str = "ParkBotService") -> bool:
+    def install_bot_service(self, service_name:str = "ParkBotService") -> bool:
         """Uses the 'nssm.exe' executable to create a windows service. All the 'nssm' service does is link a python executable to a '.py' file, so that whenever the service is started, the python file is executed with the given executable."""
         self.parkbot_service = service_name
-        python_venv_exe = self._findPython()
-        bot_py_path = self._findBotPy()
-        command_string = f"nssm install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
+        python_venv_exe = self._find_python()
+        bot_py_path = self._find_bot_py()
+        nssm_exe = self.find_nssm()
+        command_string = f"{nssm_exe} install \"{service_name}\" \"{python_venv_exe}\" \"{bot_py_path}\""
         completed_process = subprocess.call(command_string, text=True)
         if completed_process == 0:
             # set the services' working directory to the ParkBot working directory (one reason is for logging to work; or any other action which accesses the file system that assumes the working directory is ParkBot's root)
-            change_service_directory = subprocess.call(f"nssm set {service_name} AppDirectory {os.getcwd()}")
+            change_service_directory = subprocess.call(f"{nssm_exe} set {service_name} AppDirectory {os.getcwd()}")
             if change_service_directory == 0:
                 print("-"*50 + f"\n{service_name} was installed as a service!")
             else:
@@ -263,8 +259,8 @@ class JavaManager(Downloader):
             case _:
                 raise OSError(ErrorMessage.OS.value)
 
-    def _findJava(self) -> Path | None:
-        """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
+    def _find_java(self) -> Path | None:
+        """Searches through a user's home directory given their operating system. Attempts to find an executable 'java' that exists under a parent directory which indicates it is jre 17."""
         desired_file = self.java
         user = getpass.getuser()
         match self.operating_sys:
@@ -283,7 +279,7 @@ class JavaManager(Downloader):
                         return Path(dirpath) / desired_file
         return None
     
-    def getBestLink(self) -> str:
+    def get_best_link(self) -> str:
         """Returns the JRE 17 download link for the users' respective operating system."""
         if self.machine != "AMD64":
             raise OSError("The Java downloader only supports 64 bit, non-ARM architectures.")
@@ -295,11 +291,11 @@ class JavaManager(Downloader):
             case _:
                 raise OSError(ErrorMessage.OS.value)
     
-    def downloadJava17(self) -> None:
+    def download_java17(self) -> None:
         """Downloads JRE 17 to `C:/Users/<user>/Java/jdk-17` directory on Windows machines, or to the `/home/<user>/java/jdk-17/` directory on Linux machines."""
         parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
-        request_url = self.getBestLink()
+        request_url = self.get_best_link()
         match self.operating_sys:
             case "windows":
                 final_destination = Path(f"C:/Users/{user}/Java/jdk-17")
@@ -321,7 +317,7 @@ class JavaManager(Downloader):
         temp_dest = Path(parkbot_root) / "temp"
 
         self.create_directories(temp_dest)
-        self.downloadURL(request_url, download_destination)
+        self.download_url(request_url, download_destination)
         # rename the zip directory to jdk-17.zip
         self.extract(download_destination, temp_dest) # extraction removes the .tar.gz file extension
         # extract the zip to a temporary directory, then rename the temp-directory / unzipped folder (old_name) -> extract destination / unzipped folder (new_name)
@@ -371,7 +367,7 @@ class LavalinkManager(Downloader):
             passing = condition_function(test_output)
         return test_output
 
-    def findLavalink(self) -> Path | None:
+    def find_lavalink(self) -> Path | None:
         desired_file = "lavalink.jar"
         parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
@@ -389,7 +385,7 @@ class LavalinkManager(Downloader):
                         return Path(dirpath) / desired_file
         return None
     
-    def findLavalinkConfig(self) -> Path | None:
+    def find_lavalink_config(self) -> Path | None:
         desired_file = "application.yml"
         desired_parent = "lavalink"
         parkbot_root = Path(os.getcwd())
@@ -412,7 +408,7 @@ class LavalinkManager(Downloader):
     
     def load_config(self) -> None:
         """Reads the existing 'application.yml' file into this class' configuration attribute."""
-        config = self.findLavalinkConfig()
+        config = self.find_lavalink_config()
         if config is None:
             raise FileNotFoundError("Failed to find 'lavalink/application.yml'.")
         self.configuration = self.read_yaml(config)
@@ -439,16 +435,18 @@ class LavalinkManager(Downloader):
         self.configuration = configuration
         LavalinkManager.write_yaml(configuration, lavalink_config_path)
 
-    def downloadLavalink(self) -> None:
+    def download_lavalink(self) -> None:
         """Downloads Lavalink to the "<parkbot-root>/lavalink" directory."""
         link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
         lavalink_dir = Path(os.getcwd()) / "lavalink"
         self.create_directories(lavalink_dir)
         self.generate_lavalink_config(lavalink_dir)
         final_dest = lavalink_dir / "lavalink.jar"
-        self.downloadURL(link, final_dest)
+        self.download_url(link, final_dest)
+
 
 class LinuxServiceManager(FileManager):
+
     def is_in_project_root(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
         here = Path(os.getcwd())
@@ -612,7 +610,7 @@ class ExternalDependencyHandler(FileManager):
         result["CANVAS"] = dict(config.items(section="CANVAS"))
         return result
 
-    def isInProjectRoot(self) -> bool:
+    def is_in_project_root(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
         here = Path(os.getcwd())
         root_components = {"cogs", "data"}
@@ -622,35 +620,35 @@ class ExternalDependencyHandler(FileManager):
             return True
         return False
 
-    def findJava(self) -> Path | None:
+    def find_java(self) -> Path | None:
         """Returns the path to the first instance of `java.exe` which exists in this user's home directory and whose grandparent directory is 'jdk-17' or 'openlogic-openjdk-jre-17'."""
         manager = JavaManager(self.operating_sys, self.machine)
-        return manager._findJava()
+        return manager._find_java()
     
-    def downloadExtractJRE17(self) -> Path:
+    def download_extract_jre17(self) -> Path:
         """Downloads and extracts the Java 17 to 'C:/Users/<user>/Java/jdk-17' or to 'C:/User/{user}/java/jdk-17'. Returns the path to the java executable. Assumes the script is being executed from the ParkBot root directory."""
         downloader = JavaManager(self.operating_sys, self.machine)
-        java = downloader._findJava()
+        java = downloader._find_java()
         if java is None:
-            downloader.downloadJava17()
-        java = downloader._findJava()
+            downloader.download_java17()
+        java = downloader._find_java()
         return java
     
-    def downloadExtractLavalink(self) -> Path:
+    def download_extract_lavalink(self) -> Path:
         """Downloads `lavalink.jar` to the ParkBot root directory if it doesn't already exist there. Returns the path to the jar."""
         #TODO need to provide a default lavalink config, 'application.yml', and perhaps allow user to set their lavalink password and port
         manager = LavalinkManager(self.operating_sys, self.machine)
-        lavalink_path = manager.findLavalink()
+        lavalink_path = manager.find_lavalink()
         if lavalink_path is None:
-            manager.downloadLavalink()
-        lavalink_path = manager.findLavalink()
+            manager.download_lavalink()
+        lavalink_path = manager.find_lavalink()
         return lavalink_path
     
-    def downloadExtractAllDeps(self, download_dir = None, extract_destination = None) -> dict[str, Path]:
+    def download_extract_all_deps(self, download_dir = None, extract_destination = None) -> dict[str, Path]:
         """Downloads and extracts all external depedencies required for the ParkBot depending on a user's OS/Machine."""
         pass
     
-    def writeConfig(self, exe_paths:dict[str, Path]) -> None:
+    def write_config(self, exe_paths:dict[str, Path]) -> None:
         """This method reads the existing 'bot.config' file if one exists, and creates a 'bot.config' file if one doesn't exist."""
         # attempt to read a config if one exists
         config_path:Path = Path(os.getcwd()) / "bot.config"
@@ -697,52 +695,36 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
 
     def __init__(self):
         super().__init__()
-        if not self.isInProjectRoot():
+        if not self.is_in_project_root():
             raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
         username = getpass.getuser()
         self.user_home = Path("C:/Users") / username
-    
-    def findNSSM(self) -> Path | None:
-        """Returns path to "nssm.exe" if it exists in ParkBot directory or user's home directory."""
-        user = getpass.getuser()
-        parkbot_root = Path(os.getcwd())
-        dirs_to_search = [parkbot_root, Path(f"C:/Users/{user}")]
-        for dir in dirs_to_search:
-            for root, dirs, files in self.walk_to_depth(dir, 5):
-                for filename in files:
-                    if filename == "nssm.exe":
-                        return Path(root) / filename    
-        return None
 
-    def downloadExtractNSSM(self, download_dir = None, extract_destination = None) -> Path:
+    def download_extract_nssm(self) -> Path:
         """Downloads and extracts the NSSM archive. Returns the path to the extracted NSSM executable."""
-        nssm = self.findNSSM()
-        here = Path(os.getcwd())
+        parkbot_root = Path(os.getcwd())
+        manager = NSSMManager(self.operating_sys, self.machine)
+        nssm = manager.find_nssm()
         if not nssm:
-            if download_dir is None:
-                download_dir = here
-            if extract_destination is None:
-                extract_destination = here
-            downloader = NSSMManager(self.operating_sys, self.machine)
-            downloader.downloadNSSM(download_dir, extract_destination)
-        nssm_path = self.findNSSM()
+            manager.download_nssm(parkbot_root, parkbot_root)
+        nssm_path = manager.find_nssm()
         return nssm_path
     
-    def downloadExtractAllDeps(self, download_dir=None, extract_destination=None) -> dict[str, Path]:
+    def download_extract_all_deps(self) -> dict[str, Path]:
         results = {}
         nssm_manager = NSSMManager(self.operating_sys, self.machine)
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
-        results['nssm'] = self.downloadExtractNSSM(download_dir, extract_destination)
-        results['java'] = self.downloadExtractJRE17()
-        if lavalink_manager.findLavalink() is None:
-            lavalink_manager.downloadLavalink()
+        results['nssm'] = self.download_extract_nssm()
+        results['java'] = self.download_extract_jre17()
+        if lavalink_manager.find_lavalink() is None:
+            lavalink_manager.download_lavalink()
         else:
             lavalink_manager.load_config()
-        results['lavalink'] = lavalink_manager.findLavalink()
+        results['lavalink'] = lavalink_manager.find_lavalink()
         results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
         results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
-        lavalink_serv_install = nssm_manager.installLavalinkService()
-        parkbot_serv_install = nssm_manager.installBotService()
+        lavalink_serv_install = nssm_manager.install_lavalink_service()
+        parkbot_serv_install = nssm_manager.install_bot_service()
         if parkbot_serv_install is True and lavalink_serv_install is True:
             nssm_manager.set_service_dependency(nssm_manager.parkbot_service, "LavalinkService")
         return results
@@ -752,21 +734,21 @@ class LinuxDependencyHandler(ExternalDependencyHandler):
     """Searches for and downloads depedencies specific to Linux."""
     def __init__(self):
         super().__init__()
-        if not self.isInProjectRoot():
+        if not self.is_in_project_root():
             raise FileNotFoundError(f"Please execute this script from the ParkBot root directory.")
         username = getpass.getuser()
         self.user_home = Path("/home") / username
     
-    def downloadExtractAllDeps(self) -> dict[str, Path]:
+    def download_extract_all_deps(self) -> dict[str, Path]:
         """Downloads and extracts all dependencies for a Linux machine."""
         results = {}
         lavalink_manager = LavalinkManager(self.operating_sys, self.machine)
-        results['java'] = self.downloadExtractJRE17()
-        if lavalink_manager.findLavalink() is None:
-            lavalink_manager.downloadLavalink()
+        results['java'] = self.download_extract_jre17()
+        if lavalink_manager.find_lavalink() is None:
+            lavalink_manager.download_lavalink()
         else:
             lavalink_manager.load_config()
-        results['lavalink'] = lavalink_manager.findLavalink()
+        results['lavalink'] = lavalink_manager.find_lavalink()
         results['lavalink_pass'] = lavalink_manager.configuration['lavalink']['server']['password']
         results['lavalink_uri'] = f"{lavalink_manager.configuration['server']['address']}:{lavalink_manager.configuration['server']['port']}"
         service_manager = LinuxServiceManager()
@@ -788,5 +770,5 @@ class HandlerFactory:
 
 if __name__ == "__main__":
     handler = HandlerFactory.getHandler()
-    exe_paths = handler.downloadExtractAllDeps()
-    handler.writeConfig(exe_paths)
+    exe_paths = handler.download_extract_all_deps()
+    handler.write_config(exe_paths)
