@@ -180,7 +180,7 @@ class StreamingCog(Cog):
         player = node.get_player(ctx.guild.id)
 
         query = StreamingCog.stringify_args(*args)
-        logger.debug(query)
+        logger.debug(f"Received query: {query}")
         if query.isspace() or query == "":
             await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()), silent=True)
             return
@@ -262,7 +262,7 @@ class StreamingCog(Cog):
     async def on_wavelink_track_start(self, payload:wavelink.TrackStartEventPayload):
         player = payload.player
         if player is None:
-            logger.error("ERROR: No 'wavelink.Player' object was found associated with your 'wavelink.TrackStartEventPayload'.")
+            logger.error("No 'wavelink.Player' object was found associated with your 'wavelink.TrackStartEventPayload'.")
             return
         song_title = player.current.title
         channel = await self.get_bot_last_text_channel(player)
@@ -274,7 +274,7 @@ class StreamingCog(Cog):
     async def on_wavelink_track_end(self, payload:wavelink.TrackEndEventPayload):
         player = payload.player
         if player is None:
-            logger.error("ERROR: No 'wavelink.Player' object was found in your wavelink.TrackEndEventPayload.")
+            logger.error("No 'wavelink.Player' object was found in your wavelink.TrackEndEventPayload.")
             return
         queue = player.queue
         # player_autoqueue = player.auto_queue
