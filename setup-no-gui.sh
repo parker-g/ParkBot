@@ -35,5 +35,6 @@ fi
 
 "$python_keyword" config/venv-setup.py # creates venv, installs pip dependencies
 activate_script=$(find .venv -name activate)
+echo "Activating virtual environment with ${activate_script}"
 source "${activate_script}"
 "$python_keyword" config/external-dep-setup.py # installs external dependencies (lavalink, nssm for windows, java) and installs lavalink + parkbot as services

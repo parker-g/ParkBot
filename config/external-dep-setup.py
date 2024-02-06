@@ -49,7 +49,24 @@ class JAVA(Enum):
     windows = "java.exe"
     linux = "java"
 
-class Downloader:
+class FileManager:
+
+    def is_too_deep(self, top_dir:Path, root:str, max_depth:int) -> bool:
+        """Function designed to tell os.walk() to stop at a certain depth."""
+        starting_len = len(top_dir.parts)
+        current_path = Path(root)
+        current_path_len = len(current_path.parts)
+        return (current_path_len - starting_len > max_depth)
+
+    def walk_to_depth(self, top_dir:Path, depth:int):
+        """Generator function - wrapper around os.walk() allowing for a max-depth attribute.\n\nWill walk 'depth' deeper than the given 'top_dir'.\n\nExample: if top_dir = '/home/', and depth = 3, will walk to '/home/foo/bar/foo'."""
+        for root, dirs, files in os.walk(top_dir):
+            if self.is_too_deep(top_dir, root, depth):
+                dirs.clear()
+                continue
+            yield(root, dirs, files)
+
+class Downloader(FileManager):
 
     def __init__(self, os:str, machine:str):
         self.operating_sys = os
@@ -99,7 +116,6 @@ class Downloader:
                 self.extractZip(archive, extract_destination)
             case "tar":
                 self.extractTar(archive, extract_destination)
-                
 
     def create_directories(self, path:Path) -> None:
         """Creates the path given if it doesn't already exist."""
@@ -163,15 +179,14 @@ class NSSMManager(Downloader):
             raise IOError(f"Attempted to download `nssm.exe`, but cannot find it in file system.")
 
     def _findPython(self) -> Path | None:
-        """Searches ParkBot's directory for a virtual environment and returns the path to its python executable."""
+        """Searches ParkBot's directory for a python executable and returns the path to it."""
+        # since nssm is only used on windows, we can hard code the desired file to have an .exe extension
         desired_file = "python.exe"
         parkbot_dir = Path(os.getcwd())
         for dirpath, dirs, files in os.walk(parkbot_dir):
-            for dir in dirs:
-                for dirpath, dirs, files in os.walk(dir):
-                    for filename in files:
-                        if (desired_file == filename):
-                            return Path(dirpath).absolute() / desired_file
+            for filename in files:
+                if (filename == desired_file):
+                    return Path(dirpath) / desired_file
         return None
     
     def _findBotPy(self) -> Path | None:
@@ -245,6 +260,8 @@ class JavaManager(Downloader):
                 self.java = "java"
             case "windows":
                 self.java = "java.exe"
+            case _:
+                raise OSError(ErrorMessage.OS.value)
 
     def _findJava(self) -> Path | None:
         """Searches through a user's home directory given their operating system. On windows, also attempts to find an executable "java.exe" that exists under a parent directory which indicates it is jre 17."""
@@ -257,8 +274,8 @@ class JavaManager(Downloader):
                 dir_to_search = Path(f"C:/Users/{user}")
             case _:
                 raise OSError(ErrorMessage.OS.value)
-            
-        for dirpath, dirs, files in os.walk(dir_to_search):
+        
+        for dirpath, dirs, files in self.walk_to_depth(dir_to_search, 5):
             for filename in files:
                 if (desired_file == filename):
                     this_java = Path(dirpath) / desired_file
@@ -356,16 +373,17 @@ class LavalinkManager(Downloader):
 
     def findLavalink(self) -> Path | None:
         desired_file = "lavalink.jar"
+        parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
         match self.operating_sys:
             case "linux":
-                dirs_to_search = [Path(f"/home/{user}/")]
+                dirs_to_search = [parkbot_root, Path(f"/home/{user}/")]
             case "windows":
-                dirs_to_search = [Path(f"C:/Users/{user}")]
+                dirs_to_search = [parkbot_root, Path(f"C:/Users/{user}")]
             case _:
                 raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
-            for dirpath, dirs, files in os.walk(directory):
+            for dirpath, dirs, files in self.walk_to_depth(directory, 5):
                 for filename in files:
                     if (desired_file == filename):
                         return Path(dirpath) / desired_file
@@ -374,16 +392,17 @@ class LavalinkManager(Downloader):
     def findLavalinkConfig(self) -> Path | None:
         desired_file = "application.yml"
         desired_parent = "lavalink"
+        parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
         match self.operating_sys:
             case "linux":
-                dirs_to_search = [Path(f"/home/{user}")]
+                dirs_to_search = [parkbot_root, Path(f"/home/{user}")]
             case "windows":
-                dirs_to_search = [Path(f"C:/Users/{user}")]
+                dirs_to_search = [parkbot_root, Path(f"C:/Users/{user}")]
             case _:
                 raise OSError(ErrorMessage.OS.value)
         for directory in dirs_to_search:
-            for dirpath, dirs, files in os.walk(directory):
+            for dirpath, dirs, files in self.walk_to_depth(directory, 5):
                 for filename in files:
                     if (desired_file == filename):
                         abs_path = Path(dirpath) / filename
@@ -429,7 +448,7 @@ class LavalinkManager(Downloader):
         final_dest = lavalink_dir / "lavalink.jar"
         self.downloadURL(link, final_dest)
 
-class LinuxServiceManager:
+class LinuxServiceManager(FileManager):
     def is_in_project_root(self) -> bool:
         """Checks if the terminal is in the ParkBot root directory."""
         here = Path(os.getcwd())
@@ -441,7 +460,7 @@ class LinuxServiceManager:
         return False
     
     def find_python(self) -> Path | None:
-        """Returns the path to the python executable in a virtual environment, on linux machines."""
+        """Returns the path to python executable inside ParkBot root directory, if one exists - on linux machines."""
         parkbot_root = Path(os.getcwd())
         desired_file = "python"
         for dirpath, dirs, files in os.walk(parkbot_root):
@@ -475,8 +494,9 @@ class LinuxServiceManager:
     def find_lavalink_jar(self) -> Path | None:
         """Returns the absolute path to the first instance of 'lavalink.jar' in a user's home directory. Recurses through all sub-dirs of home."""
         desired_file = "lavalink.jar"
+        parkbot_root = Path(os.getcwd())
         user = getpass.getuser()
-        dirs_to_search = [Path(f"/home/{user}")]
+        dirs_to_search = [parkbot_root, Path(f"/home/{user}")]
         for directory in dirs_to_search:
             for dirpath, dirs, files in os.walk(directory):
                 for filename in files:
@@ -567,7 +587,7 @@ class LinuxServiceManager:
         self.enable_parkbot_service()
 
 
-class ExternalDependencyHandler:
+class ExternalDependencyHandler(FileManager):
     """Class to model DependencyHandler behaviors and provide access to platform agnostic dependencies."""
     def __init__(self):
         self.operating_sys = platform.system().lower()
@@ -601,14 +621,6 @@ class ExternalDependencyHandler:
         if root_components == intersection:
             return True
         return False
-    
-    def findFile(self, desired_file:str, where_to_look:list[Path]) -> Path | None:
-        """Searches specified directories for a desired file, returns the path to the first instance of the desired file."""
-        for dir in where_to_look:
-            for root, dir, files in os.walk(dir):
-                if desired_file in files:
-                    return Path(root) / desired_file
-        return None
 
     def findJava(self) -> Path | None:
         """Returns the path to the first instance of `java.exe` which exists in this user's home directory and whose grandparent directory is 'jdk-17' or 'openlogic-openjdk-jre-17'."""
@@ -691,11 +703,16 @@ class WindowsDependencyHandler(ExternalDependencyHandler):
         self.user_home = Path("C:/Users") / username
     
     def findNSSM(self) -> Path | None:
-        """Returns path to "nssm.exe" if it exists in ParkBot directory, user's home directory or Program Files directory."""
-        parkbot = Path(os.getcwd())
-        # dirs_to_search = [parkbot, self.user_home, Path("C:/Program Files")]
-        dirs_to_search = [parkbot]
-        return self.findFile("nssm.exe", dirs_to_search)
+        """Returns path to "nssm.exe" if it exists in ParkBot directory or user's home directory."""
+        user = getpass.getuser()
+        parkbot_root = Path(os.getcwd())
+        dirs_to_search = [parkbot_root, Path(f"C:/Users/{user}")]
+        for dir in dirs_to_search:
+            for root, dirs, files in self.walk_to_depth(dir, 5):
+                for filename in files:
+                    if filename == "nssm.exe":
+                        return Path(root) / filename    
+        return None
 
     def downloadExtractNSSM(self, download_dir = None, extract_destination = None) -> Path:
         """Downloads and extracts the NSSM archive. Returns the path to the extracted NSSM executable."""
