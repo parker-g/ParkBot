@@ -92,8 +92,6 @@ there are a couple ways to do this. I have done it using a tool called the NSSM,
 
 ## Congrats! You are now hosting your own discord bot.
 
-# BIG NOTE - the instructions to set up dall-e-mini below need revision! some of the commands may not be appropriate for your operating system. also, I haven't checked the validity of the replicate links in months so those instructions may be deprecated as well. I will revise them sooner or later
-
 ## dall-e-mini set up below
 
 * to set up AI image generation for the parkbot, you will need to visit [replicate](https://replicate.com/), sign up, and create an API token. you will need to add the token you create to your existing persisting environment variables under the key, REPLICATE_API_TOKEN. after you've done this and refreshed your terminal or restart your machine, you should be able to use ParkBot's replikate cog. For more detailed instructions, view [replicate's python API guide](https://replicate.com/docs/get-started/python#authenticate).
