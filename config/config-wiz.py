@@ -1,8 +1,8 @@
-from tkinter import ttk
-from tkinter import *
-from configparser import ConfigParser
-from pathlib import Path
 import os
+from tkinter import *
+from tkinter import ttk
+from pathlib import Path
+from configparser import ConfigParser
 
 CONFIG_FILE = "bot.config"
 
@@ -37,8 +37,8 @@ class ConfigWizard:
     }
 
     MUSIC_FIELDS = {
-        "FFMPEG_PATH" : "",
-        "GOOGLE_API_KEY" : "",
+        "LAVALINK_URI" : "",
+        "LAVALINK_PASS" : "",
     }
 
     AUTOPLAY_FIELDS = {
@@ -74,8 +74,8 @@ class ConfigWizard:
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
         }
         new_config["MUSIC"] = {
-            "FFMPEG_PATH" : "",
-            "GOOGLE_API_KEY" : "",
+            "LAVALINK_URI": "",
+            "LAVALINK_PASS" : "",
         }
         new_config["FOR-AUTOPLAY"] = {
             "SPOTIFY_CLIENT_ID" : "",
@@ -85,7 +85,7 @@ class ConfigWizard:
             "CANVAS_API_KEY": "",
             "CANVAS_BASE_URL": "",
             "CANVAS_COURSE_NUM": "",
-            "DATETIME_FILE": str(Path(os.getcwd())  / "data" / "last_time.txt")
+            "DATETIME_FILE": str(here / "data" / "last_time.txt")
         }
 
         if current_config is not None:
@@ -136,12 +136,15 @@ class ConfigWizard:
 
 
     def writeConfig(self, overwriteBool:bool, entries:dict):
-        if overwriteBool is True:
-            write_function = self.overwriteConfigValues
-            print("-"*50 + f"\nNon-empty config inputs were written to '{CONFIG_FILE}'.")
-        else:
-            write_function = self.writeConfigValues
-            print("-"*50 + f"\nConfig values which were empty in '{CONFIG_FILE}' have been populated with your inputs :)")
+        match overwriteBool:
+            case True:
+                write_function = self.overwriteConfigValues
+                print("-"*50 + f"\nNon-empty config inputs were written to '{CONFIG_FILE}'.")
+            case False:
+                write_function = self.writeConfigValues
+                print("-"*50 + f"\nConfig values which were empty in '{CONFIG_FILE}' have been populated with your inputs :)")
+            case _:
+                raise ValueError()
         write_function(entries)
         
     
@@ -152,14 +155,13 @@ class ConfigWizard:
 
         # this will create a label widget
         l1 = Label(master, text = "Discord API Token:")
-        l2 = Label(master, text = "Google API Key:")
         separator = Label(master, text = "-- Optional Fields Below --")
-        l3 = Label(master, text = "Spotify Client ID:")
-        l4 = Label(master, text = "Spotify Client Secret:")
-        l5 = Label(master, text = "Naughty Words:")
-        l6 = Label(master, text = "Canvas API Key:")
-        l7 = Label(master, text = "Canvas Base URL:")
-        l8 = Label(master, text = "Canvas Course Num:")
+        l2 = Label(master, text = "Spotify Client ID:")
+        l3 = Label(master, text = "Spotify Client Secret:")
+        l4 = Label(master, text = "Naughty Words:")
+        l5 = Label(master, text = "Canvas API Key:")
+        l6 = Label(master, text = "Canvas Base URL:")
+        l7 = Label(master, text = "Canvas Course Num:")
         # grid method to arrange labels in respective
         # rows and columns as specified
         l1.grid(row = 0, column = 0, sticky = W, pady = 2)
@@ -170,7 +172,6 @@ class ConfigWizard:
         l5.grid(row = 5, column = 0, sticky = W, pady = 2)
         l6.grid(row = 6, column = 0, sticky = W, pady = 2)
         l7.grid(row = 7, column = 0, sticky = W, pady = 2)
-        l8.grid(row = 8, column = 0, sticky = W, pady = 2)
 
         # entry widgets, used to take entry from user
         e1 = Entry(master)
@@ -180,17 +181,15 @@ class ConfigWizard:
         e5 = Entry(master)
         e6 = Entry(master)
         e7 = Entry(master)
-        e8 = Entry(master)
 
         entries = {
             "token" : e1,
-            "google_api_key" : e2,
-            "spotify_client_id" : e3,
-            "spotify_client_secret" : e4,
-            "naughty_words" : e5,
-            "canvas_api_key": e6,
-            "canvas_base_url": e7,
-            "canvas_course_num": e8,
+            "spotify_client_id" : e2,
+            "spotify_client_secret" : e3,
+            "naughty_words" : e4,
+            "canvas_api_key": e5,
+            "canvas_base_url": e6,
+            "canvas_course_num": e7,
         }
 
         toOverwrite = BooleanVar(master)
@@ -205,7 +204,6 @@ class ConfigWizard:
         e5.grid(row = 5, column = 1, pady = 2)
         e6.grid(row = 6, column = 1, pady = 2)
         e7.grid(row = 7, column = 1, pady = 2)
-        e8.grid(row = 8, column = 1, pady = 2)
         checkBox.grid(row = 9, column = 0, pady = 2)
         submit.grid(row = 9, column = 1, pady = 2)
         mainloop()

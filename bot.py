@@ -1,21 +1,25 @@
-from config.configuration import WORKING_DIRECTORY, TOKEN
-from discord.ext import commands
 import logging
+from pathlib import Path
+
 import discord
-import helper
+from discord import Colour
+from discord.ext import commands
+
+from config.configuration import WORKING_DIRECTORY, TOKEN, LAVALINK_PASS, LAVALINK_URI
 
 # BE SURE TO SET REPLICATE API TOKEN TO ENV VARIABLE BEFORE RUNNING
-
-handler = logging.FileHandler(filename=WORKING_DIRECTORY +'discord.log', encoding='utf-8', mode='w')
+log_path = Path(WORKING_DIRECTORY) / "discord.log"
+handler = logging.FileHandler(log_path, encoding='utf-8', mode='w')
 
 # 'intents' specify what events our bot will be able to act on. default events covers a lot of events but
-# i make sure to specifically set the 'message_content_ intent to True
+# i make sure to specifically include message_content and voice_states as this bot references these events often
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-# instantiate an instance of the Bot class (Bot is a subclass of Client - so it has all the functionality of Client with the addition of Bot functionality
+
+# instantiate an instance of the Bot class
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 # remove the default empty help command, so i can replace it with my own
@@ -25,9 +29,11 @@ bot.remove_command('help')
 async def on_ready():
     await bot.load_extension("cogs.economy")
     await bot.load_extension("cogs.games")
-    await bot.load_extension("cogs.rewards")
-    await bot.load_extension("cogs.music")
+    # await bot.load_extension("cogs.rewards") # pyttsx3 installs a pywin32 which I can't have as a dependency
+    # await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.canvas")
+    await bot.load_extension("cogs.streamingmusic")
+    await bot.load_extension("cogs.replikate")
     return print(f'I\'m logged in as {bot.user}')
 
 # defines help command. uses bot.group decorator to enable help to take further inputs after help - so that the
@@ -156,7 +162,7 @@ async def resetGames(ctx):
 
 @bot.command()
 async def checkCogs(ctx):
-    cogs = ["GamesController", "CanvasClient", "Economy", "MusicController", "RewardsController"]
+    cogs = ["GamesController", "CanvasClient", "Economy", "StreamingCog", "RewardsController"]
     cog_string = ""
     for cog in cogs:
         if bot.get_cog(cog) is not None:
@@ -174,30 +180,11 @@ async def creator(ctx):
     await ctx.send(file=discord.File('data/images/gigachad.jpg'))
 
 @bot.command()
-async def dallE(ctx, args:str):
-    em = discord.Embed(title=f"dallE", description=f"I\'m working on processing your prompt. This may take a minute.")
-    await ctx.send(embed=em)
-    image = helper.get_image(args=args)
-    await ctx.send(embed=discord.Embed(title=f"Dall-E Generated Result"), file=discord.File(image))
-
-@bot.command()
-async def findFurry(ctx):
-    image = helper.get_furry_image()
-    await ctx.send(file=discord.File(image))
-
-@bot.command()
 async def resetGames(ctx):
     await bot.reload_extension("cogs.games")
     await bot.reload_extension("cogs.economy")
     em = discord.Embed(title="Reset games and economy cogs")
     await ctx.send(embed = em)
-
-# @bot.command()
-# async def imgTest(ctx):
-#     em = discord.Embed()
-#     em.add_field(name='dallE', value='I\'m working on processing your prompt. This may take a minute.')
-#     image = test.img_test0()
-#     await ctx.send(embed = em, file=discord.File(image))
 
 bot.run(TOKEN, log_handler=handler)
 

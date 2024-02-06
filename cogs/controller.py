@@ -1,3 +1,4 @@
+from discord import Guild
 from discord.ext.commands.cog import Cog
 
 class Controller(Cog):
@@ -5,10 +6,11 @@ class Controller(Cog):
         :param self.bot: A reference to the discord Bot which is constructing the Controller.
         :param self.clazz: A reference to the class which the Controller will construct an instance of for each guild the Bot is a part of.
         :param self.gulds_to_clazzs: Dictionary storing all the guilds and clazzs that a controller owns."""
+
     def __init__(self, bot, controlled_class):
         self.bot = bot
         self.clazz = controlled_class
-        self.guilds_to_clazzs:dict = {guild : self.clazz(self.bot) for guild in self.bot.guilds}
+        self.guilds_to_clazzs:dict = {guild : self.clazz(self.bot, guild) for guild in self.bot.guilds}
 
     def safeAddGuild(self, guild) -> None:
         """Adds input `guild` to `guilds_to_clazzs` if it doesn't already exist there."""

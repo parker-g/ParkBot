@@ -11,3 +11,5 @@ nssm.exe
 *.zip
 ffmpeg*
 *.config
+/data/images/ai
+/lavalink

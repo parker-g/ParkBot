@@ -51,8 +51,6 @@ when using the setup.sh script, or after running the config-wiz.py, a file calle
 
 * for the MUSIC FEATURE - (if you used the setup script, you will already have ffmpeg installed and it's path saved in your 'bot.config'.) you wil need to download FFMPEG, [here](https://www.gyan.dev/ffmpeg/builds/). FFMPEG downloads are zipped in .7z format, so you will need a third party archiving software such as 7-zip or winrar in order to extract the FFMPEG contents. the only piece you need from this download, is the `ffmpeg.exe`. you will need to copy this executable then store in somewhere on your computer. after you have saved this executable somewhere, you will need to copy the path to `ffmpeg.exe`. you will then open up `bot.config`, and paste the path next to the line, `ffmpeg_path =`. now your discord bot knows where to find FFMPEG for use in audio processing.
 
-* for the MUSIC FEATURE - you'll also need a YouTube API key. you can find details on obtaining a youtube-data API key [here](https://developers.google.com/youtube/v3/getting-started). once you have registered an application there and obtained your google/youtube API key, you can paste your key in the "bot.config' file, on the `google_api_key = ` line.
-
 * for the CANVAS FEATURE - you will need to obtain a canvas API key. this can easily be done by going to your account settings in canvas, where you are given the option to generate a new access token. once you have this token, paste it into the quotations next to `CANVAS_API_TOKEN`.
 
 ### to run / test your bot

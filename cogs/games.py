@@ -1,11 +1,13 @@
 import random
 import asyncio
-from cogs.controller import Controller
 from collections import Counter
-from cogs.economy import Economy
-from discord.ext.commands.cog import Cog
+
 from discord.ext import commands
+from discord.ext.commands.cog import Cog
 from discord import Member, Embed, TextChannel
+
+from cogs.economy import Economy
+from cogs.controller import Controller
 from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
 
 
@@ -153,7 +155,6 @@ class Card:
         return f"{self.face_value.capitalize()} {self.getSuitSymbol()}"
 
 
-
 class Deck:
     """ The Deck class represents a deck of 52 cards - meaning Jokers are not present in this deck.\n 
     Each card in the deck is represented as a tuple of (num, suit).\n
@@ -188,7 +189,6 @@ class Deck:
 
     def shuffle(self) -> None:
         random.shuffle(self.deck)
-
 
 
 class Player:
@@ -299,16 +299,15 @@ class Player:
             self.removeCard(value)
 
 
-
-
 class PlayerQueue(Cog):
     """
     The PlayerQueue class is used as a guild-level-distributor of the games available in the games.py 'cog'.\n
     self.q is a list[Card]. Each player is stored as a tuple of (Player, Discord.Member) objects so that we can easily access methods to discord members.
     Right now, I'm actually realizing that it would be much more simple if I instead just incorporated the discord.Member object into the Player class as an attribute. Removing the possibility of confusing others with tuples in the player queue."""
-    def __init__(self, bot):
+    def __init__(self, bot, guild):
         self.bot:commands.Bot = bot
         self.q:list[Player] = []
+        self.guild = guild
 
     async def _joinQueue(self, ctx):
         """
@@ -440,6 +439,7 @@ class PlayerQueue(Cog):
         except Exception as e:
             await ctx.send(f"An exception occured, {e}")
 
+
 class GamesController(Controller):
     """High level controller of PlayerQueues. Assigns each guild a PlayerQueue, and routes requests from guilds to their respective PlayerQueue instance."""
     def __init__(self, bot):
@@ -485,11 +485,6 @@ class GamesController(Controller):
     async def playPoker(self, ctx) -> None:
         queue = self.getGuildClazz(ctx)
         await queue._playPoker(ctx)
-    
-
-
-
-
     
 
 class Dealer(Player):
@@ -568,7 +563,6 @@ class Dealer(Player):
         if self.sumCards() > 21:
             self.bust = True
     ################################################### not sure if isBust is used either
-
 
 
 class BlackJackGame(Cog):
@@ -722,7 +716,6 @@ class BlackJackGame(Cog):
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
         # empty players before giving opportunity for another round to start
-
 
 
 class Poker(commands.Cog):
@@ -1443,7 +1436,6 @@ class Poker(commands.Cog):
         winners = await asyncio.wait_for(determine_winner, timeout=None)
         reward_da_boys = self.rewardWinners(ctx, winners)
         await asyncio.wait_for(reward_da_boys, timeout=None)
-
 
 
 class PokerRanker(Cog):
@@ -2230,7 +2222,6 @@ class PokerRanker(Cog):
         # need to compare the two cards players are dealt.
         # if players tie with these two cards, then return them both, because that means the rest of their cards
         # (the community cards) will be the same, resulting in a tie.
-
 
 
 async def setup(bot):

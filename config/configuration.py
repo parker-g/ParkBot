@@ -1,6 +1,6 @@
-from configparser import ConfigParser
-from pathlib import Path
 import os
+from pathlib import Path
+from configparser import ConfigParser
 
 def read(config_filename) -> dict[str, dict[str, str]]:
     """Reads an 'ini' config file, specifically ParkBot's config file, into a Python dictionary."""
@@ -50,15 +50,15 @@ THREADS_PATH = required["threads_path"]
 NAUGHTY_WORDS = toList(required["naughty_words"])
 
 music = config["MUSIC"]
-FFMPEG_PATH = music["ffmpeg_path"]
-GOOGLE_API_KEY = music["google_api_key"]
+LAVALINK_URI = music["lavalink_uri"]
+LAVALINK_PASS = music["lavalink_pass"]
 
 autoplay = config["FOR-AUTOPLAY"]
 SPOTIFY_CLIENT_ID = autoplay["spotify_client_id"]
 SPOTIFY_CLIENT_SECRET = autoplay["spotify_client_secret"]
 
 canvas = config["CANVAS"]
-CANVAS_API_KEY = ["canvas_api_key"]
-CANVAS_BASE_URL = ["canvas_base_url"]
-CANVAS_COURSE_NUM = ["canvas_course_num"]
-DATETIME_FILE = ["datetime_file"]
+CANVAS_API_KEY = canvas["canvas_api_key"]
+CANVAS_BASE_URL = canvas["canvas_base_url"]
+CANVAS_COURSE_NUM = canvas["canvas_course_num"]
+DATETIME_FILE = canvas["datetime_file"]

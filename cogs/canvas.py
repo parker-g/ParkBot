@@ -1,10 +1,12 @@
-from config.configuration import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
 from datetime import datetime, timedelta, date
-from discord.ext import commands
-from helper import write_iterable
+
+from discord import Embed
 from canvasapi import Canvas
-from configparser import ConfigParser
-import discord
+from discord.ext import commands
+
+from helper import write_iterable
+from config.configuration import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
+
 
 class CanvasClient(commands.Cog):
     def __init__(self, bot, api_key, base_url, course_num):
@@ -69,7 +71,7 @@ class CanvasClient(commands.Cog):
         if len(assignments) == 0:
             pretty_string = "Yay, no new assignments in that range!"
         
-        em = discord.Embed(title="New assignments", description=pretty_string)
+        em = Embed(title="New assignments", description=pretty_string)
         em.add_field(name="Time since last checked: (hours/minutes/seconds)", value=f"{time_diff}")
         await ctx.send(embed = em)
     
