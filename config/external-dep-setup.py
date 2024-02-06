@@ -224,7 +224,7 @@ class NSSMManager(Downloader):
             print("-"*50 + f"\n{service_name} was installed as a service!")
             return True
         else:
-            print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
+            print("-"*50 +f"\n{service_name} failed to install as a service. Perhaps you have already run this script and the service already exists.\nIf you are sure the service does not already exist, try again but grant admin privileges to your shell.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return False
         
     def install_bot_service(self, service_name:str = "ParkBotService") -> bool:
@@ -243,7 +243,7 @@ class NSSMManager(Downloader):
             else:
                 print(f"{service_name} was installed but will not function until it's `working directory` is changed.\nUse the command `nssm set {service_name} AppDirectory <parkbot's-working-directory(can be found in bot.config)>")
         elif completed_process != 0:
-            print("-"*50 +f"\n{service_name} failed to install as a service. Try again but grant admin privileges when prompted.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
+            print("-"*50 +f"\n{service_name} failed to install as a service. Perhaps you have already run this script and the service already exists.\nIf you are sure the service does not already exist, try again but grant admin privileges to your shell.\nAlternatively, follow the instructions on nssm's website to manually install ParkBot as a service.")
             return True
         return False
 
@@ -323,7 +323,7 @@ class JavaManager(Downloader):
         # extract the zip to a temporary directory, then rename the temp-directory / unzipped folder (old_name) -> extract destination / unzipped folder (new_name)
         self.move(temp_dest / jre_name, final_destination)
         temp_dest.rmdir()
-        print(f"Java 17 installation complete. Java 17 installed to `{final_destination}`.")
+        print(f"\nJava 17 installation complete. Java 17 installed to `{final_destination}`.")
 
 
 class LavalinkManager(Downloader):
