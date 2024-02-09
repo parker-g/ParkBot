@@ -18,6 +18,7 @@ ParkBot is a Discord bot written in Python with the objective of bringing fun to
 
 ### easy setup option - setup.sh
 * open a bash-compatible terminal with admin privileges
+* create a directory for ParkBot and clone this repo
 * enter the ParkBot root directory, ```cd <parkbot-root>```
 * run the `setup.sh` bash script, ```. setup.sh```
 * wait for the script to install python packages then external dependencies including java 17, lavalink, and non-sucking-service-manager for windows users
