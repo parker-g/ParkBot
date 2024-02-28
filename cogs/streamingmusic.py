@@ -167,33 +167,6 @@ class StreamingCog(Cog):
             message = Embed(title=f"Songs up Next: ", description=pretty_string, color=Colour.light_embed())
         await ctx.send(embed = message, silent=True)
 
-    @commands.command("test_url")
-    async def url_query(self, ctx, *args) -> None:
-        node = wavelink.Pool.get_node()
-        player = node.get_player(ctx.guild.id)
-
-        query = StreamingCog.stringify_args(*args)
-        logger.debug(f"Received query: {query}")
-        if query.isspace() or query == "":
-            await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()), silent=True)
-            return
-        if not player:
-            await ctx.send("You need to create a player for this testing")
-            return
-        
-        await ctx.send("Valid node and player ")
-        
-        tracks = await wavelink.Playable.search(query)
-
-        if not tracks:
-            await ctx.send("Nah bruh no results from your URL search")
-        else:
-            best_match = tracks[0]
-            num_tracks_added = player.queue.put(best_match)
-            message = Embed(title=f"Added {best_match.title} to the queue.", color=Colour.light_embed())
-            message.set_thumbnail(url = best_match.artwork)
-            await ctx.send(embed = message, silent=True)
-
     @commands.command("play")
     async def stream(self, ctx, *args) -> None:
         node = wavelink.Pool.get_node()
