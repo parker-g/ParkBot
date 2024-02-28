@@ -1,4 +1,3 @@
-import re
 import logging
 import asyncio
 import datetime
@@ -15,15 +14,12 @@ from wavelink import Player, AutoPlayMode, TrackSource, LavalinkLoadException
 
 from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
 
-
 music_log_path = Path(WORKING_DIRECTORY) / "music.log"
 music_handler = logging.FileHandler(music_log_path, encoding="utf-8", mode="w")
 formatter = logging.Formatter('[%(asctime)s - %(levelname)s] - %(message)s')
 music_handler.setFormatter(formatter)
 logger = logging.Logger("music_logger")
 logger.addHandler(music_handler)
-
-HTTP_URL_REGEX = r"(https:\/\/www\.|http:\/\/www\.|https:\/\/|http:\/\/)?[a-zA-Z0-9]{2,}(\.[a-zA-Z0-9]{2,})(\.[a-zA-Z0-9]{2,})?"
 
 class StreamingCog(Cog):
 
