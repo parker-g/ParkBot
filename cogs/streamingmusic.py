@@ -23,6 +23,7 @@ logger.addHandler(music_handler)
 
 class StreamingCog(Cog):
 
+
     def __init__(self, bot):
         self.bot = bot
         self.node = None
