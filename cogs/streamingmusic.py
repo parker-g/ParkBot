@@ -1,4 +1,3 @@
-# this cog replaces the music.py cog. if you desire, one could configure the bot.py file to load the old music cog in place of this streaming cog, however I will say that the old music cog will present issues if you plan to serve your bot to multiple discord guilds.
 import logging
 import asyncio
 import datetime
@@ -10,15 +9,14 @@ from discord import Embed
 from discord import Colour
 from discord.ext import commands
 from discord.ext.commands import Cog
-from wavelink import Player, AutoPlayMode, TrackSource
 from discord.ext.commands.errors import ExtensionFailed
+from wavelink import Player, AutoPlayMode, TrackSource, LavalinkLoadException
 
 from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
 
-
 music_log_path = Path(WORKING_DIRECTORY) / "music.log"
 music_handler = logging.FileHandler(music_log_path, encoding="utf-8", mode="w")
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('[%(asctime)s - %(levelname)s] - %(message)s')
 music_handler.setFormatter(formatter)
 logger = logging.Logger("music_logger")
 logger.addHandler(music_handler)
@@ -30,11 +28,12 @@ class StreamingCog(Cog):
         self.node = None
 
     @staticmethod
-    def stringify_args(*args) -> str:
+    def stringify_args(args:tuple) -> str:
         query = ""
-        for arg in args:
+        for arg in args[:-1]:
             #NOTE consider html escaping each character in the query
             query += f"{arg} "
+        query += f"{args[-1]}"
         return query
 
     #TODO need to find how to clean this up and handle it accordingly when it fails
@@ -88,14 +87,6 @@ class StreamingCog(Cog):
     def getNode(self) -> wavelink.Node:
         node = wavelink.Pool.get_node()
         return node
-
-    # @commands.command("stop")
-    # async def stop(self, ctx) -> None:
-    #     node = self.getNode()
-    #     player = node.get_player(ctx.guild.id)
-    #     if player is None: return
-    #     if player.playing:
-    #         await player.stop()
     
     @commands.command("skip")
     async def skip(self, ctx) -> None:
@@ -139,31 +130,33 @@ class StreamingCog(Cog):
                     await player.pause(False)
                 else:
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
-    
-    async def _searchYoutube(self, query:str):
-        tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube) # TODO default the 'source' parameter to YouTubeMusic + implement a way to see if the track returned matches the query to a certain degree of accuracy. if the degree of accuracy is too low, re-search the query with source= YouTube.
-        # TODO alternatively, add a command to the bot to change the track source or 
-        if not tracks:
-            return
-        return tracks
 
-    # @commands.command("connect")
-    # async def connect(self, ctx) -> Player | None:
-    #     channel = None
-    #     try:
-    #         channel = ctx.author.voice.channel
-    #     except AttributeError:
-    #         await ctx.send(f"Please join a voice channel before trying to play a song.", silent=True)
-        
-    #     if channel is not None:
-    #         player = await channel.connect(cls= Player, timeout = 0)
-    #         return player
+    async def _searchYoutube(self, ctx, query:str):
+        tracks = None
+        try:
+            tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
+        except LavalinkLoadException as e:
+            await ctx.send(embed=Embed(
+                title=f"Lavalink encountered an error", 
+                description=f"Cause: {e.cause}", 
+                color = Colour.brand_red()), 
+                silent=True)
+            return None
+        if not tracks:
+            await ctx.send(embed=Embed(
+                title="There was an issue searching your song on YouTube.", 
+                description="Please try again.", 
+                color=Colour.brand_red()), 
+                silent=True)
+        return tracks
 
     @commands.command("showQ")
     async def showQueue(self, ctx) -> None:
         node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
-        if player is None: return
+        if player is None: 
+            await ctx.send(embed=Embed(title=f"There's no music player currently active.", color=Colour.light_embed()), silent=True)
+            return
 
         if len(player.queue) == 0:
             message = Embed(title=f"The queue is currently empty.")
@@ -179,12 +172,13 @@ class StreamingCog(Cog):
         node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
 
-        query = StreamingCog.stringify_args(*args)
+        query = StreamingCog.stringify_args(args)
         logger.debug(f"Received query: {query}")
         if query.isspace() or query == "":
             await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()), silent=True)
             return
         
+
         if ctx.author.voice is None:
             await ctx.send(embed=Embed(title=f"Please join a voice channel and try again.", color=Colour.brand_red()), silent=True)
             return
@@ -197,9 +191,8 @@ class StreamingCog(Cog):
             player = await user_channel.connect(cls = Player, timeout = None)
         if player is None: raise RuntimeError("Error while creating a wavelink 'Player' object.")
 
-        search_results = await self._searchYoutube(query)
+        search_results = await self._searchYoutube(ctx, query) # handles sending failure message to discord
         if search_results is None:
-            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()), silent=True)
             return
         else:
             best_match = search_results[0]
@@ -277,12 +270,6 @@ class StreamingCog(Cog):
             logger.error("No 'wavelink.Player' object was found in your wavelink.TrackEndEventPayload.")
             return
         queue = player.queue
-        # player_autoqueue = player.auto_queue
-        # logger.debug([f"autoqueued track: {track.title}" for track in player_autoqueue])
-        # logger.debug(f"autoqueue length: {len(player_autoqueue)}")
-
-        # logger.debug([f"queue track:{track.title}" for track in queue])
-        # logger.debug(f"queue length: {len(queue)}")
         
         if len(queue) == 0:
             player.autoplay = AutoPlayMode.disabled
