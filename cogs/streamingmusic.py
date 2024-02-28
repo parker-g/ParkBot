@@ -10,15 +10,15 @@ from discord import Embed
 from discord import Colour
 from discord.ext import commands
 from discord.ext.commands import Cog
-from wavelink import Player, AutoPlayMode, TrackSource
 from discord.ext.commands.errors import ExtensionFailed
+from wavelink import Player, AutoPlayMode, TrackSource, LavalinkLoadException
 
 from config.configuration import LAVALINK_URI, LAVALINK_PASS, WORKING_DIRECTORY
 
 
 music_log_path = Path(WORKING_DIRECTORY) / "music.log"
 music_handler = logging.FileHandler(music_log_path, encoding="utf-8", mode="w")
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('[%(asctime)s - %(levelname)s] - %(message)s')
 music_handler.setFormatter(formatter)
 logger = logging.Logger("music_logger")
 logger.addHandler(music_handler)
@@ -135,10 +135,21 @@ class StreamingCog(Cog):
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
     
     async def _searchYoutube(self, ctx, query:str):
-        tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
+        tracks = None
+        try:
+            tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
+        except LavalinkLoadException as e:
+            await ctx.send(embed=Embed(
+                title=f"Lavalink encountered an error", 
+                description=f"Cause: {e.cause}", 
+                color = Colour.brand_red()), 
+                silent=True)
         if not tracks:
-            await ctx.send(embed=Embed(title="There was an issue searching your song on YouTube.", description="Please try again.", color=Colour.brand_red()), silent=True)
-            return
+            await ctx.send(embed=Embed(
+                title="There was an issue searching your song on YouTube.", 
+                description="Please try again.", 
+                color=Colour.brand_red()), 
+                silent=True)
         return tracks
     
     async def _get_url_tracks(self, ctx, url:str):
@@ -163,17 +174,10 @@ class StreamingCog(Cog):
             message = Embed(title=f"Songs up Next: ", description=pretty_string, color=Colour.light_embed())
         await ctx.send(embed = message, silent=True)
 
-
-    # # want to parse query - if it's a direct URL, then create a playable from that URL. otherwise, search youtube for the query
-    # def parse_query(self, ctx, query:str) -> tuple[str, wavelink.TrackSource]:
-        
-    #     url = re.match(HTTP_URL_REGEX, query)
-
     @commands.command("test_url")
     async def url_query(self, ctx, *args) -> None:
         node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
-
 
         query = StreamingCog.stringify_args(*args)
         logger.debug(f"Received query: {query}")
