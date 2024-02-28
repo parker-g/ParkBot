@@ -32,11 +32,12 @@ class StreamingCog(Cog):
         self.node = None
 
     @staticmethod
-    def stringify_args(*args) -> str:
+    def stringify_args(args:tuple) -> str:
         query = ""
-        for arg in args:
+        for arg in args[:-1]:
             #NOTE consider html escaping each character in the query
             query += f"{arg} "
+        query += f"{args[-1]}"
         return query
 
     #TODO need to find how to clean this up and handle it accordingly when it fails
@@ -133,7 +134,7 @@ class StreamingCog(Cog):
                     await player.pause(False)
                 else:
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
-    
+
     async def _searchYoutube(self, ctx, query:str):
         tracks = None
         try:
@@ -144,6 +145,7 @@ class StreamingCog(Cog):
                 description=f"Cause: {e.cause}", 
                 color = Colour.brand_red()), 
                 silent=True)
+            return None
         if not tracks:
             await ctx.send(embed=Embed(
                 title="There was an issue searching your song on YouTube.", 
@@ -151,19 +153,14 @@ class StreamingCog(Cog):
                 color=Colour.brand_red()), 
                 silent=True)
         return tracks
-    
-    async def _get_url_tracks(self, ctx, url:str):
-        tracks: wavelink.Search = await wavelink.Playable.search(url, source = TrackSource.YouTubeMusic)
-        if not tracks:
-            await ctx.send(embed=Embed(title="There was an issue grabbing the content of your URL.", description="Please try again.", color=Colour.brand_red()), silent=True)
-            return
-        return tracks
 
     @commands.command("showQ")
     async def showQueue(self, ctx) -> None:
         node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
-        if player is None: return
+        if player is None: 
+            await ctx.send(embed=Embed(title=f"There's no music player currently active.", color=Colour.light_embed()), silent=True)
+            return
 
         if len(player.queue) == 0:
             message = Embed(title=f"The queue is currently empty.")
@@ -206,7 +203,7 @@ class StreamingCog(Cog):
         node = wavelink.Pool.get_node()
         player = node.get_player(ctx.guild.id)
 
-        query = StreamingCog.stringify_args(*args)
+        query = StreamingCog.stringify_args(args)
         logger.debug(f"Received query: {query}")
         if query.isspace() or query == "":
             await ctx.send(embed=Embed(title="The 'play' command requires a query.", description="Please use 'play' again, with a song query in your command call. Or, if you are trying to resume a paused player, use 'resume' command.", colour=Colour.brand_red()), silent=True)
