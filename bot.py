@@ -47,7 +47,7 @@ async def help(ctx):
     em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
     em.add_field(name='voice commands', value="`say`")
     em.add_field(name='game commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playPoker`, `playJack`, `resetJack`")
-    em.add_field(name='music commands', value="`play`, `skip`, `showQ`, `currentSong`, `kickBot`")
+    em.add_field(name='music commands', value="`play`, `pause`, `skip`, `showQ`, `kickBot`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -134,10 +134,10 @@ async def skip(ctx):
     em = discord.Embed(title="skip", description="skips the song that's currently playing")
     await ctx.send(embed = em)
 
-@help.command()
-async def currentSong(ctx):
-    em = discord.Embed(title="currentSong", description="shows the song currently playing")
-    await ctx.send(embed = em)
+# @help.command()
+# async def currentSong(ctx):
+#     em = discord.Embed(title="currentSong", description="shows the song currently playing")
+#     await ctx.send(embed = em)
 
 @help.command()
 async def kickBot(ctx):
@@ -157,6 +157,16 @@ async def clearQ(ctx):
 @help.command()
 async def resetGames(ctx):
     em = discord.Embed(title="resetGames", description="use this command to hard reset the games and economoy cogs. (use to reset blackjack or poker if they're broken/ glitched. it won't hurt anything)")
+    await ctx.send(embed = em)
+
+@help.command()
+async def pause(ctx):
+    em = discord.Embed(title="pause", description="Pauses the music player if one exists. Use `resume` to resume.")
+    await ctx.send(embed = em)
+    
+@help.command()
+async def resume(ctx):
+    em = discord.Embed(title="resume", description="resumes a paused music player")
     await ctx.send(embed = em)
 # now these are the actual commands corresponding to the list of commands in help
 

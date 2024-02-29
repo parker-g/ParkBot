@@ -56,19 +56,19 @@ class StreamingCog(Cog):
         elif self.node is not None:
             logger.info(f"A node connection has already been established.")
 
-    @commands.command()
-    async def showNode(self, ctx) -> None:
-        node = self.getNode()
-        if node is None:
-            await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node.", color=Colour.light_embed()), silent=True)
-        else:
-            await ctx.send(embed=Embed(title=f"Node connected!: {node.identifier}", color=Colour.light_embed()), silent=True)
+    # @commands.command()
+    # async def showNode(self, ctx) -> None:
+    #     node = self.getNode()
+    #     if node is None:
+    #         await ctx.send(embed=Embed(title=f"ParkBot not currently connected to a lavalink node.", color=Colour.light_embed()), silent=True)
+    #     else:
+    #         await ctx.send(embed=Embed(title=f"Node connected!: {node.identifier}", color=Colour.light_embed()), silent=True)
         
-    @commands.command("nodePlayers")
-    async def getNodePlayers(self, ctx) -> dict[int, Player]:
-        node = wavelink.Pool.get_node()
-        await ctx.send(f"Here are your node's players: {node.players}", silent=True)
-        return node.players
+    # @commands.command("nodePlayers")
+    # async def getNodePlayers(self, ctx) -> dict[int, Player]:
+    #     node = wavelink.Pool.get_node()
+    #     await ctx.send(f"Here are your node's players: {node.players}", silent=True)
+    #     return node.players
 
     @commands.command()
     async def createNode(self, ctx) -> None:
@@ -138,15 +138,17 @@ class StreamingCog(Cog):
         try:
             tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
         except LavalinkLoadException as e:
-            await ctx.send(embed=Embed(
-                title=f"Lavalink encountered an error while pulling your song", 
-                description=f"Retrying, attempt {attempts}",
-                # description=f"Cause: {e.cause}", 
-                color = Colour.brand_red()), 
-                silent=True)
+            logger.warn(f"Lavalink encountered an error while requesting '{query}'. Retrying search, attempt number {attempts}. Detailed exception - {e}")
             if attempts < 3:
+                await asyncio.sleep(1)
                 return await self._searchYoutube(ctx, query, attempts + 1)
             else:
+                await ctx.send(embed=Embed(
+                    title=f"Lavalink encountered an error while searching for your request", 
+                    description=f"Please try again.",
+                    # description=f"Cause: {e.cause}", 
+                    color = Colour.brand_red()), 
+                    silent=True)
                 return None
         if not tracks:
             await ctx.send(embed=Embed(
@@ -270,7 +272,10 @@ class StreamingCog(Cog):
             message.set_thumbnail(url=player.current.artwork)
             await channel.send(embed=message, silent=True)
         except AttributeError as e: # would happen is player.current is None (in my experience this is caused by Lavalink needing to refresh its youtube 'viewer ID')
-            #NOTE repeat the play request
+            #TODO handle error by attempting to play request again (give play a retries parameter?)
+            await channel.send(embed=Embed(
+                title="Lavalink encountered an error while trying to play your song.",
+                color=Colour.brand_red()), silent=True)
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload:wavelink.TrackEndEventPayload):
