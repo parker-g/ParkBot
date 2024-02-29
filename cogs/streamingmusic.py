@@ -132,20 +132,25 @@ class StreamingCog(Cog):
                 else:
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
 
-    async def _searchYoutube(self, ctx, query:str):
+    async def _searchYoutube(self, ctx, query:str, attempts = 1):
+        """Method uses lavalink to search for a user's query, taking up to 3 retries to search again if lavalink throws an error."""
         tracks = None
         try:
             tracks = await wavelink.Playable.search(str(query), source = TrackSource.YouTube)
         except LavalinkLoadException as e:
             await ctx.send(embed=Embed(
-                title=f"Lavalink encountered an error", 
-                description=f"Cause: {e.cause}", 
+                title=f"Lavalink encountered an error while pulling your song", 
+                description=f"Retrying, attempt {attempts}",
+                # description=f"Cause: {e.cause}", 
                 color = Colour.brand_red()), 
                 silent=True)
-            return None
+            if attempts < 3:
+                return await self._searchYoutube(ctx, query, attempts + 1)
+            else:
+                return None
         if not tracks:
             await ctx.send(embed=Embed(
-                title="There was an issue searching your song on YouTube.", 
+                title="Found no results for your search query.", 
                 description="Please try again.", 
                 color=Colour.brand_red()), 
                 silent=True)
@@ -258,11 +263,14 @@ class StreamingCog(Cog):
         if player is None:
             logger.error("No 'wavelink.Player' object was found associated with your 'wavelink.TrackStartEventPayload'.")
             return
-        song_title = player.current.title
-        channel = await self.get_bot_last_text_channel(player)
-        message = Embed(title=f"Playing: {song_title}", color=Colour.brand_green())
-        message.set_thumbnail(url=player.current.artwork)
-        await channel.send(embed=message, silent=True)
+        try:
+            song_title = player.current.title
+            channel = await self.get_bot_last_text_channel(player)
+            message = Embed(title=f"Playing: {song_title}", color=Colour.brand_green())
+            message.set_thumbnail(url=player.current.artwork)
+            await channel.send(embed=message, silent=True)
+        except AttributeError as e: # would happen is player.current is None (in my experience this is caused by Lavalink needing to refresh its youtube 'viewer ID')
+            #NOTE repeat the play request
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload:wavelink.TrackEndEventPayload):
