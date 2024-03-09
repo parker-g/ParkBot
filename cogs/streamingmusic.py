@@ -250,12 +250,9 @@ class StreamingCog(Cog):
                 time = time + 1
                 if voice.playing and not voice.paused:
                     time = 0
-                if time == 600:
-                    if voice.paused:
-                        time = 0
-                    else:
-                        await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()), silent=True)
-                        await voice.disconnect()
+                if (time == 600 and not voice.paused) or (voice.paused and time==1200):
+                    await after.channel.send(embed=Embed(title=f"Leaving voice chat due to inactivity.", color=Colour.light_embed()), silent=True)
+                    await voice.disconnect()
                 if not voice.connected:
                     break
 
