@@ -72,16 +72,16 @@ class StreamingCog(Cog):
 
     @commands.command()
     async def createNode(self, ctx) -> None:
-        logger.info("Connecting to lavalink node.")
-        if self.node is None:
+        if self.node is not None:
+            logger.info(f"A node is already established and connected with ID: {self.node.identifier}")
+        else:
+            logger.info("Connecting to lavalink node.")
             node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASS)
             nodes = await wavelink.Pool.connect(nodes=[node], client=self.bot)
             if nodes:
                 self.node = self.getNode()
             else:
                 logger.error(f"Error connecting to Lavalink Node")
-        elif self.node is not None:
-            logger.info(f"A node is already established and connected with ID: {self.node.identifier}")
         return
 
     #NOTE dont even need to explicitly get a node really, it seems the methods that require a node automatically grab one from the Pool
@@ -132,7 +132,7 @@ class StreamingCog(Cog):
                 else:
                     await ctx.send(embed=Embed(title=f"Player is not paused.", ), silent=True)
 
-    async def _searchYoutube(self, ctx, query:str, attempts = 1):
+    async def search_with_retry(self, ctx, query:str, attempts = 1):
         """Method uses lavalink to search for a user's query, taking up to 3 retries to search again if lavalink throws an error."""
         tracks = None
         try:
@@ -141,7 +141,7 @@ class StreamingCog(Cog):
             logger.warn(f"Lavalink encountered an error while requesting '{query}'. Retrying search, attempt number {attempts}. Detailed exception - {e}")
             if attempts < 3:
                 await asyncio.sleep(1)
-                return await self._searchYoutube(ctx, query, attempts + 1)
+                return await self.search_with_retry(ctx, query, attempts + 1)
             else:
                 await ctx.send(embed=Embed(
                     title=f"Lavalink encountered an error while searching for your request", 
@@ -199,7 +199,7 @@ class StreamingCog(Cog):
             player = await user_channel.connect(cls = Player, timeout = None)
         if player is None: raise RuntimeError("Error while creating a wavelink 'Player' object.")
 
-        search_results = await self._searchYoutube(ctx, query) # handles sending failure message to discord
+        search_results = await self.search_with_retry(ctx, query) # handles sending failure message to discord
         if search_results is None:
             return
         else:
