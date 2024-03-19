@@ -8,7 +8,7 @@ from pathlib import Path
 import replicate
 import pandas as pd
 
-from config.configuration import WORKING_DIRECTORY, THREADS_PATH, DATA_DIRECTORY
+from config.configuration import WORKING_DIRECTORY
 
 # copied from geeks for geeks website
 # modified to take Card objects
@@ -60,3 +60,6 @@ def getUserAmount(df, username) -> int:
 
 def getAllAmounts(df) -> str:
     return df.to_string()
+
+# class UserRepository: 
+#     def __init__(self, )

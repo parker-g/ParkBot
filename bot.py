@@ -17,6 +17,7 @@ handler = logging.FileHandler(log_path, encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
+intents.members = True
 
 
 # instantiate an instance of the Bot class

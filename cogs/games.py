@@ -9,7 +9,6 @@ from discord import Member, Embed, TextChannel
 
 from cogs.economy import Economy
 from cogs.controller import Controller
-from helper import getUserAmount
 from config.configuration import THREADS_PATH
 
 
