@@ -1,3 +1,4 @@
+import csv
 import random
 import asyncio
 from collections import Counter
@@ -8,7 +9,8 @@ from discord import Member, Embed, TextChannel
 
 from cogs.economy import Economy
 from cogs.controller import Controller
-from helper import getUserAmount, readThreads, writePlayerAndThread, bubbleSortCards
+from helper import getUserAmount
+from config.configuration import THREADS_PATH
 
 
 class Card:
@@ -166,6 +168,32 @@ class Deck:
         "queen": 10,
         "king": 10,
     }
+
+    @staticmethod
+    def bubbleSortCards(cards_list:list) -> None:
+        """Function sorts a list of Card objects, in place."""
+        n = len(cards_list)
+        # optimize code, so if the array is already sorted, it doesn't need
+        # to go through the entire process
+        swapped = False
+        # Traverse through all array elements
+        for i in range(n-1):
+            # range(n) also work but outer loop will
+            # repeat one time more than needed.
+            # Last i elements are already in place
+            for j in range(0, n-i-1):
+    
+                # traverse the array from 0 to n-i-1
+                # Swap if the element found is greater
+                # than the next element
+                if cards_list[j].pip_value > cards_list[j + 1].pip_value:
+                    swapped = True
+                    cards_list[j], cards_list[j + 1] = cards_list[j + 1], cards_list[j]
+            
+            if not swapped:
+                # if we haven't needed to make a single swap, we
+                # can just exit the main loop.
+                return
 
     def __init__(self, game:str):
         """
@@ -838,14 +866,22 @@ class Poker(commands.Cog):
         """
         Stores any previously used discord threads in memory for sending poker hands to players during the upcoming game of Poker.
         """
-        self.threads = readThreads()
+        with open(THREADS_PATH, "r") as file:
+            threads_dict = {}
+            reader = csv.reader(file) 
+            #skip first row of csv
+            next(reader)
+            for row in reader:
+                threads_dict[row[0]] = int(row[1])
+        self.threads = threads_dict
         return
 
     def writeNewThread(self, player, thread_id:int) -> None:
         """
         Writes a username and their discord thread identifier to the threads.csv file.
         """
-        writePlayerAndThread(player.name, thread_id)
+        with open(THREADS_PATH, "a") as file:
+            file.write(f"\n{player.name},{thread_id}")
         return
     
     def setPlayersNotDone(self, players:list[Player]) -> None:
@@ -874,7 +910,7 @@ class Poker(commands.Cog):
                 # print(f"creating thread for {player.name}")
                 thread = await channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
                 self.threads[player.name] = thread.id
-                writePlayerAndThread(player, thread.id)
+                self.writeNewThread(player, thread.id)
                 # need to invite player's Member object to thread
                 await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}\n{member.mention}"))
                 await thread.add_user(member)
@@ -1225,7 +1261,7 @@ class Poker(commands.Cog):
         player.complete_hand = player.complete_hand + self.community_cards # add board to complete hand
         player_hand = player.complete_hand # all 7 cards
 
-        bubbleSortCards(player_hand)
+        Deck.bubbleSortCards(player_hand)
         print(f"{player.name}'s complete, sorted hand: {[card.stringify() for card in player.complete_hand]}")
 
         flushes = ranker.getFlushes(player_hand)
