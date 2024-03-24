@@ -44,11 +44,10 @@ async def on_ready():
 @bot.group(invoke_without_command=True)
 async def help(ctx):
     em = discord.Embed(title='help', description='to get help with a command, use $help <command>.', color=ctx.author.color)
-    em.add_field(name='pic commands', value='`creator`, `dallE`, `findFurry`')
-    em.add_field(name='chat commands', value='`heymongrel`, `banmike`, `getNewAssignments`')
-    em.add_field(name='voice commands', value="`say`")
+    em.add_field(name='pic commands', value='`creator`, `dallE`')
+    em.add_field(name='chat commands', value='`heymongrel`, `getNewAssignments`')
     em.add_field(name='game commands', value="`joinQ`, `leaveQ`, `showPlayers`, `clearQ`, `setBet <amount>`, `playPoker`, `playJack`, `resetJack`")
-    em.add_field(name='music commands', value="`play`, `pause`, `skip`, `showQ`, `kickBot`")
+    em.add_field(name='music commands', value="`play`, `pause`, `resume`, `skip`, `showQ`, `kickBot`")
     await ctx.send(embed = em)
 
 # all help commands are defined below
@@ -78,12 +77,6 @@ async def dallE(ctx):
     em = discord.Embed(title='dallE', description='this command allows users to submit a prompt to Dall-E - then returns the results of their prompt :D')
     em.add_field(name='syntax/how to use', value='`$dallE "your prompt"`')
     await ctx.send(embed = em)
-
-@help.command()
-async def findFurry(ctx):
-    em = discord.Embed(title='findFurry', description='step right up and use this command to find your buddys\' furry lookalikes! input a name, or input nothing at all.')
-    await ctx.send(embed = em)
-
 
 @help.command()
 async def getNewAssignments(ctx):

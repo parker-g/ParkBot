@@ -4,11 +4,17 @@ from discord import Embed
 from canvasapi import Canvas
 from discord.ext import commands
 
-from helper import write_iterable
 from config.configuration import CANVAS_API_KEY, CANVAS_BASE_URL, CANVAS_COURSE_NUM, DATETIME_FILE
 
 
 class CanvasClient(commands.Cog):
+    @staticmethod
+    def write_iterable(file_path:str, iterable:list | dict) -> None:
+        with open(file_path, "w", encoding="utf-8") as file:
+            for item in iterable:
+                file.write(str(item) + ",")
+        return None
+
     def __init__(self, bot, api_key, base_url, course_num):
         self.bot = bot
         self.key = api_key
@@ -58,7 +64,7 @@ class CanvasClient(commands.Cog):
                 assignments_due.append(assignment)
 
         time_dif = now - last_call
-        write_iterable(datetime_file, [now])
+        CanvasClient.write_iterable(datetime_file, [now])
         return assignments_due, str(time_dif)
     
     @commands.command()

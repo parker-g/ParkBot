@@ -1,11 +1,7 @@
 import os
-import csv
 import time
 import random
-import requests
-from pathlib import Path
 
-import replicate
 import pandas as pd
 
 from config.configuration import WORKING_DIRECTORY
@@ -28,12 +24,6 @@ def slugify(string):
         if letter not in no_nos:
             new_string += letter
     return new_string
-
-def write_iterable(file_path:str, iterable:list | dict) -> None:
-    with open(file_path, "w", encoding="utf-8") as file:
-        for item in iterable:
-            file.write(str(item) + ",")
-    return None
 
 def get_furry_image():
     time.sleep(3)

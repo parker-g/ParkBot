@@ -29,6 +29,17 @@ class StreamingCog(Cog):
         self.node = None
 
     @staticmethod
+    def parse_seconds(time:str) -> int:
+        total = 0
+        if ":" in time:
+            mins = int(time.split(":")[0]) * 60
+            seconds = int(time.split(":")[1])
+            total = mins + seconds
+        else:
+            total = int(time)
+        return total * 1000 # seconds to milliseconds conversion
+
+    @staticmethod
     def stringify_args(args:tuple) -> str:
         query = ""
         for arg in args[:-1]:
@@ -216,6 +227,25 @@ class StreamingCog(Cog):
             if len(player.queue) > 0:
                 player.autoplay = AutoPlayMode.partial
 
+    @commands.command()
+    async def seek(self, ctx, *args) -> None:
+        node = wavelink.Pool.get_node()
+        player = node.get_player(ctx.guild.id)
+        if player is None:
+            await ctx.send(embed=Embed(title=f"There is currently no active Player to play songs.", color=Colour.brand_red()))
+            return
+        if args[0] is None or args[0] == "":
+            await ctx.send(embed=Embed(title=f"Please include a time you would like to skip to.", description=f"Acceptable format examples: `90` or `2:45`.", colour=Colour.brand_red()))
+            return
+        else:
+            try:
+                time_ms = StreamingCog.parse_seconds(args[0])
+                await player.seek(time_ms)
+                await ctx.send(embed = Embed(title=f"Seeking to {args[0]}", colour=Colour.brand_green()))
+            except ValueError:
+                await ctx.send(embed = Embed(title=f"Please use a valid time format.", description=f"Failed to seek, please use a format like one of these examples: `90` or `2:45`.", colour=Colour.brand_red()))
+                return
+            
     async def get_most_recent_message(self, channel:discord.TextChannel):
         "Returns the bot's most recent message in a given channel, searching up to 100 messages in history."
         async for message in channel.history(limit=100):
