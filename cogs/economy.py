@@ -94,7 +94,11 @@ class Economy(Cog):
     @commands.command("balance")
     async def getBalance(self, ctx) -> None:
         bank_df = pd.read_csv(BANK_PATH, header="infer")
-        amount = helper.getUserAmount(bank_df, ctx.author.name)
+        try:
+            amount = helper.getUserAmount(bank_df, ctx.author.name)
+        except Exception as e:
+            amount = 1000
+            helper.setUserAmount(bank_df, ctx.author.name, amount)
         message = await ctx.send(embed = Embed(title=f"{ctx.author.name}'s balance is: {amount} GleepCoins."))
         await message.delete(delay=7.5)
 
