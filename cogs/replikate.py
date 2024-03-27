@@ -10,7 +10,7 @@ from requests import HTTPError
 from discord.ext import commands
 from discord.ext.commands.cog import Cog
 
-from helper import slugify
+from util import slugify
 from cogs.controller import Controller
 
 #TODO create a simple webhook handler to run as part of or alongside this cog. 

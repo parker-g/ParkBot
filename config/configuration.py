@@ -29,7 +29,7 @@ def isInProjectRoot() -> bool:
         return True
     return False
 
-def toList(csv_string:str) -> list[str]:
+def list_from_csv(csv_string:str) -> list[str]:
     terms = csv_string.split(",")
     terms = list(map(lambda string: string.strip(), terms))
     return terms    
@@ -47,7 +47,8 @@ WORKING_DIRECTORY = required["working_directory"]
 DATA_DIRECTORY = required["data_directory"]
 BANK_PATH = required["bank_path"]
 THREADS_PATH = required["threads_path"]
-NAUGHTY_WORDS = toList(required["naughty_words"])
+NAUGHTY_WORDS = list_from_csv(required["naughty_words"])
+DB_OPTION = required["db_option"]
 
 music = config["MUSIC"]
 LAVALINK_URI = music["lavalink_uri"]

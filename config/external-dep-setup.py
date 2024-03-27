@@ -662,6 +662,7 @@ class ExternalDependencyHandler(FileManager):
             "BANK_PATH" : str(Path(here) / "data" / "bank.csv"),
             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+            "DB_OPTION" : "csv", # default to csv option
         }
         new_config["MUSIC"] = {
             "LAVALINK_URI": str(exe_paths["lavalink_uri"]),

@@ -34,6 +34,7 @@ class ConfigWizard:
         "BANK_PATH" : "",
         "THREADS_PATH" : "",
         "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+        "DB_OPTION" : "",
     }
 
     MUSIC_FIELDS = {
@@ -72,6 +73,7 @@ class ConfigWizard:
             "BANK_PATH" : str(Path(here) / "data" / "bank.csv"),
             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+            "DB_OPTION" : "csv", # default to csv file
         }
         new_config["MUSIC"] = {
             "LAVALINK_URI": "",
