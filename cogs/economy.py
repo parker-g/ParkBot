@@ -8,6 +8,8 @@ import helper
 from config.configuration import BANK_PATH
 
 
+
+
 class Economy(Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -99,10 +101,14 @@ class Economy(Cog):
     @commands.command()
     async def pocketWatch(self, ctx):
         bank_df = pd.read_csv(BANK_PATH, header="infer")
-        bank_df_string = helper.getAllAmounts(bank_df)
-        await ctx.send(bank_df_string)
+        bank_df_string = ""
+        for index, row in bank_df.iterrows():
+            username = row["Usernames"]
+            guild_users = [user.name.lower() for user in ctx.guild.members]
+            if username.lower() in guild_users:
+                bank_df_string += f"{username}: {row['GleepCoins']} GleepCoins\n"
+        await ctx.send(embed = Embed(title=f"Domain Expansion: Pocket Watch", description=bank_df_string))
 
 async def setup(bot):
-
     await bot.add_cog(Economy(bot))
     return Economy(bot)
