@@ -50,6 +50,3 @@ def getUserAmount(df, username) -> int:
 
 def getAllAmounts(df) -> str:
     return df.to_string()
-
-# class UserRepository: 
-#     def __init__(self, )
