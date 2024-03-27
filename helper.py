@@ -37,7 +37,15 @@ def get_furry_image():
     os.chdir(WORKING_DIRECTORY)
     return f"{base_path}\\{furry_names[index]}"
 
+def createUserIfNone(df:pd.DataFrame, username:str):
+    """Creates a user in the DataFrame if they don't already exist."""
+    users = list(df.Usernames)
+    # if member isn't in dataframe already, put them in and give them 100 GleepCoins
+    if username not in users:
+        df.loc[len(df.index)] = [username, 1000]
+
 def setUserAmount(df:pd.DataFrame, username, new_money_value):
+    createUserIfNone(df, username)
     user_index = df.index[df['Usernames'] == username].tolist()
     user_index = user_index[0]
     df.at[user_index, "GleepCoins"] = int(new_money_value)
