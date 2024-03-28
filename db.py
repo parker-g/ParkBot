@@ -1,9 +1,16 @@
+import logging
 from pathlib import Path
 
 import pandas as pd
 
-from config.configuration import DB_OPTION
+from config.configuration import DB_OPTION, WORKING_DIRECTORY
 
+
+logger = logging.Logger("db_logger")
+db_log_path = Path(WORKING_DIRECTORY) / "db.log"
+db_log_handler = logging.FileHandler(db_log_path, encoding="utf-8", mode="w")
+formatter = logging.Formatter('[%(asctime)s - %(levelname)s] - %(message)s')
+logger.addHandler(db_log_handler)
 
 class Connection:
 
@@ -42,6 +49,7 @@ class CSVConnection(Connection):
     def __init__(self):
         self.csv_path = Path(CSVConnection.default_csv_name)
         self.connect()
+        logger.info("Creating a CSV connection.")
 
     def connect(self):
         # for this implementation we want to create the csv file if it doesn't exist
@@ -88,7 +96,7 @@ class MYSQLConnection(Connection):
 
     def __init__(self, sql_server_url:str, sql_server_port:int):
         self.connect(sql_server_url, sql_server_port)
-
+        logger.info("Creating a MYSQLConnection.")
 
 
 

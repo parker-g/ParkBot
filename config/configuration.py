@@ -49,6 +49,15 @@ BANK_PATH = required["bank_path"]
 THREADS_PATH = required["threads_path"]
 NAUGHTY_WORDS = list_from_csv(required["naughty_words"])
 DB_OPTION = required["db_option"]
+MYSQL_USER = required["mysql_user"]
+MYSQL_PASS = required["mysql_pass"]
+MYSQL_DATABASE = required["mysql_database"]
+MYSQL_HOST = required["mysql_url"].split(":")[0]
+MYSQL_PORT = 3306
+try:
+    MYSQL_PORT = required["mysql_url"].split(":")[1]
+except IndexError:
+    pass
 
 music = config["MUSIC"]
 LAVALINK_URI = music["lavalink_uri"]

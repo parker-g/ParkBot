@@ -663,6 +663,10 @@ class ExternalDependencyHandler(FileManager):
             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
             "DB_OPTION" : "csv", # default to csv option
+            "MYSQL_USER" : "",
+            "MYSQL_PASS" : "",
+            "MYSQL_URL" : "", # provide with or without PORT
+            "MYSQL_DATABASE" : "",
         }
         new_config["MUSIC"] = {
             "LAVALINK_URI": str(exe_paths["lavalink_uri"]),
