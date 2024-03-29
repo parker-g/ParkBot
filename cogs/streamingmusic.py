@@ -300,7 +300,7 @@ class StreamingCog(Cog):
             await channel.send(embed=message, silent=True)
         except AttributeError as e: # would happen is player.current is None (in my experience this is caused by Lavalink needing to refresh its youtube 'viewer ID')
             #TODO handle error by attempting to play request again (give play a retries parameter?)
-            logger.debug(f"Lavalink encountered an error while trying to play your song. Here's the player {player}, here's the player from payload: {payload.player}, here's the song that failed to play {payload.track}")
+            logger.debug(f"Lavalink encountered an error while trying to play your song. Here's the player {player}, here's the player from payload: {payload.player}, here's the song that failed to play {payload.track}. Here's the error: {e}")
             await channel.send(embed=Embed(
                 title="Lavalink encountered an error while trying to play your song.",
                 color=Colour.brand_red()), silent=True)
