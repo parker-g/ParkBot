@@ -337,6 +337,8 @@ class PlayerQueue(Cog):
         self.q:list[Player] = []
         self.guild = guild
         self.economy = Economy(self.bot, get_connection())
+        self.poker = Poker(self.bot, self)
+        self.blackjack = BlackJackGame(self.bot, self)
 
     async def _joinQueue(self, ctx):
         """
@@ -449,8 +451,10 @@ class PlayerQueue(Cog):
         This command is the PlayerQueue's interface with a blackjack game. It begins a game of blackjack, using all the players in the queue."""
         await ctx.send(f"Attempting to start blackjack game.")
         try:
-            blackjack = BlackJackGame(self.bot, self)
-            await blackjack.play(ctx)
+            if not self.blackjack.in_progress:
+                await self.blackjack.play(ctx)
+            else:
+                await ctx.send("A blackjack game is already in progress.")
         except Exception as error:
             await ctx.send(f"An exception occured, {error}")
 
@@ -459,8 +463,10 @@ class PlayerQueue(Cog):
         This command puts all players in the PlayerQueue in a game of Texas Hold'em Poker."""
         await ctx.send(f"Attempting to start Poker game.")
         try:
-            poker = Poker(self.bot, self)
-            await poker.play(ctx)
+            if not self.poker.in_progress:
+                await self.poker.play(ctx)
+            else:
+                await ctx.send("A poker game is already in progress.")
         except Exception as e:
             await ctx.send(f"An exception occured, {e}")
 
@@ -596,10 +602,9 @@ class BlackJackGame(Cog):
         self.player_queue = player_queue.q
         self.players = []
         self.economy = Economy(self.bot, get_connection())
+        self.in_progress = False
         for player in self.player_queue:
             self.players.append(player)
-        
-
 
     def resetPlayers(self) -> None:
         for player in self.players:
@@ -673,6 +678,7 @@ class BlackJackGame(Cog):
     async def play(self, ctx):
         """
         Wrapper method to hold and execute all the BlackJack logic in a sequential order."""
+        self.in_progress = True
         self.resetPlayers()
         deck = Deck("blackjack")
         deck.shuffle()
@@ -740,6 +746,7 @@ class BlackJackGame(Cog):
             long_ass_string += (f"{player.name} had: {player.prettyHand()}, with a total of {player.sumCards()}\n")
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
+        self.in_progress = False
         # empty players before giving opportunity for another round to start
 
 
@@ -810,6 +817,7 @@ class Poker(commands.Cog):
         self.threads:dict[str, int] = {} # contains player names as keys, and discord.Thread IDs as values - used to send private messages to players
         self.pot = 0 # holds all bets
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
+        self.in_progress = False
 
     async def resetPlayers(self) -> None:
         """
@@ -1430,10 +1438,12 @@ class Poker(commands.Cog):
         """
         Wraps up all the steps for playing a Poker game, and executes them in order."""
         # setup
+        self.in_progress = True
         await self.resetPlayers()
         self.getThreads()
         if len(self.players) < 2:
             await ctx.send(embed = Embed(title=f"You need at least 2 players to run a game of Poker. Please populate the PlayerQueue and try again."))
+            self.in_progress = False
             return
         # turning each async function into a task
         first_blind = self.assignButtonAndPostBlinds(ctx)
@@ -1446,6 +1456,7 @@ class Poker(commands.Cog):
         river = self.dealCommunityCard(ctx)
         hand_reveal = self.showAllHands(ctx)
         determine_winner = self.getWinners()
+        self.in_progress = False
        
         
 
