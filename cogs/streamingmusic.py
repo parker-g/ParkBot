@@ -217,7 +217,10 @@ class StreamingCog(Cog):
             best_match = search_results[0]
             num_tracks_added = player.queue.put(best_match) # should be 1 track
             message = Embed(title=f"Added {best_match.title} to the queue.", color=Colour.light_embed())
-            message.set_thumbnail(url = best_match.artwork)
+            try:
+                message.set_thumbnail(url = best_match.artwork)
+            except Exception as e:
+                logger.warn(e)
             await ctx.send(embed = message, silent=True)
         if player.playing and player.paused:
             await ctx.send(embed=Embed(title=f"The Player is paused.", description="Please use `resume` to continue playing music.", color=Colour.gold()))
