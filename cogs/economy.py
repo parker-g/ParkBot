@@ -52,5 +52,5 @@ class Economy(Cog):
         await ctx.send(embed = Embed(title=f"Domain Expansion: Pocket Watch", description=bank_df_string))
 
 async def setup(bot):
-    connection = db.get_connection()
+    connection = db.get_connection("Economy cog")
     await bot.add_cog(Economy(bot, connection))

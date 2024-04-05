@@ -336,7 +336,7 @@ class PlayerQueue(Cog):
         self.bot:commands.Bot = bot
         self.q:list[Player] = []
         self.guild = guild
-        self.economy = Economy(self.bot, get_connection())
+        self.economy = Economy(self.bot, get_connection("Games cog - PlayerQueue"))
         self.poker = Poker(self.bot, self)
         self.blackjack = BlackJackGame(self.bot, self)
 
@@ -601,7 +601,7 @@ class BlackJackGame(Cog):
         self.bot = bot
         self.player_queue = player_queue.q
         self.players = []
-        self.economy = Economy(self.bot, get_connection())
+        self.economy = Economy(self.bot, get_connection("Games Cog - BlackJackGame"))
         self.in_progress = False
         for player in self.player_queue:
             self.players.append(player)
@@ -806,7 +806,7 @@ class Poker(commands.Cog):
         for player in self.player_queue.q:
             self.players.append(player)
         self.dealer = Dealer(self.deck, self.players)
-        self.economy = Economy(self.bot, get_connection())
+        self.economy = Economy(self.bot, get_connection("Games Cog - Poker game"))
         
         # poker specific attributes 
         self.community_cards:list[Card] = []
