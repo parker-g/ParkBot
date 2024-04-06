@@ -1,5 +1,5 @@
 from discord import Embed
-from discord import User
+from discord import Member, User
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.ext.commands import Context
@@ -14,8 +14,8 @@ class Economy(Cog):
         self.bot = bot
         self.connection = db_connection
 
-    async def withdraw_money_player(self, ctx:Context, player, money:int) -> bool:
-        self.connection.create_user_if_none(player.name)
+    async def withdraw_money_player(self, ctx:Context, player:Member | User, money:int) -> bool:
+        self.connection.create_user_if_none(player.name, str(player.id))
         withdraw_amount = int(money)
         current_balance = self.connection.get_user_amount(player.name)
         if withdraw_amount > current_balance:
@@ -26,13 +26,13 @@ class Economy(Cog):
             self.connection.set_user_amount(player.name, current_balance - withdraw_amount)
             return True
 
-    async def give_money_player(self, player, money:int) -> None:
+    async def give_money_player(self, player:Member | User, money:int) -> None:
         money = int(money)
-        self.connection.create_user_if_none(player.name)
+        self.connection.create_user_if_none(player.name, str(player.id))
         current_amount = self.connection.get_user_amount(player.name)
         self.connection.set_user_amount(player.name, current_amount + money)
 
-    def _get_balance(self, player):
+    def _get_balance(self, player:Member|User):
         amount = self.connection.get_user_amount(player.name)
         return amount
 
@@ -42,7 +42,7 @@ class Economy(Cog):
             amount = self.connection.get_user_amount(ctx.author.name)
         except Exception as e:
             amount = 1000
-            self.connection.set_user_amount(ctx.author.name, amount)
+            self.connection.create_user_if_none(ctx.author.name, ctx.author.id)
         message = await ctx.send(embed = Embed(title=f"{ctx.author.name}'s balance is: {amount} GleepCoins."))
         await message.delete(delay=7.5)
 

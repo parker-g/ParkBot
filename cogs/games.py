@@ -141,6 +141,12 @@ class Card:
 
     def getValuePip(self) -> int:
         return self.pip_value
+
+    def getBlackJackValuePip(self) -> int:
+        if self.pip_value > 10:
+            return 10
+        else:
+            return self.pip_value
     
     def getValueString(self) -> str:
         return self.face_value
@@ -222,7 +228,7 @@ class Deck:
 class Player:
     """
     The Player class represents a participant in any of the games in the games cog."""
-    def __init__(self, ctx):
+    def __init__(self, ctx:commands.Context):
         self.name = ctx.author.name
         self.member = ctx.author
         self.hand:list[Card] = []
@@ -273,7 +279,7 @@ class Player:
         Returns the sum of card values in the player's hand."""
         total = 0
         for card in self.hand:
-            total += card.pip_value
+            total += card.getBlackJackValuePip()
         return total
 
     def isBlackJack(self) -> bool:
@@ -381,7 +387,7 @@ class PlayerQueue(Cog):
         Discord server members can clear the PlayerQueue with this command."""
         for player in self.q:
             if player.bet > 0:
-                await self.economy.give_money_player(player, player.bet)
+                await self.economy.give_money_player(player.member, player.bet)
                 player.bet = 0
             self.q.remove(player)
             
@@ -407,7 +413,7 @@ class PlayerQueue(Cog):
             if inputPlayer.name == player.name:
                 # store players bet amount in corresponding player object
                 try:
-                    withdraw_success = await self.economy.withdraw_money_player(ctx, inputPlayer, bet)
+                    withdraw_success = await self.economy.withdraw_money_player(ctx, inputPlayer.member, bet)
                     player.bet = bet
                     success = withdraw_success
                 except Exception as e:
@@ -423,7 +429,7 @@ class PlayerQueue(Cog):
             if ctx.author.name == player.name:
                 # store players bet amount in corresponding player object
                 withdraw_success = await self.economy.withdraw_money_player(ctx, ctx.author, bet)
-                player_balance = self.economy._get_balance(player)
+                player_balance = self.economy._get_balance(player.member)
                 if withdraw_success is False:
                     broke_message = await ctx.send(embed = Embed(title=f"{ctx.author.name}, you're broke. Your current balance is {player_balance} GleepCoins."))
                     await broke_message.delete(delay=10.0)
@@ -603,8 +609,11 @@ class BlackJackGame(Cog):
         self.players = []
         self.economy = Economy(self.bot, get_connection("Games Cog - BlackJackGame"))
         self.in_progress = False
+
+    def loadPlayers(self) -> None:
         for player in self.player_queue:
-            self.players.append(player)
+            if not player in self.players:
+                self.players.append(player)
 
     def resetPlayers(self) -> None:
         for player in self.players:
@@ -625,13 +634,13 @@ class BlackJackGame(Cog):
         for player in players:
             if player.winner:
                 winnings = player.bet * 2
-                await self.economy.give_money_player(player, winnings)
+                await self.economy.give_money_player(player.member, winnings)
                 if winnings != 0:
                     message = await ctx.send(embed = Embed(title=f"{player.name} won {winnings} GleepCoins."))
                     await message.delete(delay=5.0)
             elif player.tie:
                 winnings = player.bet
-                await self.economy.give_money_player(player, winnings)
+                await self.economy.give_money_player(player.member, winnings)
                 message = await ctx.send(embed = Embed(title=f"{player.name} broke even, gaining back {winnings} GleepCoins."))
                 await message.delete(delay=5.0)
                     
@@ -679,6 +688,7 @@ class BlackJackGame(Cog):
         """
         Wrapper method to hold and execute all the BlackJack logic in a sequential order."""
         self.in_progress = True
+        self.loadPlayers()
         self.resetPlayers()
         deck = Deck("blackjack")
         deck.shuffle()
@@ -837,7 +847,7 @@ class Poker(commands.Cog):
                 player.thread = None
                 player.folded = False
                 if player.bet > 0:
-                    await self.economy.give_money_player(player, player.bet)
+                    await self.economy.give_money_player(player.member, player.bet)
                     player.bet = 0
 
     def getPot(self) -> int:
@@ -955,7 +965,7 @@ class Poker(commands.Cog):
         await ctx.send(embed=Embed(title=f"Current Pot: {self.pot} GleepCoins"))
 
     async def sendBrokeMessage(self, ctx, player:Player, economy:Economy) -> None:
-        await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed, {player.name}. Maybe it's because you only got {economy._get_balance(player)}.\nTry again, with a lower amount, or you might have to fold."))
+        await ctx.send(embed=Embed(title=f"Get ya money up, not ya funny up.", description=f"Transaction failed, {player.name}. Maybe it's because you only got {economy._get_balance(player.member)}.\nTry again, with a lower amount, or you might have to fold."))
 
     # currently having an issue that the pot is raised much higher than it should after assigning big blind.
     async def assignButtonAndPostBlinds(self, ctx):
@@ -1015,7 +1025,7 @@ class Poker(commands.Cog):
                             self.pushToPot(big_blind_player)
                             await big_blind_alert.delete(delay = 7.0)
                         else:
-                            balance = self.economy._get_balance(big_blind_player)
+                            balance = self.economy._get_balance(big_blind_player.member)
                             await ctx.send(embed = Embed(title=f"Your transaction failed.", description=f"{big_blind_player.name}, your balance is {balance}"))
                             continue
                 except ValueError or TypeError:
@@ -1414,7 +1424,7 @@ class Poker(commands.Cog):
             await ctx.send(f"The amount of winners was less than 1. Please fix this, bro")
 
         for winner in winners:
-            await self.economy.give_money_player(winner, cut)
+            await self.economy.give_money_player(winner.member, cut)
             await ctx.send(embed=Embed(title=f"Congratulations, {winner.name}! You won {cut} GleepCoins!", description=f"You had a {Poker.RANKS_TO_HANDS[winner.hand_rank]}."))
 
     async def flop(self, ctx) -> None:

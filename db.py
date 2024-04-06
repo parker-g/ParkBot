@@ -25,7 +25,6 @@ class QueryTemplates(Enum):
                             "  `user_id` varchar(18),"
                             "  `username` varchar(32) NOT NULL,"
                             "  `gleepcoins` int(7) DEFAULT 1000,"
-                            "  `thread_id` varchar(18),"
                             "  PRIMARY KEY (`user_id`)"
                             ") ENGINE=InnoDB")
 
@@ -57,7 +56,7 @@ class Connection:
         self.connect()
         
 
-    def create_user_if_none(self, username):
+    def create_user_if_none(self, username, user_id):
         """Create a row in the database for a new user, if this user doesn't already exist in the database."""
         pass
 
@@ -93,14 +92,15 @@ class CSVConnection(Connection):
         # for this implementation we want to create the csv file if it doesn't exist
         if not self.csv_path.is_file():
             with open(self.csv_path, "w") as file:
-                file.write("Usernames,GleepCoins\n")
+                file.write("Usernames,GleepCoins,UserId\n")
 
-    def create_user_if_none(self, username):
+    def create_user_if_none(self, username:str, user_id:str):
         """Creates a user in the DataFrame if they don't already exist."""
         df = pd.read_csv(self.csv_path)
         users = list(df.Usernames)
         if username not in users:
-            df.loc[len(df.index)] = [username, 1000]
+            df.loc[len(df.index)] = [username, 1000, user_id]
+        df.to_csv(self.csv_path, index=False)
 
     def set_user_amount(self, username:str, amount:int) -> None:
         df = pd.read_csv(self.csv_path)
