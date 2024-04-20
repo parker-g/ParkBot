@@ -189,6 +189,50 @@ class MYSQLConnection(Connection):
         self.conn_type = ConnectionType.sql
         self.connection = self.connect()
 
+    def add_new_user(self, user_info:dict) -> bool:
+        """user_info must contain all fields from the ADD_USER query template.\n
+        user_id: int, username:str, gleepcoins:int, thread_id:int"""
+        cursor = self.connection.cursor()
+        success = False
+        try:
+            cursor.execute(QueryTemplates.ADD_USER.value, user_info)
+            success = True
+        except mysql.connector.Error as e:
+            print(f"Failed to add a user: {user_info}\n{e}")
+        finally:
+            self.connection.commit()
+            cursor.close()
+        return success
+    
+    def get_user_gleepcoins(self, user_id:str) -> int:
+        """Throws IndexError."""
+        cursor = self.connection.cursor()
+        gc = -1
+        try: 
+            cursor.execute(QueryTemplates.GET_GLEEPCOINS.value, (user_id,))
+            results = cursor.fetchall()
+            #[(1000,)]
+            gc = results[0][0]
+        except mysql.connector.Error as e:
+            print(f"Failed to retrieve gleepcoin count of user_id {user_id}. Reason: {e}")
+        finally:
+            cursor.close()
+        if gc == -1:
+            raise IndexError(f"Failed to access gleepcoins of user_id {user_id}.")
+        return gc
+    
+    def set_user_gleepcoins(self, user_id:str, new_gleepcoins:int) -> bool:
+        cursor = self.connection.cursor()
+        success = False
+        try:
+            cursor.execute(QueryTemplates.UPDATE_USER_GLEEPCOINS.value, (new_gleepcoins, user_id))
+            success = True
+        except mysql.connector.Error as e:
+            print(f"Failed to update user_id {user_id}'s gleepcoins: {e}")
+        finally:
+            self.connection.commit()
+            cursor.close()
+        return success
 
 def get_connection(connection_point:str) -> Connection:
     """Returns a Connection instance based on the `db_option` value in `bot.config`.\n\nValid values include: `csv` and `mysql`."""
