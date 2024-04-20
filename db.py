@@ -5,9 +5,11 @@ from pathlib import Path
 import pandas as pd
 import mysql.connector
 from mysql.connector import Error, errorcode, MySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
 
 from config.configuration import DB_OPTION, WORKING_DIRECTORY, MYSQL_HOST, MYSQL_PORT, MYSQL_PASS, MYSQL_DATABASE, MYSQL_USER
 
+MAIN_TABLE_NAME = "users"
 
 logger = logging.Logger("db_logger")
 db_log_path = Path(WORKING_DIRECTORY) / "db.log"
@@ -21,23 +23,28 @@ class ConnectionType(Enum):
 
 class QueryTemplates(Enum):
     
-    CREATE_DEFAULT_TABLE = ("CREATE TABLE `users` ("
+    CREATE_MAIN_TABLE = (f"CREATE TABLE `{MAIN_TABLE_NAME}` ("
                             "  `user_id` varchar(18),"
                             "  `username` varchar(32) NOT NULL,"
                             "  `gleepcoins` int(7) DEFAULT 1000,"
                             "  PRIMARY KEY (`user_id`)"
                             ") ENGINE=InnoDB")
 
-    ADD_USER = ("INSERT INTO users "
+    ADD_USER = (f"INSERT INTO {MAIN_TABLE_NAME} "
                 "(user_id, username, gleepcoins, thread_id) "
                 "VALUES (%(user_id)s, %(username)s, %(gleepcoins)s, %(thread_id)s)")
     
-    GET_GLEEPCOINS = ("SELECT gleepcoins FROM users "
+    GET_GLEEPCOINS = (f"SELECT gleepcoins FROM {MAIN_TABLE_NAME} "
                       "WHERE user_id = %s")
     
-    UPDATE_USER_GLEEPCOINS = ("UPDATE users "
+    UPDATE_USER_GLEEPCOINS = (f"UPDATE {MAIN_TABLE_NAME} "
                               "SET gleepcoins = %s "
                               "WHERE user_id = %s")
+    CHECK_TABLE_EXISTS = (
+        "SELECT * FROM information_schema.tables "
+        f"WHERE table_schema = {MYSQL_DATABASE} "
+        "AND table_name = %s "
+        "LIMIT 1")
 
 
 class Connection:
@@ -51,7 +58,7 @@ class Connection:
 
         Params:
         connection_type:str => the name of the cog or module that's attempting to make a DB connection."""
-        self.type:ConnectionType
+        self.conn_type:ConnectionType
         self.connection_point = connection_point
         self.connect()
         
@@ -83,12 +90,12 @@ class CSVConnection(Connection):
     default_csv_name = "data/bank.csv"
 
     def __init__(self, connection_point:str):
-        self.type = ConnectionType.csv
+        self.conn_type = ConnectionType.csv
         self.csv_path = Path(CSVConnection.default_csv_name)
         super().__init__(connection_point)
 
     def connect(self):
-        print(f"Connecting to {self.type.value} from {self.connection_point}")
+        print(f"Connecting to {self.conn_type.value} from {self.connection_point}")
         # for this implementation we want to create the csv file if it doesn't exist
         if not self.csv_path.is_file():
             with open(self.csv_path, "w") as file:
@@ -129,19 +136,57 @@ class CSVConnection(Connection):
     
 class MYSQLConnection(Connection):
 
+    def does_table_exist(self, connection:MySQLConnectionAbstract, table_name:str) -> bool:
+        """Checks the MySQL connection for a table named `table_name` in the MySQL database specified in `bot.config`."""
+        cursor = connection.cursor()
+        table_exists = False
+        try:   
+            cursor.execute(QueryTemplates.CHECK_TABLE_EXISTS.value, (table_name,))
+            result = cursor.fetchall()
+            if len(result[0]) > 0: # if we have a row, the table exists
+                table_exists = True
+        except mysql.connector.Error as e:
+            print(f"Failed to check if table {table_name} exists in MySQL database.")
+        finally:
+            cursor.close()
+        return table_exists
+
     def connect(self):
-        print(f"Connecting to {self.connection_point} from {self.type}.")
+        #NOTE upon connection, we should check if the users table already exists, trying to create it if it doesnt
+        print(f"Connecting to {self.connection_point} from {self.conn_type}.")
         connection = mysql.connector.connect(user = MYSQL_USER,
                                         password = MYSQL_PASS,
                                         host = MYSQL_HOST,
                                         port = MYSQL_PORT,
                                         database = MYSQL_DATABASE,
                                         )
+        main_table_exists = self.does_table_exist(connection, MAIN_TABLE_NAME)
+        if not main_table_exists:
+            self.create_main_table(connection)
         return connection
+
+    def create_main_table(self, connection:MySQLConnectionAbstract) -> bool:
+        """Creates the table which will hold most of your discord user data. Returns True if the MySQL operation succeeded."""
+        cursor = connection.cursor()
+        success = False
+        try:
+            cursor.execute(QueryTemplates.CREATE_MAIN_TABLE.value)
+            success = True
+            print(f"Created '{MAIN_TABLE_NAME}' table.")
+        except mysql.connector.Error as e:
+            match e.errno:
+                case errorcode.ER_TABLE_EXISTS_ERROR:
+                    print(f"Attempted to create table '{MAIN_TABLE_NAME}', but it was already created.")
+                case _:
+                    print(f"{e}")
+        finally:
+            cursor.close()
+            connection.commit()
+        return success
 
     def __init__(self, connection_point:str):
         self.connection_point = connection_point
-        self.type = ConnectionType.sql
+        self.conn_type = ConnectionType.sql
         self.connection = self.connect()
 
 
