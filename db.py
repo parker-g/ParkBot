@@ -143,28 +143,14 @@ class MYSQLConnection(Connection):
         try:   
             cursor.execute(QueryTemplates.CHECK_TABLE_EXISTS.value, (table_name,))
             result = cursor.fetchall()
-            if len(result[0]) > 0: # if we have a row, the table exists
+            if len(result) > 0: # if we have a row, the table exists
                 table_exists = True
         except mysql.connector.Error as e:
             print(f"Failed to check if table {table_name} exists in MySQL database.")
         finally:
             cursor.close()
         return table_exists
-
-    def connect(self):
-        #NOTE upon connection, we should check if the users table already exists, trying to create it if it doesnt
-        print(f"Connecting to {self.connection_point} from {self.conn_type}.")
-        connection = mysql.connector.connect(user = MYSQL_USER,
-                                        password = MYSQL_PASS,
-                                        host = MYSQL_HOST,
-                                        port = MYSQL_PORT,
-                                        database = MYSQL_DATABASE,
-                                        )
-        main_table_exists = self.does_table_exist(connection, MAIN_TABLE_NAME)
-        if not main_table_exists:
-            self.create_main_table(connection)
-        return connection
-
+    
     def create_main_table(self, connection:MySQLConnectionAbstract) -> bool:
         """Creates the table which will hold most of your discord user data. Returns True if the MySQL operation succeeded."""
         cursor = connection.cursor()
@@ -183,6 +169,22 @@ class MYSQLConnection(Connection):
             cursor.close()
             connection.commit()
         return success
+
+    def connect(self):
+        #NOTE upon connection, we should check if the users table already exists, trying to create it if it doesnt
+        print(f"Connecting to {self.connection_point} from {self.conn_type}.")
+        connection = mysql.connector.connect(user = MYSQL_USER,
+                                        password = MYSQL_PASS,
+                                        host = MYSQL_HOST,
+                                        port = MYSQL_PORT,
+                                        database = MYSQL_DATABASE,
+                                        )
+        main_table_exists = self.does_table_exist(connection, MAIN_TABLE_NAME)
+        if not main_table_exists:
+            self.create_main_table(connection)
+        return connection
+
+
 
     def __init__(self, connection_point:str):
         self.connection_point = connection_point
