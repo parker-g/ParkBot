@@ -663,6 +663,8 @@ class ExternalDependencyHandler(FileManager):
             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
             "DB_OPTION" : "csv", # default to csv option
+        }
+        new_config["MYSQL"] = {
             "MYSQL_USER" : "",
             "MYSQL_PASS" : "",
             "MYSQL_URL" : "", # provide with or without PORT
@@ -671,10 +673,6 @@ class ExternalDependencyHandler(FileManager):
         new_config["MUSIC"] = {
             "LAVALINK_URI": str(exe_paths["lavalink_uri"]),
             "LAVALINK_PASS": str(exe_paths["lavalink_pass"]),
-        }
-        new_config["FOR-AUTOPLAY"] = {
-            "SPOTIFY_CLIENT_ID" : "",
-            "SPOTIFY_CLIENT_SECRET" : "",
         }
         new_config["CANVAS"] = {
             "CANVAS_API_KEY": "",
