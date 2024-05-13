@@ -71,8 +71,8 @@ class DBConnection:
         self.connect()
         
 
-    def create_user_if_none(self, username:str, user_id:str):
-        """Create a row in the database for a new user, if this user doesn't already exist in the database."""
+    def create_bank_user_if_none(self, username:str, user_id:str):
+        """Create a row in the bank database for a new user, if this user doesn't already exist in the database."""
         pass
 
     def set_user_amount(self, user_id:int, amount:int) -> None:
@@ -87,24 +87,16 @@ class DBConnection:
         """Returns a string containing each user's name and GleepCoin count, separated by newline characters.\n\nExample formatting: `f"{username}: {user_gleepcoins} GleepCoins`.\nContext `ctx` is required to determine which guild to grab player data for."""
         pass
 
-    def get_column(self, column_name:str):
-        #TODO implement for CSV
-        pass
-
-    def get_row(self, username:str):
-        #TODO implement for csv
-        pass
-
     def add_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
-        pass
-
-    def get_all_threads(self) -> dict[tuple, str]:
+        """Add an entry to the threads database if one doesn't exist for the given username, guild_id, and thread_id."""
         pass
 
     def get_guild_threads(self, guild_id:str) -> dict[str, str]:
+        """Retrieve a dictionary of {username : thread_id} entries for the given guild."""
         pass
 
-    def get_guild_user_thread(self, guild_id:str, username:str) -> str:
+    def get_user_guild_thread(self, username:str, guild_id:str) -> str:
+        """Retrieve a user's thread ID for this channel, creating one if one doesn't exist."""
         pass
 
 class CSVConnection(DBConnection):
@@ -126,7 +118,7 @@ class CSVConnection(DBConnection):
             with open(self.threads_path, "w") as file:
                 file.write("player,\n")
 
-    def create_user_if_none(self, username:str, user_id:str):
+    def create_bank_user_if_none(self, username:str, user_id:str):
         """Creates a user in the DataFrame if they don't already exist."""
         df = pd.read_csv(self.bank_path)
         users = list(df.Username)
@@ -234,6 +226,10 @@ class CSVConnection(DBConnection):
                 thread_id = players_guilds_to_threads[key]
                 players_to_threads[username] = thread_id
         return players_to_threads
+    
+    def get_user_guild_thread(self, username: str, guild_id: str) -> str:
+        guild_threads = self.get_guild_threads(guild_id)
+        return guild_threads[username]
 
 
 class MYSQLConnection(DBConnection):
@@ -299,7 +295,7 @@ class MYSQLConnection(DBConnection):
             cursor.close()
         return user_row
     
-    def create_user_if_none(self, username, user_id) -> bool:
+    def create_bank_user_if_none(self, username, user_id) -> bool:
         # check if user exists
         user_row = self._get_user_row(user_id)
         if user_row is None or len(user_row) == 0:
@@ -374,7 +370,18 @@ class MYSQLConnection(DBConnection):
             if username.lower() in guild_users: # only display members of this guild who are in the database
                 users_string += f"{username}: {gleepcoins} GleepCoins\n"
         return users_string
-        
+    
+    #TODO implement
+    def get_guild_threads(self, guild_id:str) -> dict[str, str]:
+        pass
+
+    #TODO implement
+    def add_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
+        pass
+    
+    #TODO implement
+    def get_user_guild_thread(self, username:str, guild_id:str) -> str:
+        pass
 
 def get_db_connection(connection_point:str) -> DBConnection:
     """Returns a Connection instance based on the `db_option` value in `bot.config`.\n\nValid values include: `csv` and `mysql`."""

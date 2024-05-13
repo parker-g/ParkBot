@@ -826,7 +826,7 @@ class Poker(commands.Cog):
         self.big_blind = 0
         self.small_blind_idx = None
         self.big_blind_idx = 0
-        self.threads:dict[str, int] = {} # contains player names as keys, and discord.Thread IDs as values - used to send private messages to players
+        self.threads:dict[str, str] = {} # contains player names as keys, and discord.Thread IDs as values - used to send private messages to players
         self.pot = 0 # holds all bets
         self.early_finish = False # responsible for state of whether a game has ended early (due to all but 1 player folding)
         self.in_progress = False
@@ -886,12 +886,12 @@ class Poker(commands.Cog):
         self.threads = self.db_connection.get_guild_threads(self.guild)
         return
 
-    def writeNewThread(self, player, thread_id:int, guild_id:int) -> None:
+    def writeNewThread(self, player, thread_id:str, guild_id:str) -> None:
         """
         Writes a user and their discord thread identifier, in this specific guild, to the threads.csv file.
         """
         # when writing a new thread, we need to record the member.name, the thread_id, and the current guild (self.guild)
-        self.db_connection.add_player_thread_id(player.name, str(thread_id), str(guild_id))
+        self.db_connection.add_thread_id(player.name, str(thread_id), str(guild_id))
     
     def setPlayersNotDone(self, players:list[Player]) -> None:
         """
@@ -918,8 +918,8 @@ class Poker(commands.Cog):
             if not player.name in self.threads:
                 # print(f"creating thread for {player.name}")
                 thread = await channel.create_thread(name="Your Poker Hand", reason = "poker hand", auto_archive_duration = 60)
-                self.threads[player.name] = thread.id
-                self.writeNewThread(player, thread.id)
+                self.threads[player.name] = str(thread.id)
+                self.writeNewThread(player, str(thread.id), self.guild.id)
                 # need to invite player's Member object to thread
                 await thread.send(embed = Embed(title="Your Hand", description=f"{player.prettyHand()}\n{member.mention}"))
                 await thread.add_user(member)

@@ -15,7 +15,7 @@ class Economy(Cog):
         self.connection = db_connection
 
     async def withdraw_money_player(self, ctx:Context, player:Member | User, money:int) -> bool:
-        self.connection.create_user_if_none(player.name, str(player.id))
+        self.connection.create_bank_user_if_none(player.name, str(player.id))
         withdraw_amount = int(money)
         current_balance = self.connection.get_user_amount(player.id)
         if withdraw_amount > current_balance:
@@ -28,7 +28,7 @@ class Economy(Cog):
 
     async def give_money_player(self, player:Member | User, money:int) -> None:
         money = int(money)
-        self.connection.create_user_if_none(player.name, str(player.id))
+        self.connection.create_bank_user_if_none(player.name, str(player.id))
         current_amount = self.connection.get_user_amount(player.id)
         self.connection.set_user_amount(player.id, current_amount + money)
 
@@ -40,7 +40,7 @@ class Economy(Cog):
     async def get_balance(self, ctx:Context) -> None:
         amount = self.connection.get_user_amount(ctx.author.id)
         if amount is None:
-            self.connection.create_user_if_none(ctx.author.name, ctx.author.id)
+            self.connection.create_bank_user_if_none(ctx.author.name, ctx.author.id)
             amount = self.connection.get_user_amount(ctx.author.id)
         message = await ctx.send(embed = Embed(title=f"{ctx.author.name}'s balance is: {amount} GleepCoins."))
         await message.delete(delay=7.5)
