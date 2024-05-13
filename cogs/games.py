@@ -7,7 +7,7 @@ from discord.ext import commands
 from discord.ext.commands.cog import Cog
 from discord import Member, Embed, TextChannel
 
-from db import get_connection
+from db import get_db_connection
 from cogs.economy import Economy
 from cogs.controller import Controller
 from config.configuration import THREADS_PATH, DB_OPTION
@@ -342,7 +342,7 @@ class PlayerQueue(Cog):
         self.bot:commands.Bot = bot
         self.q:list[Player] = []
         self.guild = guild
-        self.economy = Economy(self.bot, get_connection("Games cog - PlayerQueue"))
+        self.economy = Economy(self.bot, get_db_connection("games cog - PlayerQueue"))
         self.poker = Poker(self.bot, self)
         self.blackjack = BlackJackGame(self.bot, self)
 
@@ -607,7 +607,7 @@ class BlackJackGame(Cog):
         self.bot = bot
         self.player_queue = player_queue.q
         self.players = []
-        self.economy = Economy(self.bot, get_connection("Games Cog - BlackJackGame"))
+        self.economy = Economy(self.bot, get_db_connection("blackjack economy"))
         self.in_progress = False
 
     def loadPlayers(self) -> None:
@@ -812,11 +812,13 @@ class Poker(commands.Cog):
         self.deck = Deck("poker")
         self.deck.shuffle()
         self.player_queue = player_queue
+        self.guild = self.player_queue.guild
         self.players:list[Player] = []
         for player in self.player_queue.q:
             self.players.append(player)
         self.dealer = Dealer(self.deck, self.players)
-        self.economy = Economy(self.bot, get_connection("Games Cog - Poker game"))
+        self.economy = Economy(self.bot, get_db_connection("Poker-economy"))
+        self.db_connection = get_db_connection("Poker game") 
         
         # poker specific attributes 
         self.community_cards:list[Card] = []
@@ -881,23 +883,15 @@ class Poker(commands.Cog):
         """
         Stores any previously used discord threads in memory for sending poker hands to players during the upcoming game of Poker.
         """
-        with open(THREADS_PATH, "r") as file:
-            threads_dict = {}
-            reader = csv.reader(file) 
-            #skip first row of csv
-            next(reader)
-            for row in reader:
-                threads_dict[row[0]] = int(row[1])
-        self.threads = threads_dict
+        self.threads = self.db_connection.get_guild_threads(self.guild)
         return
 
-    def writeNewThread(self, player, thread_id:int) -> None:
+    def writeNewThread(self, player, thread_id:int, guild_id:int) -> None:
         """
-        Writes a username and their discord thread identifier to the threads.csv file.
+        Writes a user and their discord thread identifier, in this specific guild, to the threads.csv file.
         """
-        with open(THREADS_PATH, "a") as file:
-            file.write(f"\n{player.name},{thread_id}")
-        return
+        # when writing a new thread, we need to record the member.name, the thread_id, and the current guild (self.guild)
+        self.db_connection.add_player_thread_id(player.name, str(thread_id), str(guild_id))
     
     def setPlayersNotDone(self, players:list[Player]) -> None:
         """

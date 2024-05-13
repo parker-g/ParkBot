@@ -5,12 +5,12 @@ from discord.ext.commands import Cog
 from discord.ext.commands import Context
 
 import db
-from db import Connection
+from db import DBConnection
 
 
 class Economy(Cog):
 
-    def __init__(self, bot, db_connection:Connection):
+    def __init__(self, bot, db_connection:DBConnection):
         self.bot = bot
         self.connection = db_connection
 
@@ -51,5 +51,5 @@ class Economy(Cog):
         await ctx.send(embed = Embed(title=f"Domain Expansion: Pocket Watch", description=bank_df_string))
 
 async def setup(bot):
-    connection = db.get_connection("Economy cog")
+    connection = db.get_db_connection("Economy cog")
     await bot.add_cog(Economy(bot, connection))

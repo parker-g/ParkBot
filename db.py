@@ -1,13 +1,14 @@
 from enum import Enum
 import logging
 from pathlib import Path
+from collections import OrderedDict
 
 import pandas as pd
 import mysql.connector
 from mysql.connector import Error, errorcode, MySQLConnection
 from mysql.connector.abstracts import MySQLConnectionAbstract
 
-from config.configuration import DB_OPTION, WORKING_DIRECTORY, MYSQL_HOST, MYSQL_PORT, MYSQL_PASS, MYSQL_DATABASE, MYSQL_USER
+from config.configuration import DB_OPTION, WORKING_DIRECTORY, THREADS_PATH, BANK_PATH, MYSQL_HOST, MYSQL_PORT, MYSQL_PASS, MYSQL_DATABASE, MYSQL_USER
 
 MAIN_TABLE_NAME = "users"
 
@@ -53,7 +54,8 @@ class SQLQueryTemplates(Enum):
     GET_ALL_ROWS = (f"SELECT * FROM {MAIN_TABLE_NAME}")
 
 
-class Connection:
+class DBConnection:
+    """Class used to read and write persisting data."""
 
     def connect(self):
         pass
@@ -82,50 +84,61 @@ class Connection:
         pass
 
     def stringify_all_user_amounts(self, ctx) -> str:
-        """Returns a string containing each user's name and GleepCoin count, separated by newline characters.\n\nExample formatting: `f"{username}: {user_gleepcoins} GleepCoins`\n"""
+        """Returns a string containing each user's name and GleepCoin count, separated by newline characters.\n\nExample formatting: `f"{username}: {user_gleepcoins} GleepCoins`.\nContext `ctx` is required to determine which guild to grab player data for."""
         pass
 
     def get_column(self, column_name:str):
+        #TODO implement for CSV
         pass
 
     def get_row(self, username:str):
+        #TODO implement for csv
         pass
 
-class CSVConnection(Connection):
+    def add_player_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
+        pass
 
-    default_csv_name = "data/bank.csv"
+    def get_guild_threads(self, guild_id:str) -> dict[str, str]:
+        pass
+
+class CSVConnection(DBConnection):
 
     def __init__(self, connection_point:str):
         self.conn_type = ConnectionType.csv
-        self.csv_path = Path(CSVConnection.default_csv_name)
+        self.bank_path = Path(BANK_PATH)
+        self.threads_path = Path(THREADS_PATH)
         super().__init__(connection_point)
 
     def connect(self):
-        print(f"Connecting to {self.conn_type.value} from {self.connection_point}")
+        logger.debug(f"Connecting to {self.conn_type.value} from {self.connection_point}")
         # for this implementation we want to create the csv file if it doesn't exist
-        if not self.csv_path.is_file():
-            with open(self.csv_path, "w") as file:
+        if not self.bank_path.is_file():
+            with open(self.bank_path, "w") as file:
                 file.write("UserId,GleepCoins,Username\n")
+        
+        if not self.threads_path.is_file():
+            with open(self.threads_path, "w") as file:
+                file.write("player,\n")
 
     def create_user_if_none(self, username:str, user_id:str):
         """Creates a user in the DataFrame if they don't already exist."""
-        df = pd.read_csv(self.csv_path)
+        df = pd.read_csv(self.bank_path)
         users = list(df.Username)
         if username not in users:
             df.loc[len(df.index)] = [user_id, 1000, username]
-        df.to_csv(self.csv_path, index=False)
+        df.to_csv(self.bank_path, index=False)
 
     def set_user_amount(self, user_id:str, amount:int) -> None:
-        df = pd.read_csv(self.csv_path)
+        df = pd.read_csv(self.bank_path)
         user_index = df.index[df['UserId'] == user_id].tolist()
         user_index = user_index[0]
         df.at[user_index, "GleepCoins"] = int(amount)
         # make sure to write new value to csv
-        df.to_csv(self.csv_path, index=False)
+        df.to_csv(self.bank_path, index=False)
 
     def get_user_amount(self, user_id) -> int | None:
         """Returns None if user doesn't exist."""
-        df = pd.read_csv(self.csv_path) # we certainly created this file already, upon connect()
+        df = pd.read_csv(self.bank_path) # we certainly created this file already, upon connect()
         user_index = df.index[df['UserId'] == user_id].tolist()
         if len(user_index) == 0:
             return None
@@ -134,7 +147,7 @@ class CSVConnection(Connection):
         return int(current_amount)
     
     def stringify_all_user_amounts(self, ctx) -> str:
-        df = pd.read_csv(self.csv_path)
+        df = pd.read_csv(self.bank_path)
         df_string = ""
         for index, row in df.iterrows():
             username = row["Username"]
@@ -143,7 +156,79 @@ class CSVConnection(Connection):
                 df_string += f"{username}: {row['GleepCoins']} GleepCoins\n"
         return df_string
     
-class MYSQLConnection(Connection):
+    def _write_player_threads(self, guilds_to_player_threads:dict[tuple, str]):
+        """Using a dictionary of `(guild_id, player_name) : thread_id`, writes a .csv file containing the values."""
+        guilds = []
+        players = []
+        # dict structure = {(playerName, guildId) : thread_id}
+        for key in guilds_to_player_threads.keys():
+            guild = key[1]
+            player = key[0]
+            if guild not in guilds:
+                guilds.append(guild)
+            if player not in players:
+                players.append(player)
+
+        # build header row with structure: "players, guildid1, guildid2, guildid3"
+        header_row = "players"
+        for guild in guilds:
+            header_row = f"{header_row},{guild}"
+        with open(self.threads_path, "w") as file:
+            file.write(f"{header_row}\n")
+            # each row represents a player
+            for player in players:
+                # line starts with user's name
+                line = f"{player}"
+                # iterate over the existin guilds headers
+                for guild in guilds:
+                    try:
+                        thread_id:str = guilds_to_player_threads[(player, guild)]
+                    except KeyError:
+                        # add empty/placeholder value if player doesn't have threadID for this guild
+                        thread_id = ""
+                    line = f"{line},{thread_id}"
+                file.write(f"{line}\n")
+
+
+    def _read_player_threads(self) -> dict[tuple, str]:
+        """Returns a dict with keys like so: (guild_id:str, player_id:str): thread_id:str"""
+        guild_player_to_threads = {}
+        with open(self.threads_path, "r") as file:
+            # collect header row values (guild IDs)
+            guilds = file.readline().split(",")[1:]
+            # now populate dict with guildId, player_name and thead_id
+            for row in file:
+                # for each row (each player)
+                cols = row.split(",")
+                thread_ids = cols[1:]
+                player_name = cols[0]
+                # iterate over the thread ids and the guild names at the same time
+                for i in range(len(thread_ids)):
+                    # tuple structure = (player_name:str, guild_id:str)
+                    guild_player_to_threads[(player_name, guilds[i])] = thread_ids[i]
+        return guild_player_to_threads
+            
+
+
+
+    def add_player_thread_id(self, username: str, thread_id: str, guild_id: str):
+        players_guilds_to_threads = self._read_player_threads()
+        if username
+
+        self.write
+
+
+
+
+
+
+
+    
+    def get_guild_threads(self, guild_id: str) -> dict[str, str]:
+        players_to_threads:dict[str, str] = {}
+        return players_to_threads
+    
+class MYSQLConnection(DBConnection):
 
     def _does_table_exist(self, connection:MySQLConnectionAbstract, table_name:str) -> bool:
         """Checks the MySQL connection for a table named `table_name` in the MySQL database specified in `bot.config`."""
@@ -155,8 +240,8 @@ class MYSQLConnection(Connection):
             if len(result) > 0: # if we have a row, the table exists
                 table_exists = True
         except mysql.connector.Error as e:
-            print(f"Failed to check if table '{table_name}' exists in MySQL database.")
-            print(e)
+            logger.error(f"Failed to check if table '{table_name}' exists in MySQL database.")
+            logger.error(e)
         finally:
             cursor.close()
         return table_exists
@@ -168,21 +253,20 @@ class MYSQLConnection(Connection):
         try:
             cursor.execute(SQLQueryTemplates.CREATE_MAIN_TABLE.value)
             success = True
-            print(f"Created '{MAIN_TABLE_NAME}' table.")
+            logger.info(f"Created '{MAIN_TABLE_NAME}' table.")
         except mysql.connector.Error as e:
             match e.errno:
                 case errorcode.ER_TABLE_EXISTS_ERROR:
-                    print(f"Attempted to create table '{MAIN_TABLE_NAME}', but it was already created.")
+                    logger.debug(f"Attempted to create table '{MAIN_TABLE_NAME}', but it was already created.")
                 case _:
-                    print(f"{e}")
+                    logger.error(f"{e}")
         finally:
             cursor.close()
             connection.commit()
         return success
 
     def connect(self):
-        #NOTE upon connection, we should check if the users table already exists, trying to create it if it doesnt
-        print(f"Connecting to {self.connection_point} from {self.conn_type}.")
+        logger.debug(f"Connecting to {self.connection_point} from {self.conn_type}.")
         connection = mysql.connector.connect(user = MYSQL_USER,
                                         password = MYSQL_PASS,
                                         host = MYSQL_HOST,
@@ -200,9 +284,8 @@ class MYSQLConnection(Connection):
         try:
             cursor.execute(SQLQueryTemplates.GET_USER.value, (user_id,))
             user_row = cursor.fetchone()
-            print(user_row)
         except mysql.connector.Error as e:
-            print(f"Failed to get a user's info: {user_id}\n{e}")
+            logger.error(f"Failed to get a user's info: {user_id}\n{e}")
         finally:
             self.connection.commit()
             cursor.close()
@@ -219,7 +302,7 @@ class MYSQLConnection(Connection):
                          "gleepcoins": 1000}
             success = self._add_new_user(user_info)
             if not success:
-                print(f"Error creating new row for user, {username}")
+                logger.error(f"Error creating new row for user, {username}")
                 return False
         return True
 
@@ -237,7 +320,7 @@ class MYSQLConnection(Connection):
             cursor.execute(SQLQueryTemplates.ADD_USER.value, user_info)
             success = True
         except mysql.connector.Error as e:
-            print(f"Failed to add a user: {user_info}\n{e}")
+            logger.error(f"Failed to add a user: {user_info}\n{e}")
         finally:
             self.connection.commit()
             cursor.close()
@@ -258,7 +341,7 @@ class MYSQLConnection(Connection):
             cursor.execute(SQLQueryTemplates.UPDATE_USER_GLEEPCOINS.value, (new_gleepcoins, user_id))
             success = True
         except mysql.connector.Error as e:
-            print(f"Failed to update user_id {user_id}'s gleepcoins: {e}")
+            logger.error(f"Failed to update user_id {user_id}'s gleepcoins: {e}")
         finally:
             self.connection.commit()
             cursor.close()
@@ -272,7 +355,7 @@ class MYSQLConnection(Connection):
             cursor.execute(SQLQueryTemplates.GET_ALL_ROWS.value)
             rows = cursor.fetchall()
         except mysql.connector.Error as e:
-            print(f"Failed to get all rows from table {MAIN_TABLE_NAME}.")
+            logger.error(f"Failed to get all rows from table {MAIN_TABLE_NAME}.")
         finally:
             self.connection.commit()
             cursor.close()
@@ -285,7 +368,7 @@ class MYSQLConnection(Connection):
         return users_string
         
 
-def get_connection(connection_point:str) -> Connection:
+def get_db_connection(connection_point:str) -> DBConnection:
     """Returns a Connection instance based on the `db_option` value in `bot.config`.\n\nValid values include: `csv` and `mysql`."""
     match DB_OPTION:
         case "csv":
