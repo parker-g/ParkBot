@@ -95,7 +95,10 @@ class DBConnection:
         #TODO implement for csv
         pass
 
-    def add_player_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
+    def add_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
+        pass
+
+    def get_all_threads(self) -> dict[tuple, str]:
         pass
 
     def get_guild_threads(self, guild_id:str) -> dict[str, str]:
@@ -160,7 +163,7 @@ class CSVConnection(DBConnection):
         return df_string
     
     def _write_player_threads(self, guilds_to_player_threads:dict[tuple, str]):
-        """Using a dictionary of `(guild_id, player_name) : thread_id`, writes a .csv file containing the values."""
+        """Using a dictionary of `(player_name, guild_id) : thread_id`, writes a .csv file containing the values."""
         guilds = []
         players = []
         # dict structure = {(playerName, guildId) : thread_id}
@@ -192,9 +195,8 @@ class CSVConnection(DBConnection):
                     line = f"{line},{thread_id}"
                 file.write(f"{line}\n")
 
-
     def _read_player_threads(self) -> dict[tuple, str]:
-        """Returns a dict with keys like so: (guild_id:str, player_id:str): thread_id:str"""
+        """Returns a dict with keys like so: (username:str, guild_id:str): thread_id:str"""
         guild_player_to_threads = {}
         with open(self.threads_path, "r") as file:
             # collect header row values (guild IDs)
@@ -211,26 +213,29 @@ class CSVConnection(DBConnection):
                     guild_player_to_threads[(player_name, guilds[i])] = thread_ids[i]
         return guild_player_to_threads
             
-
-
-
-    def add_player_thread_id(self, username: str, thread_id: str, guild_id: str):
+    def add_thread_id(self, username: str, thread_id: str, guild_id: str):
         players_guilds_to_threads = self._read_player_threads()
-        if username
-
-        self.write
-
-
-
-
-
-
-
+        #check if player already has a thread in this guild
+        try: 
+            existing_thread_id = players_guilds_to_threads[(username, guild_id)]
+            logger.warn(f"User {username} already has a threadId, {existing_thread_id}, for guild with Id - {guild_id}.")
+            return
+        except KeyError:
+            players_guilds_to_threads[(username, guild_id)] = thread_id
+        self._write_player_threads(players_guilds_to_threads)
     
     def get_guild_threads(self, guild_id: str) -> dict[str, str]:
         players_to_threads:dict[str, str] = {}
+        players_guilds_to_threads:dict[tuple[str, str], str] = self._read_player_threads()
+        # get each entry which contains given guild_id
+        for key in players_guilds_to_threads.keys():
+            if key[1] == guild_id:
+                username = key[0]
+                thread_id = players_guilds_to_threads[key]
+                players_to_threads[username] = thread_id
         return players_to_threads
-    
+
+
 class MYSQLConnection(DBConnection):
 
     def _does_table_exist(self, connection:MySQLConnectionAbstract, table_name:str) -> bool:
