@@ -101,6 +101,9 @@ class DBConnection:
     def get_guild_threads(self, guild_id:str) -> dict[str, str]:
         pass
 
+    def get_guild_user_thread(self, guild_id:str, username:str) -> str:
+        pass
+
 class CSVConnection(DBConnection):
 
     def __init__(self, connection_point:str):
@@ -195,12 +198,12 @@ class CSVConnection(DBConnection):
         guild_player_to_threads = {}
         with open(self.threads_path, "r") as file:
             # collect header row values (guild IDs)
-            guilds = file.readline().split(",")[1:]
+            guilds = file.readline().strip("\n").split(",")[1:]
             # now populate dict with guildId, player_name and thead_id
             for row in file:
                 # for each row (each player)
-                cols = row.split(",")
-                thread_ids = cols[1:]
+                cols = row.strip("\n").split(",")
+                thread_ids = cols[1:] # thread ids is all columns for the row besides the first one (player's name)
                 player_name = cols[0]
                 # iterate over the thread ids and the guild names at the same time
                 for i in range(len(thread_ids)):
