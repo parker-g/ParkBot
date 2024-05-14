@@ -402,23 +402,6 @@ class PlayerQueue(Cog):
             players_string += f"{player.name}\n"
         em = Embed(title="Players in Queue", description=f"{players_string}")
         await ctx.send(embed = em)
-
-    async def __setBet(self, ctx, inputPlayer, bet:int) -> bool:
-        """
-        Withdraws GleepCoins from a user's 'bank account', into a player's `player.bet` attribute.\n
-        This method accomplishes the same thing as the setBet() method, without sending messages to the Discord chat."""
-        bet = int(bet)
-        success = False
-        for player in self.q:
-            if inputPlayer.name == player.name:
-                # store players bet amount in corresponding player object
-                try:
-                    withdraw_success = await self.economy.withdraw_money_player(ctx, inputPlayer.member, bet)
-                    player.bet = bet
-                    success = withdraw_success
-                except Exception as e:
-                    print(f"Error setting bet for player, {player.name} : {e}")
-        return success
     
     
     async def _setBet(self, ctx, bet:int):
@@ -903,6 +886,19 @@ class Poker(commands.Cog):
         for player in players:
             player.done = False
 
+    async def set_bet(self, ctx, inputPlayer:Player, bet:int):
+        """Withdraws 'bet' from given inputPlayer's gleepcoins bank account."""
+        bet = int(bet)
+        success = False
+        for player in self.players:
+            if inputPlayer.name == player.name:
+                try:
+                    success = await self.economy.withdraw_money_player(ctx, inputPlayer.member, bet)
+                    player.bet = bet
+                except Exception as e:
+                    print(f"Error setting bet for player, {player.name} : {e}")
+        return success
+
     async def showAllHands(self, ctx) -> None:
         """
         Sends a message containing each player's hand to the discord text channel where the Poker game is being held."""
@@ -995,7 +991,7 @@ class Poker(commands.Cog):
             if message.author.name == small_blind_player.name:
                 try:
                     small_blind = int(message.content)
-                    is_success = await self.player_queue.__setBet(ctx, small_blind_player, small_blind)
+                    is_success = await self.set_bet(ctx, small_blind_player, small_blind)
                     # if the withdrawal was successful, (player's bet amount increased from 0), continue
                     if is_success is True:
                         self.small_blind = small_blind
@@ -1015,7 +1011,7 @@ class Poker(commands.Cog):
                         error_msg = await ctx.send(embed=Embed(title=f"Big blind must be larger than small blind. Please type a number larger than {self.small_blind}."))
                         await error_msg.delete(delay = 7.0)
                     elif big_blind > self.small_blind:
-                        success = await self.player_queue.__setBet(ctx, big_blind_player, big_blind)
+                        success = await self.player_queue.set_bet(ctx, big_blind_player, big_blind)
                         if success is True:
                             self.big_blind = big_blind
                             self.min_bet = self.big_blind
@@ -1064,7 +1060,7 @@ class Poker(commands.Cog):
                         if (user.name == player.name):
                             match emoji:
                                 case "📞":
-                                    isSuccess = await self.player_queue.__setBet(ctx, player, min_bet)
+                                    isSuccess = await self.player_queue.set_bet(ctx, player, min_bet)
                                     if isSuccess:
                                         call_msg = await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                         await call_msg.delete(delay=5.0)
@@ -1082,7 +1078,7 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            isSuccess = await self.player_queue.__setBet(ctx, player, raise_amount)
+                                            isSuccess = await self.player_queue.set_bet(ctx, player, raise_amount)
                                             if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount} GleepCoins."))
                                                 self.pushToPot(player)
@@ -1176,7 +1172,7 @@ class Poker(commands.Cog):
                             match emoji:
                                 case "📞":
                                     if min_bet > 0:
-                                        isSuccess = await self.player_queue.__setBet(ctx, player, min_bet)
+                                        isSuccess = await self.player_queue.set_bet(ctx, player, min_bet)
                                         if isSuccess:
                                             await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                             self.pushToPot(player)
@@ -1195,7 +1191,7 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            isSuccess = await self.player_queue.__setBet(ctx, player, raise_amount) 
+                                            isSuccess = await self.player_queue.set_bet(ctx, player, raise_amount) 
                                             if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount}."))
                                                 self.pushToPot(player)
