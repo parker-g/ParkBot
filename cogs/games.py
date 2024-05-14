@@ -852,6 +852,10 @@ class Poker(commands.Cog):
                     await self.economy.give_money_player(player.member, player.bet)
                     player.bet = 0
 
+    def getPlayers(self) -> None:
+        """Retrieves the list of Players from the PlayerQueue, storing them in self.players."""
+        self.players = self.player_queue.q
+
     def getPot(self) -> int:
         """
         Returns the Poker game's current pot."""
@@ -1445,6 +1449,9 @@ class Poker(commands.Cog):
         self.in_progress = True
         await self.resetPlayers()
         self.getThreads()
+        # retrieve all players at start of poker game
+        self.getPlayers()
+        # get playerqueue's players directly instead of storing players at 
         if len(self.players) < 2:
             await ctx.send(embed = Embed(title=f"You need at least 2 players to run a game of Poker. Please populate the PlayerQueue and try again."))
             self.in_progress = False
