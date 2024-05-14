@@ -1011,7 +1011,7 @@ class Poker(commands.Cog):
                         error_msg = await ctx.send(embed=Embed(title=f"Big blind must be larger than small blind. Please type a number larger than {self.small_blind}."))
                         await error_msg.delete(delay = 7.0)
                     elif big_blind > self.small_blind:
-                        success = await self.player_queue.set_bet(ctx, big_blind_player, big_blind)
+                        success = await self.set_bet(ctx, big_blind_player, big_blind)
                         if success is True:
                             self.big_blind = big_blind
                             self.min_bet = self.big_blind
@@ -1060,7 +1060,7 @@ class Poker(commands.Cog):
                         if (user.name == player.name):
                             match emoji:
                                 case "📞":
-                                    isSuccess = await self.player_queue.set_bet(ctx, player, min_bet)
+                                    isSuccess = await self.set_bet(ctx, player, min_bet)
                                     if isSuccess:
                                         call_msg = await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                         await call_msg.delete(delay=5.0)
@@ -1078,7 +1078,7 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            isSuccess = await self.player_queue.set_bet(ctx, player, raise_amount)
+                                            isSuccess = await self.set_bet(ctx, player, raise_amount)
                                             if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount} GleepCoins."))
                                                 self.pushToPot(player)
@@ -1172,7 +1172,7 @@ class Poker(commands.Cog):
                             match emoji:
                                 case "📞":
                                     if min_bet > 0:
-                                        isSuccess = await self.player_queue.set_bet(ctx, player, min_bet)
+                                        isSuccess = await self.set_bet(ctx, player, min_bet)
                                         if isSuccess:
                                             await ctx.send(embed=Embed(title=f"{player.name} called the bet, {min_bet} GleepCoins."))
                                             self.pushToPot(player)
@@ -1191,7 +1191,7 @@ class Poker(commands.Cog):
                                         if raise_amount <= min_bet:
                                             await ctx.send(embed=Embed(title=f"That bet was too small. Please react and try again."))
                                         else:
-                                            isSuccess = await self.player_queue.set_bet(ctx, player, raise_amount) 
+                                            isSuccess = await self.set_bet(ctx, player, raise_amount) 
                                             if isSuccess:
                                                 await ctx.send(embed=Embed(title=f"{player.name} raised {raise_amount}."))
                                                 self.pushToPot(player)
