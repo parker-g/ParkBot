@@ -1,7 +1,6 @@
 from enum import Enum
 import logging
 from pathlib import Path
-from collections import OrderedDict
 
 import pandas as pd
 import mysql.connector
@@ -11,6 +10,7 @@ from mysql.connector.abstracts import MySQLConnectionAbstract
 from config.configuration import DB_OPTION, WORKING_DIRECTORY, THREADS_PATH, BANK_PATH, MYSQL_HOST, MYSQL_PORT, MYSQL_PASS, MYSQL_DATABASE, MYSQL_USER
 
 MAIN_TABLE_NAME = "users"
+THREADS_TABLE_NAME = "poker_threads"
 
 logger = logging.Logger("db_logger")
 db_log_path = Path(WORKING_DIRECTORY) / "db.log"
@@ -23,6 +23,13 @@ class ConnectionType(Enum):
     sql = "SQL database"
 
 class SQLQueryTemplates(Enum):
+
+    CREATE_THREADS_TABLE = (f"CREATE TABLE `{THREADS_TABLE_NAME}` ("
+                            "  `user_id` varchar(18),"
+                            "  `guild_id` varchar(32) NOT NULL,"
+                            "  `thread_id` varchar(32) NOT NULL,"
+                            "  PRIMARY KEY (`user_id`)"
+                            ") ENGINE=InnoDB")
     
     CREATE_MAIN_TABLE = (f"CREATE TABLE `{MAIN_TABLE_NAME}` ("
                             "  `user_id` varchar(18),"
@@ -31,9 +38,13 @@ class SQLQueryTemplates(Enum):
                             "  PRIMARY KEY (`user_id`)"
                             ") ENGINE=InnoDB")
 
-    ADD_USER = (f"INSERT INTO {MAIN_TABLE_NAME} "
-                "(user_id, username, gleepcoins) "
-                "VALUES (%(user_id)s, %(username)s, %(gleepcoins)s)")
+    ADD_USER_TO_BANK = (f"INSERT INTO {MAIN_TABLE_NAME} "
+                        "(user_id, username, gleepcoins) "
+                        "VALUES (%(user_id)s, %(username)s, %(gleepcoins)s)")
+    
+    ADD_USER_TO_THREADS = (f"INSERT INTO {THREADS_TABLE_NAME} "
+                            "(user_id, guild_id, thread_id) "
+                            "VALUES (%(user_id)s, %(guild_id)s, %(thread_id)s)")
     
     GET_GLEEPCOINS = (f"SELECT gleepcoins FROM {MAIN_TABLE_NAME} "
                       "WHERE user_id = %s")
@@ -87,7 +98,7 @@ class DBConnection:
         """Returns a string containing each user's name and GleepCoin count, separated by newline characters.\n\nExample formatting: `f"{username}: {user_gleepcoins} GleepCoins`.\nContext `ctx` is required to determine which guild to grab player data for."""
         pass
 
-    def add_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
+    def add_thread_id_if_none(self, username:str, thread_id:str, guild_id:str) -> None:
         """Add an entry to the threads database if one doesn't exist for the given username, guild_id, and thread_id."""
         pass
 
@@ -205,7 +216,7 @@ class CSVConnection(DBConnection):
                     guild_player_to_threads[(player_name, guilds[i])] = thread_ids[i]
         return guild_player_to_threads
             
-    def add_thread_id(self, username: str, thread_id: str, guild_id: str):
+    def add_thread_id_if_none(self, username: str, thread_id: str, guild_id: str):
         players_guilds_to_threads = self._read_player_threads()
         #check if player already has a thread in this guild
         try: 
@@ -250,6 +261,24 @@ class MYSQLConnection(DBConnection):
             cursor.close()
         return table_exists
     
+    def _create_threads_table(self, connection:MySQLConnectionAbstract) -> bool:
+        cursor = connection.cursor()
+        success = False
+        try:
+            cursor.execute(SQLQueryTemplates.CREATE_THREADS_TABLE.value)
+            success = True
+            print(f"Created '{THREADS_TABLE_NAME}' table.")
+        except mysql.connector.Error as e:
+            match e.errno:
+                case errorcode.ER_TABLE_EXISTS_ERROR:
+                    print(f"Attempted to create table '{THREADS_TABLE_NAME}', but it was already created.")
+                case _:
+                    print(f"{e}")
+        finally:
+            cursor.close()
+            connection.commit()
+        return success
+    
     def _create_main_table(self, connection:MySQLConnectionAbstract) -> bool:
         """Creates the table which will hold most of your discord user data. Returns True if the MySQL operation succeeded."""
         cursor = connection.cursor()
@@ -278,8 +307,11 @@ class MYSQLConnection(DBConnection):
                                         database = MYSQL_DATABASE,
                                         )
         main_table_exists = self._does_table_exist(connection, MAIN_TABLE_NAME)
+        threads_table_exists = self._does_table_exist(connection, THREADS_TABLE_NAME)
         if not main_table_exists:
             self._create_main_table(connection)
+        if not threads_table_exists:
+            self._create_threads_table(connection)
         return connection
     
     def _get_user_row(self, user_id:str) -> tuple | None:
@@ -321,7 +353,7 @@ class MYSQLConnection(DBConnection):
         cursor = self.connection.cursor()
         success = False
         try:
-            cursor.execute(SQLQueryTemplates.ADD_USER.value, user_info)
+            cursor.execute(SQLQueryTemplates.ADD_USER_TO_BANK.value, user_info)
             success = True
         except mysql.connector.Error as e:
             logger.error(f"Failed to add a user: {user_info}\n{e}")
@@ -376,7 +408,7 @@ class MYSQLConnection(DBConnection):
         pass
 
     #TODO implement
-    def add_thread_id(self, username:str, thread_id:str, guild_id:str) -> None:
+    def add_thread_id_if_none(self, username:str, thread_id:str, guild_id:str) -> None:
         pass
     
     #TODO implement

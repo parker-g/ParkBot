@@ -878,7 +878,7 @@ class Poker(commands.Cog):
         Writes a user and their discord thread identifier, in this specific guild, to the threads.csv file.
         """
         # when writing a new thread, we need to record the member.name, the thread_id, and the current guild (self.guild)
-        self.db_connection.add_thread_id(player.name, str(thread_id), str(guild_id))
+        self.db_connection.add_thread_id_if_none(player.name, str(thread_id), str(guild_id))
     
     def setPlayersNotDone(self, players:list[Player]) -> None:
         """
