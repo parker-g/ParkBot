@@ -9,6 +9,11 @@ from mysql.connector.abstracts import MySQLConnectionAbstract
 
 from config.configuration import DB_OPTION, WORKING_DIRECTORY, THREADS_PATH, BANK_PATH, MYSQL_HOST, MYSQL_PORT, MYSQL_PASS, MYSQL_DATABASE, MYSQL_USER
 
+# data is stored like this:
+    # user_id : str - a user's Discord user ID (18 character string)
+    # guild_id : str - a Discord server's unique ID (18 character string)
+    # thread_id : str - a discord text channel 
+
 MAIN_TABLE_NAME = "users"
 THREADS_TABLE_NAME = "poker_threads"
 
@@ -28,7 +33,7 @@ class SQLQueryTemplates(Enum):
                             "  `user_id` varchar(18),"
                             "  `guild_id` varchar(32) NOT NULL,"
                             "  `thread_id` varchar(32) NOT NULL,"
-                            "  PRIMARY KEY (`user_id`)"
+                            "  PRIMARY KEY (`user_id`, `guild_id`)"
                             ") ENGINE=InnoDB")
     
     CREATE_MAIN_TABLE = (f"CREATE TABLE `{MAIN_TABLE_NAME}` ("
@@ -51,6 +56,8 @@ class SQLQueryTemplates(Enum):
     
     GET_GUILD_THREADS = (f"SELECT * FROM {THREADS_TABLE_NAME} "
                     "WHERE guild_id = %s")
+    GET_THREAD_ID = (f"SELECT * FROM {THREADS_TABLE_NAME} "
+                     "WHERE user_id = '%s' AND guild_id = '%s'")
     
     UPDATE_USER_GLEEPCOINS = (f"UPDATE {MAIN_TABLE_NAME} "
                               "SET gleepcoins = %s "
@@ -207,27 +214,27 @@ class CSVConnection(DBConnection):
         with open(self.threads_path, "r") as file:
             # collect header row values (guild IDs)
             guilds = file.readline().strip("\n").split(",")[1:]
-            # now populate dict with guildId, player_name and thead_id
+            # now populate dict with guildId, user_id and thead_id
             for row in file:
                 # for each row (each player)
                 cols = row.strip("\n").split(",")
                 thread_ids = cols[1:] # thread ids is all columns for the row besides the first one (player's name)
-                player_name = cols[0]
+                user_id = cols[0]
                 # iterate over the thread ids and the guild names at the same time
                 for i in range(len(thread_ids)):
-                    # tuple structure = (player_name:str, guild_id:str)
-                    guild_player_to_threads[(player_name, guilds[i])] = thread_ids[i]
+                    # tuple structure = (user_id:str, guild_id:str)
+                    guild_player_to_threads[(user_id, guilds[i])] = thread_ids[i]
         return guild_player_to_threads
             
-    def add_thread_id_if_none(self, username: str, thread_id: str, guild_id: str):
+    def add_thread_id_if_none(self, user_id: str, thread_id: str, guild_id: str):
         players_guilds_to_threads = self._read_player_threads()
         #check if player already has a thread in this guild
         try: 
-            existing_thread_id = players_guilds_to_threads[(username, guild_id)]
-            logger.warn(f"User {username} already has a threadId, {existing_thread_id}, for guild with Id - {guild_id}.")
+            existing_thread_id = players_guilds_to_threads[(user_id, guild_id)]
+            logger.warn(f"User {user_id} already has a threadId, {existing_thread_id}, for guild with Id - {guild_id}.")
             return
         except KeyError:
-            players_guilds_to_threads[(username, guild_id)] = thread_id
+            players_guilds_to_threads[(user_id, guild_id)] = thread_id
         self._write_player_threads(players_guilds_to_threads)
     
     def get_guild_threads(self, guild_id: str) -> dict[str, str]:
@@ -236,14 +243,14 @@ class CSVConnection(DBConnection):
         # get each entry which contains given guild_id
         for key in players_guilds_to_threads.keys():
             if key[1] == guild_id:
-                username = key[0]
+                user_id = key[0]
                 thread_id = players_guilds_to_threads[key]
-                players_to_threads[username] = thread_id
+                players_to_threads[user_id] = thread_id
         return players_to_threads
     
-    def get_user_guild_thread(self, username: str, guild_id: str) -> str:
+    def get_user_guild_thread(self, user_id: str, guild_id: str) -> str:
         guild_threads = self.get_guild_threads(guild_id)
-        return guild_threads[username]
+        return guild_threads[user_id]
 
 
 class MYSQLConnection(DBConnection):
@@ -351,7 +358,7 @@ class MYSQLConnection(DBConnection):
         self.connection = self.connect()
 
     def _add_new_user(self, user_info:dict) -> bool:
-        """user_info must contain all fields from the ADD_USER query template.\n
+        """user_info must contain all fields from the ADD_USER_TO_BANK query template.\n
         user_id: int, username:str, gleepcoins:int"""
         cursor = self.connection.cursor()
         success = False
@@ -405,8 +412,9 @@ class MYSQLConnection(DBConnection):
             if username.lower() in guild_users: # only display members of this guild who are in the database
                 users_string += f"{username}: {gleepcoins} GleepCoins\n"
         return users_string
-    
+     
     def get_guild_threads(self, connection:MySQLConnectionAbstract, guild_id:str) -> dict[str, str]:
+        """Returns a dictionary of {user_id : thread_id} for each player in the database associated with the given `guild_id`."""
         cursor = connection.cursor()
         guild_threads = {} # dict of {user_id: thread_id}
         rows = []
@@ -414,7 +422,7 @@ class MYSQLConnection(DBConnection):
             cursor.execute(SQLQueryTemplates.GET_GUILD_THREADS.value, (guild_id,))
             rows:list[tuple] = cursor.fetchall()
         except mysql.connector.Error as e:
-            # logger.error(f"Failed to retrieve rows from {THREADS_TABLE_NAME} table, in `get_guild_threads`. {e}")
+            logger.error(f"Failed to retrieve rows from {THREADS_TABLE_NAME} table, in `get_guild_threads`. {e}")
             pass
         finally:
             connection.commit()
@@ -426,39 +434,39 @@ class MYSQLConnection(DBConnection):
             guild_threads[user_id] = thread_id
         return guild_threads
     
-    def _add_thread_id(self, connection:MySQLConnectionAbstract, user_info:dict) -> bool:
+    def add_thread_id_if_none(self, connection:MySQLConnectionAbstract, user_id:str, thread_id:str, guild_id:str) -> bool:
         """Adds a user ID to the {THREAD_TABLE_NAME} table. Return value indicates whether the key exists in the table after this function call.
         \n user_info:dict - A dictionary containing necessary info about the row to be created, {"user_id": str, "thread_id": str, "guild_id": str}"""
         cursor = connection.cursor()
+        user_dict:dict = {"user_id": user_id, "thread_id": thread_id, "guild_id": guild_id}
         try:
-            cursor.execute(SQLQueryTemplates.ADD_USER_TO_THREADS.value, user_info)
+            cursor.execute(SQLQueryTemplates.ADD_USER_TO_THREADS.value, user_dict)
         except mysql.connector.Error as e:
             match e.errno:
                 case 1062:
-                    # logger.info(f"This key already exists in this table.")
-                    print(f"Key already exists.")
+                    logger.info(f"The key ({user_id}, {guild_id}) already exists in this table.")
                     return True
                 case _:
-                    print(f"Failed, {e}")
+                    logger.error(f"Failed to add row to {THREADS_TABLE_NAME}, for follwing info: {user_dict}. {e}")
                     return False
-            # logger.error(f"Failed to add row to {THREADS_TABLE_NAME}, for follwing info: {user_info}. {e}")
         finally:
             connection.commit()
             cursor.close()
         return True
-
-    def add_thread_id_if_none(self, connection:MySQLConnectionAbstract, user_id:str, thread_id:str, guild_id:str) -> None:
-        user_dict = {"user_id": user_id, "thread_id": thread_id, "guild_id": guild_id}
-        success = self._add_thread_id(connection, user_dict)
-        match success:
-            case True:
-                print(f"Success!")
-            case _:
-                print(f"Failure.")
     
-    #TODO implement
-    def get_user_guild_thread(self, username:str, guild_id:str) -> str:
-        pass
+    def get_user_guild_thread(self, connection:MySQLConnectionAbstract, user_id:str, guild_id:str) -> str:
+        cursor = connection.cursor()
+        id_row = []
+        try:
+            cursor.execute(SQLQueryTemplates.GET_THREAD_ID.value, (user_id, guild_id))
+            id_row:list = cursor.fetchone() # [user_id, guild_id, thread_id]
+        except mysql.connector.Error as e:
+            logger.error(f"Failed to get thread ID for user {user_id} in guild {guild_id}.\n{e}")
+        finally:
+            cursor.close()
+        thread_id = id_row[2]
+        return thread_id
+
 
 def get_db_connection(connection_point:str) -> DBConnection:
     """Returns a Connection instance based on the `db_option` value in `bot.config`.\n\nValid values include: `csv` and `mysql`."""
