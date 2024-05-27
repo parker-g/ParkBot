@@ -13,3 +13,4 @@ ffmpeg*
 *.config
 /data/images/ai
 /lavalink
+data/*.csv

@@ -14,8 +14,8 @@ def read(config_filename) -> dict[str, dict[str, str]]:
     file = config.read(config_path)
 
     result["REQUIRED"] = dict(config.items(section="REQUIRED"))
+    result["MYSQL"] = dict(config.items(section="MYSQL"))
     result["MUSIC"] = dict(config.items(section="MUSIC"))
-    result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
     result["CANVAS"] = dict(config.items(section="CANVAS"))
     return result
 
@@ -29,7 +29,7 @@ def isInProjectRoot() -> bool:
         return True
     return False
 
-def toList(csv_string:str) -> list[str]:
+def list_from_csv(csv_string:str) -> list[str]:
     terms = csv_string.split(",")
     terms = list(map(lambda string: string.strip(), terms))
     return terms    
@@ -47,15 +47,23 @@ WORKING_DIRECTORY = required["working_directory"]
 DATA_DIRECTORY = required["data_directory"]
 BANK_PATH = required["bank_path"]
 THREADS_PATH = required["threads_path"]
-NAUGHTY_WORDS = toList(required["naughty_words"])
+NAUGHTY_WORDS = list_from_csv(required["naughty_words"])
+DB_OPTION = required["db_option"]
+
+mysql_properties = config["MYSQL"]
+MYSQL_USER = mysql_properties["mysql_user"]
+MYSQL_PASS = mysql_properties["mysql_pass"]
+MYSQL_DATABASE = mysql_properties["mysql_database"]
+MYSQL_HOST = mysql_properties["mysql_url"].split(":")[0]
+MYSQL_PORT = 3306
+try:
+    MYSQL_PORT = mysql_properties["mysql_url"].split(":")[1]
+except IndexError:
+    pass
 
 music = config["MUSIC"]
 LAVALINK_URI = music["lavalink_uri"]
 LAVALINK_PASS = music["lavalink_pass"]
-
-autoplay = config["FOR-AUTOPLAY"]
-SPOTIFY_CLIENT_ID = autoplay["spotify_client_id"]
-SPOTIFY_CLIENT_SECRET = autoplay["spotify_client_secret"]
 
 canvas = config["CANVAS"]
 CANVAS_API_KEY = canvas["canvas_api_key"]

@@ -20,8 +20,8 @@ def read(config_filename) -> dict[str, dict[str, str]] | None:
         return None
 
     result["REQUIRED"] = dict(config.items(section="REQUIRED"))
+    result["MYSQL"] = dict(config.items(section="MYSQL"))
     result["MUSIC"] = dict(config.items(section="MUSIC"))
-    result["FOR-AUTOPLAY"] = dict(config.items(section="FOR-AUTOPLAY"))
     result["CANVAS"] = dict(config.items(section="CANVAS"))
     return result
 
@@ -34,16 +34,19 @@ class ConfigWizard:
         "BANK_PATH" : "",
         "THREADS_PATH" : "",
         "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+        "DB_OPTION" : "",
+    }
+
+    MYSQL = {
+        "MYSQL_USER" : "",
+        "MYSQL_PASS" : "",
+        "MYSQL_URL" : "", # provide with or without PORT, defaults to 3306
+        "MYSQL_DATABASE" : "",
     }
 
     MUSIC_FIELDS = {
         "LAVALINK_URI" : "",
         "LAVALINK_PASS" : "",
-    }
-
-    AUTOPLAY_FIELDS = {
-        "SPOTIFY_CLIENT_ID" : "",
-        "SPOTIFY_CLIENT_SECRET" : "",
     }
 
     CANVAS_FIELDS = {
@@ -72,14 +75,17 @@ class ConfigWizard:
             "BANK_PATH" : str(Path(here) / "data" / "bank.csv"),
             "THREADS_PATH" : str(Path(here) / "data" / "threads.csv"),
             "NAUGHTY_WORDS" : "", # provide them as comma separated and parse the csv when needed
+            "DB_OPTION" : "csv", # default to csv file
+        }
+        new_config["MYSQL"] = {
+            "MYSQL_USER" : "",
+            "MYSQL_PASS" : "",
+            "MYSQL_URL" : "", # provide with or without PORT, defaults to 3306
+            "MYSQL_DATABASE" : "",
         }
         new_config["MUSIC"] = {
             "LAVALINK_URI": "",
             "LAVALINK_PASS" : "",
-        }
-        new_config["FOR-AUTOPLAY"] = {
-            "SPOTIFY_CLIENT_ID" : "",
-            "SPOTIFY_CLIENT_SECRET" : "",
         }
         new_config["CANVAS"] = {
             "CANVAS_API_KEY": "",
