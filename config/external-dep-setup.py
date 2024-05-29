@@ -19,6 +19,7 @@ class ErrorMessage(Enum):
     OS = "The ParkBot setup script is incompatible with this operating system."
     ARCH = "The ParkBot setup script does not include full support for this architecture."
 
+LAVALINK_DOWNLOAD_LINK = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.5/Lavalink.jar"
 
 acceptable_javas = {
     "jdk-17",
@@ -436,7 +437,7 @@ class LavalinkManager(Downloader):
 
     def download_lavalink(self) -> None:
         """Downloads Lavalink to the "<parkbot-root>/lavalink" directory."""
-        link = "https://github.com/lavalink-devs/Lavalink/releases/download/4.0.0/Lavalink.jar"
+        link = LAVALINK_DOWNLOAD_LINK
         lavalink_dir = Path(os.getcwd()) / "lavalink"
         self.create_directories(lavalink_dir)
         self.generate_lavalink_config(lavalink_dir)
