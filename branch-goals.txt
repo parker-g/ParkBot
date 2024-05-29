@@ -1,14 +1,19 @@
+#config/setup stuff
 - change mod to 644 on created service files
 - change application.yml link to the raw link, parse line by line instead of using JSON parser
 - store unit files in /usr/local/lib/systemd/system/ directory
 - need to reset created .service files' context using this command, `/sbin/restorecon -v /etc/systemd/system/parkbot.service`. not sure exactly why but its a SELinux issue
 - add WorkingDirectory attribute to lavalink.service so lavalink can read application.yml and create logs there
 - change permissions of .venv and other created files in ParkBot root dir to user:user
-- update Lavalink download link to 4.0.4
+
+#lavalink config stuff
+- make sure lavalink input url is prefixed by 'https://'
+- update Lavalink download link to 4.0.5
+
+# SELinux policies 
 - ship lavalink-java-policy.pp and .te with parkbot for users who use SELinux
 - ship python-rw-ioctl.pp and .te with parkbot as well
-- make sure lavalink input url is prefixed by 'https://'
-- when bot is paused, check if 30 mins has passed before leaving.
-- leaveIfFinished - under first if condition, check if the voice channel has only one member and the one member is mongrel bot
+
+# games cog stuff
 - games queue - if join q, play a game, leave q, then rejoin q, play a game - the blackjack game shows that I am in the queue twice. so blackjack game isnt being cleaned up porperly
 - making a bet, winning, and then leaving Q seems double user winnings. I think user.bet attribute isn't being reset properly after a blackjack game ends

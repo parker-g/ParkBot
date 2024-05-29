@@ -273,6 +273,14 @@ class StreamingCog(Cog):
     @commands.Cog.listener("on_voice_state_update")
     async def leaveIfFinished(self, member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
         """This method call acts as an occasional check up on the bot's voice client, disconnecting the bot if its not playing."""
+        if (before.channel is not None) and (after.channel is None): # triggers
+            before_ids = [member.id for member in before.channel.members]
+            if (len(before_ids) == 1) and (before_ids[0] == self.bot.user.id):
+                voice:Player = before.channel.guild.voice_client
+                if voice.playing:
+                    await voice.stop()
+                await before.channel.send(embed=Embed(title=f"Leaving empty voice channel.", color=Colour.light_embed()), silent=True)
+                await voice.disconnect()
         if not member.id == self.bot.user.id:
             return
         elif before.channel is None: # if before.channel is None, then after.channel must be not-None
