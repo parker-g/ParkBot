@@ -418,9 +418,9 @@ class LavalinkManager(Downloader):
         if lavalink_config_path.exists():
             print(f"You already have a lavalink application.yml file. Aborting new file generation.")
             return
-        response = requests.get("https://github.com/lavalink-devs/Lavalink/blob/c2431ce1b1aab088aff29033b2e44bb840fd5cd1/LavalinkServer/application.yml.example")
-        json_response = json.load(BytesIO(response.content))
-        lines = json_response["payload"]["blob"]["rawLines"]
+        response = requests.get("https://raw.githubusercontent.com/lavalink-devs/Lavalink/c2431ce1b1aab088aff29033b2e44bb840fd5cd1/LavalinkServer/application.yml.example")
+        response = response.content.decode("utf-8")
+        lines = response.split("\n")
         with open(lavalink_config_path, "w") as file:
             for line in lines:
                 file.write(line + "\n")
