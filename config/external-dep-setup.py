@@ -672,7 +672,7 @@ class ExternalDependencyHandler(FileManager):
             "MYSQL_DATABASE" : "",
         }
         new_config["MUSIC"] = {
-            "LAVALINK_URI": str(exe_paths["lavalink_uri"]),
+            "LAVALINK_URI": "http://" + str(exe_paths["lavalink_uri"]),
             "LAVALINK_PASS": str(exe_paths["lavalink_pass"]),
         }
         new_config["CANVAS"] = {
