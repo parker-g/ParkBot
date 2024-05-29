@@ -6,14 +6,10 @@
 - add WorkingDirectory attribute to lavalink.service so lavalink can read application.yml and create logs there
 - change permissions of .venv and other created files in ParkBot root dir to user:user
 
-#lavalink config stuff
-- make sure lavalink input url is prefixed by 'https://'
-- update Lavalink download link to 4.0.5
-
 # SELinux policies 
 - ship lavalink-java-policy.pp and .te with parkbot for users who use SELinux
 - ship python-rw-ioctl.pp and .te with parkbot as well
 
 # games cog stuff
-- games queue - if join q, play a game, leave q, then rejoin q, play a game - the blackjack game shows that I am in the queue twice. so blackjack game isnt being cleaned up porperly
-- making a bet, winning, and then leaving Q seems double user winnings. I think user.bet attribute isn't being reset properly after a blackjack game ends
+*****DONE games queue - if join q, play a game, leave q, then rejoin q, play a game - the blackjack game shows that I am in the queue twice. so blackjack game isnt being cleaned up porperly
+- making a bet, winning, and then leaving Q seems to double user winnings. I think user.bet attribute isn't being reset properly after a blackjack game ends

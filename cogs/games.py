@@ -594,8 +594,9 @@ class BlackJackGame(Cog):
         self.in_progress = False
 
     def loadPlayers(self) -> None:
+        current_bj_players = [player.member.id for player in self.players]
         for player in self.player_queue:
-            if not player in self.players:
+            if not player.member.id in current_bj_players:
                 self.players.append(player)
 
     def resetPlayers(self) -> None:
@@ -627,7 +628,6 @@ class BlackJackGame(Cog):
                 message = await ctx.send(embed = Embed(title=f"{player.name} broke even, gaining back {winnings} GleepCoins."))
                 await message.delete(delay=5.0)
                     
-    
 
     # clean up / make this not fucky wucky
     def getWinners(self, players:list[Player]) -> tuple[list, list]:
@@ -739,7 +739,10 @@ class BlackJackGame(Cog):
             long_ass_string += (f"{player.name} had: {player.prettyHand()}, with a total of {player.sumCards()}\n")
         em = Embed(title="All Hands:", description = long_ass_string)
         await ctx.send(embed = em)
+        self.players = []
         self.in_progress = False
+
+        
         # empty players before giving opportunity for another round to start
 
 
