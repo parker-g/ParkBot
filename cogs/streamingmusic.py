@@ -217,7 +217,10 @@ class StreamingCog(Cog):
             best_match = search_results[0]
             num_tracks_added = player.queue.put(best_match) # should be 1 track
             message = Embed(title=f"Added {best_match.title} to the queue.", color=Colour.light_embed())
-            message.set_thumbnail(url = best_match.artwork)
+            try:
+                message.set_thumbnail(url = best_match.artwork)
+            except Exception as e:
+                logger.warn(e)
             await ctx.send(embed = message, silent=True)
         if player.playing and player.paused:
             await ctx.send(embed=Embed(title=f"The Player is paused.", description="Please use `resume` to continue playing music.", color=Colour.gold()))
@@ -300,7 +303,7 @@ class StreamingCog(Cog):
             await channel.send(embed=message, silent=True)
         except AttributeError as e: # would happen is player.current is None (in my experience this is caused by Lavalink needing to refresh its youtube 'viewer ID')
             #TODO handle error by attempting to play request again (give play a retries parameter?)
-            logger.debug(f"Lavalink encountered an error while trying to play your song. Here's the player {player}, here's the player from payload: {payload.player}, here's the song that failed to play {payload.track}")
+            logger.debug(f"Lavalink encountered an error while trying to play your song. Here's the player {player}, here's the player from payload: {payload.player}, here's the song that failed to play {payload.track}. Here's the error: {e}")
             await channel.send(embed=Embed(
                 title="Lavalink encountered an error while trying to play your song.",
                 color=Colour.brand_red()), silent=True)
