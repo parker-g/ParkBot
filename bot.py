@@ -33,7 +33,8 @@ async def on_ready():
     # await bot.load_extension("cogs.rewards") # pyttsx3 installs a pywin32 which I can't have as a dependency
     # await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.canvas")
-    await bot.load_extension("cogs.streamingmusic")
+    # await bot.load_extension("cogs.streamingmusic")
+    await bot.load_extension("cogs.LavalinkMusic")
     await bot.load_extension("cogs.replikate")
     return print(f'I\'m logged in as {bot.user}')
 
