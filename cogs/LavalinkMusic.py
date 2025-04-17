@@ -20,9 +20,11 @@ from config.configuration import LAVALINK_URI, LAVALINK_PASS
 
 url_rx = re.compile(r'https?://(?:www\.)?.+')
 
-temp = LAVALINK_URI.split("//")[1]
-LAVALINK_IP = temp.split(":")[0]
-LAVALINK_PORT = temp.split(":")[1]
+pieces = LAVALINK_URI.split(":")
+LAVALINK_IP = pieces[0] + ":" + pieces[1]
+print("LAVALINK_IP: " + LAVALINK_IP)
+LAVALINK_PORT = int(pieces[2])
+print("LAVALINK_PORT: ", LAVALINK_PORT)
 
 class LavalinkVoiceClient(discord.VoiceProtocol):
     """
@@ -43,7 +45,7 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
             # We store it in `self.client` so that it may persist across cog reloads,
             # however this is not mandatory.
             self.client.lavalink = lavalink.Client(client.user.id)
-            self.client.lavalink.add_node(host=LAVALINK_IP,
+            self.client.lavalink.add_node(host='localhost',
                                           port=LAVALINK_PORT,
                                           password=LAVALINK_PASS,
                                           region='us',
@@ -124,13 +126,13 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
             pass
 
 
-class Music(commands.Cog):
+class LavalinkMusic(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
         if not hasattr(bot, 'lavalink'):
             bot.lavalink = lavalink.Client(bot.user.id)
-            bot.lavalink.add_node(host='localhost', port=2333, password='youshallnotpass',
+            bot.lavalink.add_node(host='localhost', port=LAVALINK_PORT, password=LAVALINK_PASS,
                                   region='us', name='default-node')
 
         self.lavalink: lavalink.Client = bot.lavalink
@@ -336,5 +338,5 @@ class Music(commands.Cog):
         await ctx.send('✳ | Disconnected.')
 
 
-def setup(bot):
-    bot.add_cog(Music(bot))
+async def setup(bot):
+    await bot.add_cog(LavalinkMusic(bot))

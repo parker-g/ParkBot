@@ -78,10 +78,10 @@ class ConfigWizard:
             "DB_OPTION" : "csv", # default to csv file
         }
         new_config["MYSQL"] = {
-            "MYSQL_USER" : "",
-            "MYSQL_PASS" : "",
-            "MYSQL_URL" : "", # provide with or without PORT, defaults to 3306
-            "MYSQL_DATABASE" : "",
+            "MYSQL_USER" : "username",
+            "MYSQL_PASS" : "password",
+            "MYSQL_URL" : "test", # provide with or without PORT, defaults to 3306
+            "MYSQL_DATABASE" : "database_name",
         }
         new_config["MUSIC"] = {
             "LAVALINK_URI": "",
@@ -171,8 +171,8 @@ class ConfigWizard:
         # grid method to arrange labels in respective
         # rows and columns as specified
         l1.grid(row = 0, column = 0, sticky = W, pady = 2)
-        l2.grid(row = 1, column = 0, sticky = W, pady = 2)
         separator.grid(row = 2, column = 1, sticky = W, pady = 2)
+        l2.grid(row = 1, column = 0, sticky = W, pady = 2)
         l3.grid(row = 3, column = 0, sticky = W, pady = 2)
         l4.grid(row = 4, column = 0, sticky = W, pady = 2)
         l5.grid(row = 5, column = 0, sticky = W, pady = 2)
